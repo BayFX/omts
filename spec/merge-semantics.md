@@ -4,7 +4,7 @@
 **Status:** Draft
 **Date:** 2026-02-18
 **Revision:** 1
-**License:** [MIT](../LICENSE)
+**License:** [CC-BY-4.0](LICENSE)
 **Addresses:** R1-C3, R1-C4, R1-C8, R1-P0-3, R1-P0-7; R2-C1 (partial, with OMTSF-SPEC-001)
 
 ---
@@ -111,6 +111,26 @@ Given files A and B:
 
 Conflict records are informational. Validators MUST NOT reject files containing `_conflicts`. Tooling SHOULD present conflicts to users for resolution.
 
+### 4.1 Merge-Group Safety Limits
+
+Transitive closure (step 3) can amplify false-positive matches: a single erroneous identifier match cascades through the entire connected component. To mitigate this risk:
+
+**Advisory maximum merge-group size.** When transitive closure produces a merge group exceeding **50 nodes**, implementations SHOULD emit a warning identifying the group and its bridging identifiers. Groups of this size are rare in practice and typically indicate either a data quality issue (incorrect identifier on one node) or a genuinely large corporate family. Implementations MAY split oversized groups for human review before committing the merge.
+
+**Merge-confidence scoring.** Implementations SHOULD compute a confidence score for each merge-candidate pair based on the strength of the matching evidence:
+
+| Evidence | Confidence Level | Rationale |
+|----------|-----------------|-----------|
+| LEI match | High | LEIs are globally unique, checksum-verified, and rarely reassigned. |
+| `nat-reg` match (same RA code) | High | National registry numbers are authoritative within their jurisdiction. |
+| GLN match | Medium | GLN can identify legal entities or locations; disambiguated by node type. |
+| DUNS match (single match) | Medium | DUNS covers branches and HQs separately; verify against Family Tree if available. |
+| `same_as` with `confidence: "definite"` | Medium | Explicitly declared but not externally verified. |
+| `same_as` with `confidence: "probable"` | Low | Requires additional evidence for high-confidence merge. |
+| Name-only `same_as` | Low | High false-positive rate without identifier corroboration. |
+
+When a merge group is formed entirely through low-confidence links, implementations SHOULD flag the group for human review rather than performing automatic merge. When a merge group contains both high-confidence and low-confidence links, implementations SHOULD include the high-confidence nodes and flag the low-confidence links separately.
+
 5. **Rewrite** all edge source/target references to use the merged node IDs.
 6. **Identify** merge candidate edge pairs using the edge identity predicate (Section 3).
 7. **Deduplicate** edges that are merge candidates, merging their properties as with nodes.
@@ -148,6 +168,18 @@ To support post-merge auditability, the merged file SHOULD include a `merge_meta
 - Merge timestamp
 - Number of nodes and edges merged
 - Number of property conflicts detected
+
+### 6.1 Authenticated Provenance
+
+To prevent data poisoning and enable tamper-evident audit trails, `merge_metadata` MAY include the following authentication fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_file_hashes` | array of strings | SHA-256 hashes (hex-encoded) of each source file that contributed to this merge. Enables verification that the merge input has not been altered. |
+| `contributor_id` | string | Identifier of the entity or system that performed the merge (e.g., an LEI, domain name, or system identifier). |
+| `signature` | string | Optional. Detached signature (base64-encoded) over the `merge_metadata` object (serialized in canonical JSON form per RFC 8785, excluding the `signature` field itself). Supported algorithms: Ed25519, ECDSA-P256. |
+
+When `source_file_hashes` is present, consumers MAY verify that they possess copies of the original source files by comparing hashes. This enables end-to-end auditability: from source ERP exports through merge to the final consolidated graph.
 
 ---
 

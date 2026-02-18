@@ -4,7 +4,7 @@
 **Status:** Draft
 **Date:** 2026-02-18
 **Revision:** 1
-**License:** [MIT](../LICENSE)
+**License:** [CC-BY-4.0](LICENSE)
 
 **Addresses:** R1-C9, R1-C15, R1-P0-8, R1-P0-9
 
@@ -103,12 +103,16 @@ SAP S/4HANA's Business Partner model (`BUT000`/`BUT0ID`) replaces the legacy ven
 
 SAP's `STCD1` and `STCD2` fields in `LFA1` store different types of tax identifiers depending on the vendor's country:
 
-| Country | `STCD1` Typically Contains | `STCD2` Typically Contains | OMTSF Scheme |
-|---------|---------------------------|---------------------------|-------------|
-| DE | Steuernummer (tax number) | USt-IdNr (VAT ID) | `STCD1` → `nat-reg` or `internal`; `STCD2` → `vat` |
-| US | EIN (Employer ID Number) | SSN (Social Security Number) | `STCD1` → `nat-reg`; `STCD2` → `confidential`, do not export |
-| BR | CNPJ (company) or CPF (person) | Inscrição Estadual | `STCD1` → `nat-reg`; `STCD2` → `internal` |
-| GB | Company Registration Number | VAT Number | `STCD1` → `nat-reg`; `STCD2` → `vat` |
+| Country | `STCD1` Typically Contains | `STCD2` Typically Contains | `STCD3` | `STCD4` | OMTSF Scheme |
+|---------|---------------------------|---------------------------|---------|---------|-------------|
+| DE | Steuernummer (tax number) | USt-IdNr (VAT ID) | — | — | `STCD1` → `nat-reg` or `internal`; `STCD2` → `vat` |
+| US | EIN (Employer ID Number) | SSN (Social Security Number) | — | — | `STCD1` → `nat-reg`; `STCD2` → `confidential`, do not export |
+| BR | CNPJ (company) or CPF (person) | Inscrição Estadual | — | — | `STCD1` → `nat-reg`; `STCD2` → `internal` |
+| GB | Company Registration Number | VAT Number | — | — | `STCD1` → `nat-reg`; `STCD2` → `vat` |
+| IN | PAN (Permanent Account Number) | GSTIN (GST Identification Number) | TAN (Tax Deduction Account Number) | — | `STCD1` → `nat-reg` (`authority: "RA000553"`); `STCD2` → `vat` (`authority: "IN"`); `STCD3` → `internal` |
+| CN | USCC (Unified Social Credit Code, 18-char) | — | — | — | `STCD1` → `nat-reg` (`authority: "RA000549"`). USCC combines former tax, org-code, and business-license numbers. |
+| MX | RFC (Registro Federal de Contribuyentes) | CURP (person) | — | — | `STCD1` → `vat` (`authority: "MX"`); `STCD2` → `confidential` (personal ID), do not export |
+| IT | Codice Fiscale | Partita IVA (P.IVA) | — | — | `STCD1` → `nat-reg` (for companies) or `confidential` (for individuals); `STCD2` → `vat` (`authority: "IT"`) |
 
 **Guidance:** Do not blindly map `STCD1`/`STCD2` to `vat`. Inspect the `LAND1` (country key) field and apply country-specific logic. When in doubt, map to `internal` with a descriptive authority (e.g., `sap-stcd1-{country}`).
 
@@ -118,47 +122,83 @@ SAP's `STCD1` and `STCD2` fields in `LFA1` store different types of tax identifi
 
 ### 3.1 Supplier Data
 
-| Oracle Object/API | Field | OMTSF Mapping |
-|-------------------|-------|---------------|
-| `Suppliers` REST API | `SupplierId` | `scheme: "internal"`, `authority: "{oracle_instance}"` |
-| `Suppliers` REST API | `SupplierNumber` | Alternative `internal` identifier |
-| `Suppliers` REST API | `Supplier` (name) | Node `name` property |
-| `Suppliers` REST API | `TaxRegistrationNumber` | `scheme: "vat"`, `authority` from `TaxRegistrationCountry` |
-| `Suppliers` REST API | `DUNSNumber` | `scheme: "duns"` |
-| `SupplierSites` REST API | `SupplierSiteId` | Separate `facility` node with `internal` identifier |
-| `SupplierSites` REST API | `Address*` fields | `facility` node `address` property |
-| `SupplierSites` REST API | `Country` | `facility` node `jurisdiction` property |
+Oracle SCM Cloud exposes supplier data via the Fusion REST API. The base URL pattern is `https://{host}/fscmRestApi/resources/11.13.18.05/`.
+
+| Oracle REST Endpoint | OData Entity | Field | OMTSF Mapping |
+|---------------------|-------------|-------|---------------|
+| `GET /suppliers` | `PrcPozSuppliersVO` | `SupplierId` | `scheme: "internal"`, `authority: "{oracle_instance}"` |
+| `GET /suppliers` | `PrcPozSuppliersVO` | `SupplierNumber` | Alternative `internal` identifier (user-visible number) |
+| `GET /suppliers` | `PrcPozSuppliersVO` | `Supplier` (name) | Node `name` property |
+| `GET /suppliers` | `PrcPozSuppliersVO` | `TaxRegistrationNumber` | `scheme: "vat"`, `authority` from `TaxRegistrationCountry` |
+| `GET /suppliers` | `PrcPozSuppliersVO` | `DUNSNumber` | `scheme: "duns"` |
+| `GET /suppliers/{id}/child/sites` | `PrcPozSupplierSitesVO` | `SupplierSiteId` | Separate `facility` node with `internal` identifier |
+| `GET /suppliers/{id}/child/sites` | `PrcPozSupplierSitesVO` | `AddressLine1`--`AddressLine4`, `City`, `State`, `PostalCode` | `facility` node `address` property |
+| `GET /suppliers/{id}/child/sites` | `PrcPozSupplierSitesVO` | `Country` | `facility` node `jurisdiction` property |
+
+**Identifier extraction query** (Oracle REST with `fields` parameter):
+```
+GET /suppliers?fields=SupplierId,SupplierNumber,Supplier,TaxRegistrationNumber,
+    TaxRegistrationCountry,DUNSNumber&limit=500&offset=0
+```
 
 ### 3.2 Procurement Data
 
-| Oracle Object/API | Field | OMTSF Mapping |
-|-------------------|-------|---------------|
-| `PurchaseOrders` REST API | `POHeaderId` / `OrderNumber` | Derive `supplies` edge from vendor → buying org |
-| `PurchaseOrders` / `lines` | `ItemDescription`, `CategoryName` | `supplies` edge `commodity` property |
-| `Receipts` REST API | Receipt lines | Confirms `supplies` edge; provides volume data |
+| Oracle REST Endpoint | OData Entity | Field | OMTSF Mapping |
+|---------------------|-------------|-------|---------------|
+| `GET /purchaseOrders` | `PurchaseOrdersAllVO` | `POHeaderId`, `OrderNumber` | Derive `supplies` edge from vendor → buying org |
+| `GET /purchaseOrders/{id}/child/lines` | `PurchaseOrderLineVO` | `ItemDescription`, `CategoryName` | `supplies` edge `commodity` property |
+| `GET /purchaseOrders/{id}/child/lines` | `PurchaseOrderLineVO` | `Quantity`, `UOMCode` | `supplies` edge `volume` and `volume_unit` properties |
+| `GET /purchaseOrders` | `PurchaseOrdersAllVO` | `ProcurementBUId` | Identifies the buying organization for the `supplies` edge target |
+| `GET /receipts` | `ReceiptHeadersVO` | Receipt lines | Confirms `supplies` edge; provides actual receipt volume data |
+
+**Supply edge derivation query:**
+```
+GET /purchaseOrders?q=SupplierName IS NOT NULL&fields=OrderNumber,SupplierId,
+    SupplierName,ProcurementBUId,OrderedDate&orderBy=OrderedDate:desc&limit=1000
+```
 
 ---
 
 ## 4. Microsoft Dynamics 365
 
+Dynamics 365 Finance and Supply Chain Management expose data via OData v4 endpoints at `https://{environment}.operations.dynamics.com/data/`.
+
 ### 4.1 Vendor Data
 
-| D365 Entity/API | Field | OMTSF Mapping |
-|----------------|-------|---------------|
-| `VendorV2` Data Entity | `VendorAccountNumber` | `scheme: "internal"`, `authority: "{d365_instance}"` |
-| `VendorV2` Data Entity | `VendorOrganizationName` | Node `name` property |
-| `DirPartyTable` | `Name` | Alternative name source |
-| `DirPartyTable` | `DunsNumber` | `scheme: "duns"` |
-| `TaxRegistrationId` | `RegistrationNumber` | `scheme: "vat"`, `authority` from address country |
-| `LogisticsPostalAddress` | Address fields | `facility` node `address` property |
+| D365 OData Entity | OData Path | Field | OMTSF Mapping |
+|-------------------|-----------|-------|---------------|
+| `VendorsV2` | `GET /data/VendorsV2` | `VendorAccountNumber` | `scheme: "internal"`, `authority: "{d365_instance}"` |
+| `VendorsV2` | `GET /data/VendorsV2` | `VendorOrganizationName` | Node `name` property |
+| `VendorsV2` | `GET /data/VendorsV2` | `VendorGroupId` | Useful for segmenting supplier types during export |
+| `DirPartyTable` (via `VendorsV2` navigation) | `$expand=DirPartyTable` | `Name` | Alternative name source (legal name from global address book) |
+| `DirPartyTable` | `GET /data/DirParties` | `DunsNumber` | `scheme: "duns"` |
+| `TaxRegistrationId` | `GET /data/TaxRegistrationIds` | `RegistrationNumber` | `scheme: "vat"`, `authority` from `CountryRegionId` |
+| `LogisticsPostalAddress` | `GET /data/LogisticsPostalAddresses` | `Street`, `City`, `State`, `ZipCode`, `CountryRegionId` | `facility` node `address` and `jurisdiction` properties |
+
+**Identifier extraction query** (OData):
+```
+GET /data/VendorsV2?$select=VendorAccountNumber,VendorOrganizationName
+    &$expand=DirPartyTable($select=Name,DunsNumber)
+    &$top=1000&$skip=0
+```
 
 ### 4.2 Procurement Data
 
-| D365 Entity/API | Field | OMTSF Mapping |
-|----------------|-------|---------------|
-| `PurchaseOrderHeaderV2` | `OrderVendorAccountNumber` | Derive `supplies` edge |
-| `PurchaseOrderLineV2` | `ItemNumber`, `ProcurementCategoryName` | `supplies` edge `commodity` property |
-| `VendInvoiceJour` | Invoice journal | Confirms supply relationship; provides value data |
+| D365 OData Entity | OData Path | Field | OMTSF Mapping |
+|-------------------|-----------|-------|---------------|
+| `PurchaseOrderHeadersV2` | `GET /data/PurchaseOrderHeadersV2` | `OrderVendorAccountNumber` | Derive `supplies` edge (vendor → buying legal entity) |
+| `PurchaseOrderHeadersV2` | `GET /data/PurchaseOrderHeadersV2` | `InvoiceVendorAccountNumber` | Identifies invoice party (may differ from order vendor) |
+| `PurchaseOrderLinesV2` | `GET /data/PurchaseOrderLinesV2` | `ItemNumber`, `ProcurementCategoryName` | `supplies` edge `commodity` property |
+| `PurchaseOrderLinesV2` | `GET /data/PurchaseOrderLinesV2` | `OrderedPurchaseQuantity`, `PurchaseUnitSymbol` | `supplies` edge `volume` and `volume_unit` properties |
+| `VendInvoiceJour` | `GET /data/VendorInvoiceJournalLines` | Invoice journal lines | Confirms supply relationship; provides value data for `annual_value` |
+
+**Supply edge derivation query:**
+```
+GET /data/PurchaseOrderHeadersV2?$select=PurchaseOrderNumber,
+    OrderVendorAccountNumber,RequestedDeliveryDate
+    &$filter=RequestedDeliveryDate ge 2025-01-01
+    &$top=5000&$orderby=RequestedDeliveryDate desc
+```
 
 ---
 
@@ -185,7 +225,28 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 
 **Important:** Enrichment MUST NOT remove or modify existing identifiers. It is an additive process. The original `internal` identifiers are preserved for reconciliation with the source system.
 
-### 5.3 Validation Level Alignment
+### 5.3 Enrichment Cost Framework
+
+The following table provides a cost-ordered enrichment path to guide organizations in allocating identifier enrichment budgets. Start with free sources and escalate as merge requirements demand.
+
+| Cost Tier | Source | Identifier Scheme | Coverage | Cost Model |
+|-----------|--------|------------------|----------|------------|
+| **Free** | GLEIF API (`api.gleif.org`) | `lei` | ~2.7M entities | No cost. Full Level 1 and Level 2 data. Bulk download available. |
+| **Free** | OpenCorporates API | `nat-reg` (via `org.opencorporates`) | ~200M entities across 140+ jurisdictions | Free tier: 500 requests/month. Bulk data licensing available. |
+| **Free** | National registries (direct) | `nat-reg` | Varies by jurisdiction | Many EU registries offer free web lookup (UK Companies House, French SIREN, German Handelsregister). |
+| **Low** | National registry bulk downloads | `nat-reg` | Full jurisdiction coverage | Some registries offer bulk data for nominal fees (UK Companies House: free; Netherlands KvK: ~€200/year). |
+| **Low** | LEI registration (new entity) | `lei` | Per-entity | $50--200/entity/year depending on LOU. Volume discounts available. |
+| **Medium** | D&B Direct+ API (entity lookup) | `duns` | ~500M entities | Per-query pricing. Typical: $0.50--2.00/entity. Annual subscriptions reduce per-query cost. |
+| **High** | D&B Family Tree (hierarchy data) | `duns` (with corporate hierarchy) | ~500M entities | Annual license: $50K--250K/year depending on geographic scope and query volume. |
+
+**Recommended enrichment sequence:**
+1. Query GLEIF API for LEI matches (free, high-confidence).
+2. Query OpenCorporates for national registry cross-references (free tier).
+3. Use DUNS numbers already present in ERP data (no additional cost).
+4. Register LEIs for critical suppliers that lack one ($50--200/entity).
+5. License D&B hierarchy data only if corporate structure mapping is a regulatory requirement.
+
+### 5.4 Validation Level Alignment
 
 - A file with only `internal` identifiers is valid at Level 1 (structural integrity).
 - A file where most `organization` nodes have at least one external identifier satisfies Level 2 (completeness).

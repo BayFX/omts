@@ -4,7 +4,7 @@
 **Status:** Draft
 **Date:** 2026-02-18
 **Revision:** 3 (decomposed from monolithic spec)
-**License:** [MIT](../LICENSE)
+**License:** [CC-BY-4.0](LICENSE)
 **Addresses:** R1-M3, R1-M5, R1-P0-2, R1-P0-10, R1-P0-11, R1-P0-13, R1-P0-14, R1-P1-20
 
 ---
@@ -70,6 +70,8 @@ Each node (defined in OMTSF-SPEC-001) carries an optional `identifiers` array. E
 
 **Rationale for `authority` as conditional:** Some schemes are globally unambiguous (LEI is always issued by a GLEIF-accredited LOU; DUNS is always issued by D&B). Others require disambiguation: a national registry number is meaningless without its jurisdiction, a VAT number needs its country, and an internal ID needs its issuing system.
 
+**Authority naming convention.** For `internal` scheme identifiers, the `authority` field SHOULD follow the naming convention defined in OMTSF-SPEC-005, Section 1.1: `{system_type}-{instance_id}[-{client}]` (e.g., `sap-prod-100`, `oracle-scm-us`). Consistent authority naming enables downstream tooling to group identifiers by source system and supports deduplication across multi-system landscapes.
+
 **Unknown fields:** Conformant parsers MUST preserve unknown fields in identifier records during round-trip serialization. Unknown fields MUST NOT cause validation failure at any level. This ensures forward compatibility when future spec versions add fields (e.g., future extensions).
 
 ---
@@ -129,6 +131,8 @@ LEIs have a registration status maintained by GLEIF. The following statuses affe
 | `ANNULLED` | Issued in error or fraudulently | MUST NOT be used for merge. Treat as invalid. | L2 error |
 
 The GLEIF database provides explicit successor relationships for MERGED LEIs via the `SuccessorEntity` field. Tooling that performs Level 3 enrichment SHOULD retrieve successor LEI data and generate `former_identity` edges automatically.
+
+> **Jurisdiction-specific lapse rates.** LEI lapse rates vary dramatically by jurisdiction. As of 2025, approximately 96.9% of Chinese LEIs and 71.8% of Russian LEIs carry `LAPSED` status, compared to less than 5% in most EU and US jurisdictions. This disparity reflects local regulatory incentives (or lack thereof) for LEI renewal, not entity dissolution. Implementations SHOULD NOT treat `LAPSED` status as an entity validity signal — the entity typically continues to exist and operate. The `verification_date` field on identifier records enables freshness checks: an LEI verified against the GLEIF database within the past 12 months is a stronger signal than one last verified 5 years ago. Implementations processing supply chains with significant Asian exposure SHOULD expect a high proportion of lapsed LEIs and calibrate L2-EID-05 warning thresholds accordingly.
 
 #### `duns` -- DUNS Number
 
@@ -225,6 +229,7 @@ Conformant validators MAY recognize additional schemes. Extension scheme codes M
 | `org.refinitiv.permid` | Refinitiv PermID | Numeric identifier |
 | `org.iso.isin` | ISIN | 12-character alphanumeric, ISO 6166 |
 | `org.gs1.gtin` | Global Trade Item Number | 8, 12, 13, or 14 digits |
+| `org.sam.uei` | US Unique Entity Identifier | 12-character alphanumeric SAM.gov identifier. Assigned to 350,000+ US government contractors and grant recipients. Replaced DUNS for US federal procurement in April 2022. Value MUST match `^[A-Z0-9]{12}$`. |
 
 Validators encountering an unrecognized scheme code MUST NOT reject the file. Unknown schemes are passed through without format validation.
 

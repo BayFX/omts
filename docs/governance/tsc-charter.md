@@ -90,6 +90,27 @@ Until the TSC is formally constituted:
 3. During the interim period, all decisions follow the lazy consensus process with a 14-day review period (shortened from the standard 30 days to enable rapid iteration on draft specifications).
 4. Decisions made during the bootstrap period remain valid after the permanent TSC is constituted unless explicitly revisited.
 
-## 8. Amendments
+## 8. Intellectual Property Policy
+
+### 8.1 Contribution Licensing
+
+All contributions to the OMTSF project are made under the **Developer Certificate of Origin (DCO)** v1.1. Contributors certify, by adding a `Signed-off-by` trailer to each commit, that they have the right to submit the contribution under the project's licenses:
+
+- **Specifications** (`spec/`): Licensed under CC-BY-4.0.
+- **Code, schemas, and tooling**: Licensed under Apache License 2.0.
+
+No Contributor License Agreement (CLA) is required. The DCO is sufficient for this project's current stage and is the mechanism used by the Linux kernel, Git, and other major open source projects.
+
+### 8.2 Patent Grant
+
+Each Contributor, by submitting a Contribution to the project, hereby grants to all recipients of the Work a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Work to which such Contribution(s) was submitted.
+
+This grant is consistent with the Apache License 2.0 patent grant (Section 3) and ensures that the OMTSF specification and its implementations remain freely implementable without patent risk from contributors.
+
+### 8.3 No CLA Required
+
+The project does not require a Contributor License Agreement. The DCO sign-off combined with the Apache 2.0 patent grant provides sufficient IP protection for an open specification project at this stage. If the project moves to a standards body (e.g., OASIS, Linux Foundation), the IP policy may be updated to align with that body's requirements.
+
+## 9. Amendments
 
 This charter may be amended by a **two-thirds majority** vote of all TSC members, with a 30-day review period.

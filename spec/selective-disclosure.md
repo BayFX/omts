@@ -4,7 +4,7 @@
 **Status:** Draft
 **Date:** 2026-02-18
 **Revision:** 1
-**License:** [MIT](../LICENSE)
+**License:** [CC-BY-4.0](LICENSE)
 **Addresses:** R1-C1, R1-C2, R1-P0-1
 
 ---
@@ -43,6 +43,37 @@ Default sensitivity by scheme:
 - `internal`: `restricted`
 
 Producers MAY override defaults by setting `sensitivity` explicitly on any identifier record.
+
+### 2.1 Edge Property Sensitivity
+
+Edge properties (defined in OMTSF-SPEC-001, Sections 5--7) carry sensitivity classifications analogous to identifier sensitivity. The following default sensitivity levels apply to edge properties that contain competitively sensitive information:
+
+| Edge Property | Default Sensitivity | Rationale |
+|--------------|-------------------|-----------|
+| `contract_ref` | `restricted` | Contract references reveal commercial relationships |
+| `annual_value` | `restricted` | Monetary values are competitively sensitive |
+| `value_currency` | `restricted` | Currency combined with value enables competitive intelligence |
+| `volume` | `restricted` | Supply volumes reveal demand and capacity |
+| `volume_unit` | `public` | Unit of measure alone is not sensitive |
+| `percentage` (ownership) | `public` | Ownership percentages are typically public record |
+| `percentage` (beneficial_ownership) | `confidential` | UBO percentages are protected under AMLD |
+| All other edge properties | `public` | Properties like `valid_from`, `commodity`, `scope` are not sensitive by default |
+
+Producers MAY override default sensitivity on any edge property by including a `_property_sensitivity` object inside `properties`:
+
+```json
+{
+  "properties": {
+    "valid_from": "2023-01-15",
+    "annual_value": 2500000,
+    "_property_sensitivity": {
+      "annual_value": "confidential"
+    }
+  }
+}
+```
+
+When generating files with `disclosure_scope: "public"`, edges MUST omit properties with sensitivity `restricted` or `confidential`. When generating files with `disclosure_scope: "partner"`, edges MUST omit properties with sensitivity `confidential`. The `_property_sensitivity` object itself MUST be omitted from files with `disclosure_scope: "public"`.
 
 ---
 
@@ -169,8 +200,10 @@ To support tamper detection for files exchanged across trust boundaries, produce
 **Content hash computation:**
 
 1. Serialize the file without the `file_integrity` field (or with `file_integrity` set to `null`).
-2. The hash covers the entire file content as UTF-8 bytes.
-3. Compute SHA-256 over the resulting bytes.
+2. Before computing the hash, the file content MUST be serialized in **canonical JSON form per RFC 8785** (JSON Canonicalization Scheme). RFC 8785 defines deterministic rules for key ordering (lexicographic by Unicode code point), numeric formatting (no trailing zeros, no positive sign, exponential notation for large/small values), string escaping, and whitespace (none). This ensures that two semantically identical files produce the same hash regardless of the JSON serializer used.
+3. Compute SHA-256 over the resulting canonical UTF-8 bytes.
+
+> **Rationale for RFC 8785.** JSON serialization is not deterministic: key ordering, whitespace, numeric formatting (e.g., `1.0` vs `1`), and Unicode escaping all vary across implementations. Without canonical serialization, two semantically identical files will produce different content hashes, making the `file_integrity` mechanism non-portable across implementations. RFC 8785 is the IETF-standardized solution to this problem and is supported by libraries in all major languages (e.g., `json-canonicalize` in Rust, `canonicaljson` in Python, `canonicalize` in JavaScript).
 
 **Validation:**
 - When `file_integrity` is present and `content_hash` is non-null, validators MUST verify that the hash matches the file content (excluding the `file_integrity` field). Hash mismatch is an L1 validation failure.

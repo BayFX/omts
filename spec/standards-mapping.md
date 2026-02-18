@@ -4,7 +4,7 @@
 **Status:** Draft
 **Date:** 2026-02-18
 **Revision:** 1
-**License:** [MIT](../LICENSE)
+**License:** [CC-BY-4.0](LICENSE)
 **Addresses:** R1-P2-15
 
 **This document is informative, not normative.** It documents how OMTSF relates to existing standards and regulations but does not define required behavior.
@@ -29,7 +29,7 @@
 | `gln` | GS1 General Specifications | **Reuses.** OMTSF adopts GLN format and check digit rules from GS1. |
 | `nat-reg` | ISO 17442-2 (GLEIF RA list) | **Reuses.** OMTSF uses GLEIF's Registration Authority code list for jurisdiction qualification. |
 | `vat` | ISO 3166-1 (country codes) | **Reuses** ISO 3166-1 alpha-2 for jurisdiction qualification. |
-| `lei` | ISO 5009 (Official Organizational Identifier) | **Forward-compatible.** ISO 5009 builds on LEI infrastructure for broader organizational identification. OMTSF's `lei` scheme is structurally compatible with ISO 5009 organizational identifiers. |
+| `lei` | ISO 5009 (Official Organizational Roles) | **Forward-compatible.** ISO 5009 defines a framework for official organizational roles and their relationships to identifiers including LEI. OMTSF's `lei` scheme is structurally compatible with the identifier framework referenced by ISO 5009. |
 
 ---
 
@@ -53,6 +53,16 @@
 | EUDR | Identify operators, traders, and geolocated production plots; due diligence statements | `organization` nodes (operators/traders) + `facility` nodes with `geo` coordinates; `attestation` nodes for DDS |
 | German LkSG | Identify direct and indirect suppliers; documented risk analysis | Full graph with `supplies` and `subcontracts` edge types; `attestation` nodes for risk analysis documentation |
 | US UFLPA | Map supply chains to identify entities in Xinjiang region | `organization` and `facility` nodes with `jurisdiction` and `geo` properties |
+
+### 3.1 EUDR Geolocation Precision Requirements
+
+EUDR implementing guidance (Commission Implementing Regulation (EU) 2024/3118) requires geolocation data for production plots to be provided with sufficient precision for verification. For OMTSF files supporting EUDR compliance:
+
+- Latitude and longitude values in `facility` node `geo` objects SHOULD use at least **6 decimal digits** of precision (approximately 0.11 meter accuracy). This aligns with the European Commission's guidance for plot-level geolocation.
+- Production plots exceeding **4 hectares** SHOULD use GeoJSON polygon geometry rather than point coordinates. The `geo` field on `facility` nodes accepts GeoJSON geometry objects (OMTSF-SPEC-001, Section 4.2) for this purpose.
+- For EUDR commodities (cattle, cocoa, coffee, oil palm, rubber, soya, wood), the `consignment` node's `origin_country` is insufficient — plot-level geolocation on the producing `facility` is required.
+
+**L2 validation guidance:** Validators MAY implement an L2 rule checking that `geo` coordinates on `facility` nodes linked to EUDR-relevant `consignment` nodes have at least 6 decimal digits of precision.
 | EU CBAM | Identify installations and operators for carbon reporting | `facility` nodes (installations) linked to `organization` nodes (operators) via `operates` edges |
 | EU AMLD 5/6 | Identify ultimate beneficial owners (natural persons) | `person` nodes linked to `organization` nodes via `beneficial_ownership` edges |
 
@@ -108,3 +118,41 @@ The OMTSF `attestation` node type (OMTSF-SPEC-001, Section 4.5) captures certifi
 | `status` | `vc.credentialStatus` | VC supports status lists for revocation checking |
 
 **Forward compatibility:** OMTSF attestation nodes MAY carry a `reference` value that is a Verifiable Credential URI. Tooling that supports VCs can retrieve the full credential for cryptographic verification. The `attestation_type` value `certification` aligns with VC use cases for ISO certification credentials. Future OMTSF versions may define a formal VC-to-attestation import mapping.
+
+---
+
+## 7. Procurement Extension Namespace
+
+OMTSF's extension mechanism (OMTSF-SPEC-001, Section 8) supports custom edge and node properties via reverse-domain notation. To prevent fragmentation across procurement-focused adopters, this section defines a recommended namespace for common procurement metadata.
+
+**Namespace:** `com.omtsf.procurement`
+
+### 7.1 Recommended Extension Properties for `supplies` and `subcontracts` Edges
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `com.omtsf.procurement.approval_status` | enum | Supplier approval lifecycle: `approved`, `conditional`, `pending_review`, `blocked`, `phasing_out`. |
+| `com.omtsf.procurement.payment_terms` | string | Payment terms code (e.g., `NET30`, `NET60`, `2/10NET30`). |
+| `com.omtsf.procurement.spend_category` | string | Procurement category (e.g., `direct_material`, `indirect`, `services`, `capex`). |
+| `com.omtsf.procurement.preferred_supplier_flag` | boolean | Whether the supplier is designated as preferred for this commodity. |
+
+### 7.2 Example Usage
+
+```json
+{
+  "id": "edge-sup-001",
+  "type": "supplies",
+  "source": "org-bolt",
+  "target": "org-acme",
+  "properties": {
+    "valid_from": "2023-01-15",
+    "commodity": "7318.15",
+    "com.omtsf.procurement.approval_status": "approved",
+    "com.omtsf.procurement.payment_terms": "NET60",
+    "com.omtsf.procurement.spend_category": "direct_material",
+    "com.omtsf.procurement.preferred_supplier_flag": true
+  }
+}
+```
+
+Extension properties use reverse-domain notation and are preserved by conformant consumers during round-trip serialization. Validators MUST NOT reject files containing these properties.
