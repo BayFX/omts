@@ -40,6 +40,27 @@ An `.omts` file is a JSON document with the following top-level structure:
 | `nodes` | Yes | array | Array of node objects |
 | `edges` | Yes | array | Array of edge objects |
 
+### 2.1 Serialization Conventions
+
+**Edge property wrapper.** Edge properties listed in Sections 5, 6, and 7 are **logical properties** of each edge type. In JSON serialization, these properties MUST be nested inside a `"properties"` object on the edge. The structural fields `id`, `type`, `source`, and `target` are top-level fields on the edge object; all other fields are inside `properties`. Example:
+
+```json
+{
+  "id": "edge-001",
+  "type": "supplies",
+  "source": "org-bolt",
+  "target": "org-acme",
+  "properties": {
+    "valid_from": "2023-01-15",
+    "commodity": "7318.15"
+  }
+}
+```
+
+**First key requirement.** The first key in the top-level JSON object MUST be `"omtsf_version"`. This enables file type detection without full JSON parsing.
+
+**Date format.** All date fields in an `.omts` file MUST use the ISO 8601 calendar date format `YYYY-MM-DD` (e.g., `2026-02-18`). No other ISO 8601 profiles (week dates, ordinal dates) are permitted.
+
 ---
 
 ## 3. Graph-Local Identity
@@ -60,7 +81,7 @@ Edges MAY carry an optional `identifiers` array with the same structure as node 
 
 ## 4. Node Types
 
-OMTSF defines five core node types and one structural type.
+OMTSF defines six core node types and one structural type.
 
 ### 4.1 `organization`
 
@@ -70,6 +91,7 @@ A legal entity: a company, non-governmental organization, government body, or ot
 - `name` (required): Legal name of the entity
 - `jurisdiction` (recommended): ISO 3166-1 alpha-2 country code of incorporation or primary registration
 - `status` (optional): `active`, `dissolved`, `merged`, `suspended`
+- `governance_structure` (optional): `sole_subsidiary`, `joint_venture`, `consortium`, `cooperative`. Indicates shared governance. When `governance_structure` is `joint_venture`, multiple inbound `ownership` edges with combined percentage near 100% indicate shared control. Relevant for CSDDD Article 22 joint venture obligations.
 
 ### 4.2 `facility`
 
@@ -116,6 +138,7 @@ A document, certificate, audit result, or due diligence statement that is linked
 | `valid_from` | Yes | ISO 8601 date | Date the attestation became effective |
 | `valid_to` | No | ISO 8601 date | Expiration date. `null` = no expiration. |
 | `outcome` | No | enum | `pass`, `conditional_pass`, `fail`, `pending`, `not_applicable` |
+| `status` | No | enum | Lifecycle state: `active`, `suspended`, `revoked`, `expired`, `withdrawn`. Distinct from `valid_to` (an `active` attestation may have a future `valid_to`; a `revoked` attestation may still be within its validity period). Default: `active`. |
 | `reference` | No | string | Document reference number or URI |
 
 Attestation nodes MAY carry an `identifiers` array (e.g., an EUDR due diligence statement number, an internal audit ID).
@@ -151,7 +174,22 @@ An EUDR due diligence statement:
 }
 ```
 
-### 4.6 `boundary_ref`
+### 4.6 `consignment`
+
+A batch, lot, shipment, or consignment of goods. This node type supports EUDR consignment-to-plot traceability (Article 9) and CBAM embedded emissions tracking.
+
+**Properties:**
+
+| Property | Required | Type | Description |
+|----------|----------|------|-------------|
+| `name` | Yes | string | Description or label of the consignment |
+| `lot_id` | No | string | Lot or batch number |
+| `quantity` | No | number | Quantity in the specified unit |
+| `unit` | No | string | Unit of measure (e.g., `kg`, `mt`, `pcs`) |
+| `production_date` | No | ISO 8601 date | Date the consignment was produced or harvested |
+| `origin_country` | No | string | ISO 3166-1 alpha-2 country code of origin |
+
+### 4.7 `boundary_ref`
 
 A minimal node stub that replaces a redacted node in a subgraph projection, preserving graph connectivity without revealing the entity's identity. Defined in OMTSF-SPEC-004.
 
@@ -240,6 +278,11 @@ A direct commercial supply relationship: one entity sells goods or services to a
 | `valid_to` | No | ISO 8601 date | End of the supply relationship. `null` = ongoing. |
 | `commodity` | No | string | HS code or free-text description of what is supplied |
 | `contract_ref` | No | string | Reference to a contract or purchase agreement |
+| `volume` | No | number | Volume or quantity supplied per period |
+| `volume_unit` | No | string | Unit of measure for volume (e.g., `kg`, `mt`, `pcs`, `units`) |
+| `annual_value` | No | number | Annual monetary value of the supply relationship |
+| `value_currency` | No | string | ISO 4217 currency code for `annual_value` (e.g., `EUR`, `USD`) |
+| `tier` | No | integer | Supply chain tier relative to the reporting entity (1 = direct, 2 = tier 2, etc.) |
 
 **Direction convention:** `source` = supplier, `target` = buyer.
 
@@ -255,6 +298,8 @@ A delegated production relationship: one entity contracts another to perform pro
 | `valid_to` | No | ISO 8601 date | |
 | `commodity` | No | string | What is subcontracted |
 | `contract_ref` | No | string | Subcontracting agreement reference |
+| `volume` | No | number | Volume or quantity supplied per period |
+| `volume_unit` | No | string | Unit of measure for volume (e.g., `kg`, `mt`, `pcs`, `units`) |
 
 **Direction convention:** `source` = subcontractor, `target` = contracting entity.
 
@@ -271,6 +316,8 @@ A tolling or processing arrangement: one entity provides raw materials to anothe
 | `commodity` | No | string | Material being tolled/processed |
 
 **Direction convention:** `source` = toll processor, `target` = material owner.
+
+**Clarification:** In a tolling arrangement, the `source` (toll processor) receives materials from and returns processed goods to the `target` (material owner). The edge direction represents the service relationship, not material flow.
 
 ### 6.4 `distributes`
 
@@ -318,6 +365,34 @@ A production relationship between a `facility` node and a `good` node, indicatin
 
 **Direction convention:** `source` = facility, `target` = good.
 
+### 6.8 `composed_of`
+
+A bill-of-materials relationship between a `good` node and its component inputs. Supports EUDR derived product traceability, CBAM embedded emissions, and manufacturing BOM decomposition.
+
+| Property | Required | Type | Description |
+|----------|----------|------|-------------|
+| `quantity` | No | number | Quantity of the component per unit of the parent good |
+| `unit` | No | string | Unit of measure for quantity |
+| `valid_from` | No | ISO 8601 date | |
+| `valid_to` | No | ISO 8601 date | |
+
+**Direction convention:** `source` = parent/assembled good, `target` = component good or consignment.
+
+**Usage:** Maps to ERP BOM structures (SAP STPO/STKO, Oracle BOM_STRUCTURES_B). A good node "Finished Widget" with `composed_of` edges to "Steel Rod" and "Plastic Housing" represents a two-component BOM.
+
+### 6.9 `sells_to`
+
+A downstream commercial relationship: one entity sells goods or services to a customer. This is the downstream counterpart of `supplies` (which models the upstream perspective). Needed for CSDDD downstream due diligence obligations (Article 8(2)).
+
+| Property | Required | Type | Description |
+|----------|----------|------|-------------|
+| `valid_from` | Yes | ISO 8601 date | |
+| `valid_to` | No | ISO 8601 date | |
+| `commodity` | No | string | HS code or description |
+| `contract_ref` | No | string | Contract or sales agreement reference |
+
+**Direction convention:** `source` = seller, `target` = customer.
+
 ---
 
 ## 7. Attestation Edge Type
@@ -328,7 +403,7 @@ Links an entity, facility, or good to an attestation.
 
 | Property | Required | Type | Description |
 |----------|----------|------|-------------|
-| `scope` | No | string | What aspect the attestation covers (e.g., "working conditions", "deforestation-free", "carbon emissions") |
+| `scope` | No | string | Aspect the attestation covers. Recommended values: `labor_rights`, `environmental`, `deforestation_free`, `carbon_emissions`, `health_safety`, `anti_corruption`, `conflict_minerals`, `other`. Free-text values are permitted for domain-specific scopes. |
 
 **Direction convention:** `source` = the entity/facility/good being attested, `target` = the `attestation` node.
 
@@ -344,6 +419,18 @@ Producers MAY define custom node types using reverse-domain notation (e.g., `com
 
 Producers MAY define custom edge types using reverse-domain notation (e.g., `com.example.custom-edge`). Validators encountering an unrecognized edge type that uses reverse-domain notation MUST NOT reject the file.
 
+### 8.3 Data Quality Metadata
+
+All nodes and edges MAY carry an optional `data_quality` object (serialized at the top level for nodes, inside `properties` for edges) with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `confidence` | enum | `verified`, `reported`, `inferred`, `estimated`. Default: `reported`. |
+| `source` | string | Provenance description (e.g., `gleif-api`, `supplier-questionnaire`, `manual-review`) |
+| `last_verified` | ISO 8601 date | Date the data was last verified against an authoritative source |
+
+This metadata is informational. Validators MUST NOT reject files based on `data_quality` values. Merge engines MAY use `confidence` to weight conflict resolution.
+
 ---
 
 ## 9. Validation Rules
@@ -357,7 +444,7 @@ These rules MUST pass for a file to be considered structurally valid.
 | L1-GDM-01 | Every node MUST have an `id` field containing a non-empty string unique within the file |
 | L1-GDM-02 | Every edge MUST have an `id` field containing a non-empty string unique within the file |
 | L1-GDM-03 | Every edge `source` and `target` MUST reference an existing node `id` in the same file |
-| L1-GDM-04 | Edge `type` MUST be a recognized edge type from this specification (Sections 5, 6, 7), `same_as` (defined in OMTSF-SPEC-003, Section 7), or an extension type using reverse-domain notation |
+| L1-GDM-04 | Edge `type` MUST be one of the recognized edge types defined in this specification — `ownership`, `operational_control`, `legal_parentage`, `former_identity`, `beneficial_ownership` (Section 5); `supplies`, `subcontracts`, `tolls`, `distributes`, `brokers`, `operates`, `produces`, `composed_of`, `sells_to` (Section 6); `attested_by` (Section 7) — or `same_as` (defined in OMTSF-SPEC-003, Section 7), or an extension type using reverse-domain notation |
 
 ### 9.2 Level 2 -- Completeness
 
@@ -367,6 +454,24 @@ These rules SHOULD be satisfied. Violations produce warnings, not errors.
 |------|-------------|
 | L2-GDM-01 | Every `facility` node SHOULD be connected to an `organization` node via an edge or the `operator` property |
 | L2-GDM-02 | `ownership` edges SHOULD have `valid_from` set |
+
+### 9.3 Structural Constraints
+
+**Cycle legality.** Cycles are permitted in the supply relationship subgraph (`supplies`, `subcontracts`, `tolls`, `distributes`, `brokers`, `sells_to`) — circular supply chains exist in practice (e.g., recycling loops). Cycles are NOT permitted in the `legal_parentage` subgraph (L3-MRG-02 in OMTSF-SPEC-003 enforces this as a forest constraint). Cycles in `ownership` are permitted (cross-holdings are common) but circular ownership of 100% is an L2 warning.
+
+### 9.4 Advisory Size Limits
+
+To support parser safety and prevent denial-of-service when processing untrusted input, implementations SHOULD enforce the following limits:
+
+| Limit | Recommended Maximum | Rationale |
+|-------|-------------------|-----------|
+| Nodes per file | 1,000,000 | Memory bound for in-memory graph processing |
+| Edges per file | 5,000,000 | Typical edge:node ratio ≤ 5:1 |
+| Identifiers per node | 50 | Practical upper bound; most entities have < 10 |
+| String field length | 10,000 UTF-8 bytes | Prevents unbounded memory allocation |
+| `file_salt` length | Exactly 64 hex characters | MUST match `^[0-9a-f]{64}$` |
+
+These are not hard limits. Producers MAY exceed them, but consumers SHOULD reject files that exceed these limits by more than 10x when processing untrusted input.
 
 ---
 

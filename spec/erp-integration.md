@@ -26,6 +26,23 @@
 
 This guide provides reference mappings for how entity identifiers and relationships in common ERP systems correspond to OMTSF node types, identifier records, and edge types. These mappings are informative and intended to assist producers building OMTSF export tooling.
 
+### 1.1 Authority Naming Convention
+
+For `internal` scheme identifiers, the `authority` field identifies the source system. Producers SHOULD follow this convention:
+
+```
+{system_type}-{instance_id}[-{client}]
+```
+
+Examples:
+- `sap-prod-100` — SAP production system, client 100
+- `sap-prod-bp` — SAP Business Partner namespace
+- `oracle-scm-us` — Oracle SCM Cloud US instance
+- `d365-fin-eu` — Dynamics 365 Finance, EU tenant
+- `ariba-network` — SAP Ariba Network
+
+This convention enables downstream tooling to group and deduplicate identifiers by source system. It is a recommendation, not a normative requirement.
+
 ---
 
 ## 2. SAP S/4HANA
@@ -56,29 +73,92 @@ This guide provides reference mappings for how entity identifiers and relationsh
 
 In multi-client SAP landscapes, the same legal entity may appear as different `LIFNR` values across clients. The `authority` field on `internal` identifiers SHOULD include the client number (e.g., `sap-prod-100`, `sap-prod-200`) to distinguish these. See OMTSF-SPEC-003, Section 8 for intra-file deduplication guidance.
 
+### 2.4 SAP Business Partner Model (S/4HANA)
+
+SAP S/4HANA's Business Partner model (`BUT000`/`BUT0ID`) replaces the legacy vendor master (`LFA1`) as the primary entity data store. New S/4HANA implementations use the Business Partner model exclusively; legacy migrations retain parallel data in both structures.
+
+| SAP Field | Table | OMTSF Mapping |
+|-----------|-------|---------------|
+| `PARTNER` (BP Number) | `BUT000` | `scheme: "internal"`, `authority: "{sap_system_id}-bp"` |
+| `BU_SORT1` (Search Term 1) | `BUT000` | May assist fuzzy deduplication |
+| `TYPE` (BP Category) | `BUT000` | `1` = Organization → `organization` node; `2` = Person → `person` node |
+| `IDNUMBER` (ID Number) | `BUT0ID` | `scheme` depends on `IDTYPE`: see mapping below |
+| `IDTYPE` (ID Type) | `BUT0ID` | Maps to OMTSF scheme: `DUNS` → `duns`, `LEI` → `lei`, `HRNR` → `nat-reg`, `UST1` → `vat` |
+| `INSTITUTE` (Issuing Institute) | `BUT0ID` | Maps to `authority` field for `nat-reg` and `vat` schemes |
+
+**`BUT0ID` to OMTSF scheme mapping:**
+
+| SAP `IDTYPE` | OMTSF Scheme | Notes |
+|-------------|-------------|-------|
+| `DUNS` | `duns` | Direct mapping |
+| `LEI` | `lei` | Direct mapping |
+| `HRNR` | `nat-reg` | `authority` from `INSTITUTE` or derived from country |
+| `UST1` | `vat` | EU VAT number; `authority` from country key |
+| `UID` | `vat` | Non-EU tax ID; `authority` from country key |
+| Other | `internal` | Custom ID types → `authority: "{sap_system_id}-bp"` |
+
+**Note:** The `BUT0ID` table provides cleaner identifier type disambiguation than the legacy `STCD1`/`STCD2` fields, which store different identifier types depending on country configuration.
+
+### 2.5 Tax Number Field Disambiguation
+
+SAP's `STCD1` and `STCD2` fields in `LFA1` store different types of tax identifiers depending on the vendor's country:
+
+| Country | `STCD1` Typically Contains | `STCD2` Typically Contains | OMTSF Scheme |
+|---------|---------------------------|---------------------------|-------------|
+| DE | Steuernummer (tax number) | USt-IdNr (VAT ID) | `STCD1` → `nat-reg` or `internal`; `STCD2` → `vat` |
+| US | EIN (Employer ID Number) | SSN (Social Security Number) | `STCD1` → `nat-reg`; `STCD2` → `confidential`, do not export |
+| BR | CNPJ (company) or CPF (person) | Inscrição Estadual | `STCD1` → `nat-reg`; `STCD2` → `internal` |
+| GB | Company Registration Number | VAT Number | `STCD1` → `nat-reg`; `STCD2` → `vat` |
+
+**Guidance:** Do not blindly map `STCD1`/`STCD2` to `vat`. Inspect the `LAND1` (country key) field and apply country-specific logic. When in doubt, map to `internal` with a descriptive authority (e.g., `sap-stcd1-{country}`).
+
 ---
 
 ## 3. Oracle SCM Cloud
 
-| Oracle Field | Object | OMTSF Mapping |
-|-------------|--------|---------------|
-| `VENDOR_ID` | Supplier | `scheme: "internal"`, `authority: "{oracle_instance}"` |
-| `VENDOR_SITE_ID` | Supplier Site | Separate `facility` node with `internal` identifier |
-| `TAX_REGISTRATION_NUMBER` | Supplier | `scheme: "vat"`, `authority` from country |
-| `DUNS_NUMBER` | Supplier | `scheme: "duns"` |
-| `VENDOR_NAME` | Supplier | Node `name` property |
-| `PO_HEADERS_ALL` + `PO_LINES_ALL` | Purchase orders | `supplies` edge derivation (vendor → buying org) |
+### 3.1 Supplier Data
+
+| Oracle Object/API | Field | OMTSF Mapping |
+|-------------------|-------|---------------|
+| `Suppliers` REST API | `SupplierId` | `scheme: "internal"`, `authority: "{oracle_instance}"` |
+| `Suppliers` REST API | `SupplierNumber` | Alternative `internal` identifier |
+| `Suppliers` REST API | `Supplier` (name) | Node `name` property |
+| `Suppliers` REST API | `TaxRegistrationNumber` | `scheme: "vat"`, `authority` from `TaxRegistrationCountry` |
+| `Suppliers` REST API | `DUNSNumber` | `scheme: "duns"` |
+| `SupplierSites` REST API | `SupplierSiteId` | Separate `facility` node with `internal` identifier |
+| `SupplierSites` REST API | `Address*` fields | `facility` node `address` property |
+| `SupplierSites` REST API | `Country` | `facility` node `jurisdiction` property |
+
+### 3.2 Procurement Data
+
+| Oracle Object/API | Field | OMTSF Mapping |
+|-------------------|-------|---------------|
+| `PurchaseOrders` REST API | `POHeaderId` / `OrderNumber` | Derive `supplies` edge from vendor → buying org |
+| `PurchaseOrders` / `lines` | `ItemDescription`, `CategoryName` | `supplies` edge `commodity` property |
+| `Receipts` REST API | Receipt lines | Confirms `supplies` edge; provides volume data |
 
 ---
 
 ## 4. Microsoft Dynamics 365
 
-| D365 Field | Entity | OMTSF Mapping |
-|-----------|--------|---------------|
-| `VendAccount` | VendTable | `scheme: "internal"`, `authority: "{d365_instance}"` |
-| `TaxRegistrationId` | VendTable | `scheme: "vat"`, `authority` from country |
-| `DunsNumber` | DirPartyTable | `scheme: "duns"` |
-| `Name` | DirPartyTable | Node `name` property |
+### 4.1 Vendor Data
+
+| D365 Entity/API | Field | OMTSF Mapping |
+|----------------|-------|---------------|
+| `VendorV2` Data Entity | `VendorAccountNumber` | `scheme: "internal"`, `authority: "{d365_instance}"` |
+| `VendorV2` Data Entity | `VendorOrganizationName` | Node `name` property |
+| `DirPartyTable` | `Name` | Alternative name source |
+| `DirPartyTable` | `DunsNumber` | `scheme: "duns"` |
+| `TaxRegistrationId` | `RegistrationNumber` | `scheme: "vat"`, `authority` from address country |
+| `LogisticsPostalAddress` | Address fields | `facility` node `address` property |
+
+### 4.2 Procurement Data
+
+| D365 Entity/API | Field | OMTSF Mapping |
+|----------------|-------|---------------|
+| `PurchaseOrderHeaderV2` | `OrderVendorAccountNumber` | Derive `supplies` edge |
+| `PurchaseOrderLineV2` | `ItemNumber`, `ProcurementCategoryName` | `supplies` edge `commodity` property |
+| `VendInvoiceJour` | Invoice journal | Confirms supply relationship; provides value data |
 
 ---
 
@@ -101,6 +181,8 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 3. **Augment:** The enrichment tool adds external identifiers to the nodes, preserving the original `internal` identifiers.
 4. **Re-export:** The enriched file is written. It now passes Level 2 completeness checks (OMTSF-SPEC-002, L2-EID-01).
 
+**Merge interaction:** Enrichment is not purely additive with respect to the merge graph. Adding an external identifier to a node may create new merge candidates with nodes in other files (or even within the same file). Enrichment tooling SHOULD re-evaluate merge groups after adding identifiers. See OMTSF-SPEC-003, Section 9 for detailed guidance on enrichment-merge interaction.
+
 **Important:** Enrichment MUST NOT remove or modify existing identifiers. It is an additive process. The original `internal` identifiers are preserved for reconciliation with the source system.
 
 ### 5.3 Validation Level Alignment
@@ -108,3 +190,16 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 - A file with only `internal` identifiers is valid at Level 1 (structural integrity).
 - A file where most `organization` nodes have at least one external identifier satisfies Level 2 (completeness).
 - A file where identifiers have been verified against authoritative sources satisfies Level 3 (enrichment).
+
+---
+
+## 6. EDI Coexistence
+
+OMTSF is not a replacement for EDI (EDIFACT, ANSI X12) or B2B messaging standards (PEPPOL BIS, cXML). EDI handles transactional document exchange (purchase orders, invoices, advance ship notices); OMTSF handles supply chain graph representation (who supplies whom, ownership, attestation).
+
+In a typical deployment:
+- EDI continues to handle day-to-day procurement transactions.
+- OMTSF captures the structural supply chain graph derived from aggregated EDI transaction data, ERP master data, and external enrichment.
+- An OMTSF export tool reads ERP master data (informed by EDI-updated fields like vendor status, last PO date) and produces `.omts` files.
+
+OMTSF files MAY reference EDI identifiers. For example, a PEPPOL Participant Identifier can be stored as an extension scheme identifier: `scheme: "org.peppol.participant"`, `value: "0088:5790000436057"`, where `0088` is the ISO 6523 ICD for EAN.UCC (GS1).

@@ -65,10 +65,12 @@ Each node (defined in OMTSF-SPEC-001) carries an optional `identifiers` array. E
 | `valid_from` | No | string (ISO 8601 date) | Date this identifier became effective for this entity |
 | `valid_to` | No | string (ISO 8601 date) | Date this identifier ceased to be valid for this entity. `null` means currently valid. |
 | `sensitivity` | No | enum | One of `public`, `restricted`, `confidential`. Default: `public`. See OMTSF-SPEC-004. |
+| `verification_status` | No | enum | One of `verified`, `reported`, `inferred`, `unverified`. `verified` = confirmed against authoritative source (e.g., GLEIF API, registry lookup). `reported` = provided by the entity (e.g., supplier questionnaire). `inferred` = derived by tooling (e.g., name matching). `unverified` = no verification attempted. Default: `reported`. |
+| `verification_date` | No | string (ISO 8601 date) | Date the identifier was last verified against an authoritative source. |
 
 **Rationale for `authority` as conditional:** Some schemes are globally unambiguous (LEI is always issued by a GLEIF-accredited LOU; DUNS is always issued by D&B). Others require disambiguation: a national registry number is meaningless without its jurisdiction, a VAT number needs its country, and an internal ID needs its issuing system.
 
-**Unknown fields:** Conformant parsers MUST preserve unknown fields in identifier records during round-trip serialization. Unknown fields MUST NOT cause validation failure at any level. This ensures forward compatibility when future spec versions add fields (e.g., `confidence`, `verification`).
+**Unknown fields:** Conformant parsers MUST preserve unknown fields in identifier records during round-trip serialization. Unknown fields MUST NOT cause validation failure at any level. This ensures forward compatibility when future spec versions add fields (e.g., future extensions).
 
 ---
 
@@ -91,6 +93,8 @@ Examples:
 - The colon (`:`, U+003A) is the delimiter
 - If an `authority` or `value` contains a literal colon, it MUST be percent-encoded as `%3A`
 - If an `authority` or `value` contains a literal percent sign, it MUST be percent-encoded as `%25`
+- If an `authority` or `value` contains a newline (`U+000A`), it MUST be percent-encoded as `%0A`
+- If an `authority` or `value` contains a carriage return (`U+000D`), it MUST be percent-encoded as `%0D`
 
 This canonical form is used in boundary reference hashing (OMTSF-SPEC-004, Section 4) and merge identity comparison (OMTSF-SPEC-003, Section 2).
 
@@ -187,6 +191,8 @@ D&B assigns separate DUNS numbers to different structural levels of the same leg
 | `RA000631` | Secretary of State | California, US |
 
 The full GLEIF RA list contains 700+ registration authorities and is available at `https://www.gleif.org/en/about-lei/code-lists/gleif-registration-authorities-list`.
+
+**Sensitivity:** Default sensitivity for `nat-reg` identifiers is `restricted`. In many EU jurisdictions, sole proprietorships (Einzelunternehmen, entreprise individuelle) are registered under the owner's personal name. A `nat-reg` identifier for such an entity may constitute personal data under GDPR (CJEU C-434/16, Nowak). The `restricted` default protects these cases. Producers who know an entity is a large corporation MAY explicitly override to `public`.
 
 #### `vat` -- VAT / Tax Identification Number
 
@@ -290,6 +296,8 @@ These rules SHOULD be satisfied. Violations produce warnings, not errors.
 | L2-EID-04 | `vat` authority values SHOULD be valid ISO 3166-1 alpha-2 country codes |
 | L2-EID-05 | `lei` values with LAPSED, RETIRED, or MERGED status (when detectable) SHOULD produce a warning |
 | L2-EID-06 | `lei` values with ANNULLED status SHOULD produce an error |
+| L2-EID-07 | Identifiers on schemes known to reassign values (`duns`, `gln`) SHOULD carry `valid_from` and `valid_to` to enable temporal merge safety (OMTSF-SPEC-003, Section 2) |
+| L2-EID-08 | Identifiers with `verification_status: "verified"` SHOULD also carry a `verification_date` |
 
 ### 6.3 Level 3 -- Enrichment
 
@@ -299,7 +307,7 @@ These rules require external data sources and are intended for enrichment toolin
 |------|-------------|
 | L3-EID-01 | `lei` values SHOULD be verifiable against the GLEIF public database (entity exists and status is not ANNULLED) |
 | L3-EID-02 | `nat-reg` values SHOULD be cross-referenceable with the authority's registry |
-| L3-EID-03 | If a node has both `lei` and `nat-reg` identifiers, they SHOULD be consistent with GLEIF Level 1 cross-reference data |
+| L3-EID-03 | If a node has both `lei` and `nat-reg` identifiers, the registration authority and registration number encoded in the GLEIF Level 1 record for the LEI SHOULD match the `nat-reg` authority and value. When they conflict, validators SHOULD emit a warning identifying the mismatch and recommend manual review. |
 | L3-EID-04 | For MERGED LEIs, a `former_identity` edge to the successor entity SHOULD be present |
 | L3-EID-05 | DUNS numbers on `organization` nodes SHOULD be HQ-level DUNS, not branch DUNS |
 

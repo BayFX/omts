@@ -31,6 +31,10 @@ Two nodes from different files are **merge candidates** if and only if they shar
 1. `scheme` values are equal (case-sensitive string comparison)
 2. `value` values are equal (case-sensitive string comparison after normalization: leading/trailing whitespace trimmed, for numeric-only schemes leading zeros are significant)
 3. If `authority` is present in **either** record, `authority` values MUST be equal (case-insensitive string comparison)
+4. **Temporal compatibility:** If both identifier records carry `valid_from` and/or `valid_to` fields, their validity periods MUST overlap or at least one period MUST be open-ended (no `valid_to`). Specifically:
+   - If both records have `valid_to` and the earlier `valid_to` is before the later `valid_from`, the identifiers are NOT temporally compatible and do NOT satisfy the identity predicate.
+   - If either record lacks `valid_from` and `valid_to`, temporal compatibility is assumed (backward-compatible with files that omit temporal fields).
+   - **Rationale:** DUNS and GLN numbers are reassigned after entity dissolution. Without temporal checking, a DUNS number valid 2010-2015 for Entity A and the same DUNS reassigned 2020-2025 to Entity B would produce a false merge.
 
 The `internal` scheme is explicitly excluded: `internal` identifiers NEVER satisfy the identity predicate across files, because they are scoped to their issuing system.
 
@@ -47,6 +51,31 @@ Two edges from different files are **merge candidates** if all of the following 
 
 This definition supports the multigraph model: two edges with the same type and endpoints but different properties (e.g., two distinct supply contracts) are NOT merge candidates unless they share an explicit external identifier.
 
+### 3.1 Edge Merge-Identity Properties by Type
+
+When edges lack explicit external identifiers (condition 4 in Section 3), merge identity falls back to property comparison. The following non-temporal properties form the merge-identity key for each edge type:
+
+| Edge Type | Merge-Identity Properties (beyond type + endpoints) |
+|-----------|---------------------------------------------------|
+| `ownership` | `percentage`, `direct` |
+| `operational_control` | `control_type` |
+| `legal_parentage` | `consolidation_basis` |
+| `former_identity` | `event_type`, `effective_date` |
+| `beneficial_ownership` | `control_type`, `percentage` |
+| `supplies` | `commodity`, `contract_ref` |
+| `subcontracts` | `commodity`, `contract_ref` |
+| `tolls` | `commodity` |
+| `distributes` | `service_type` |
+| `brokers` | `commodity` |
+| `operates` | *(none — type + endpoints suffice)* |
+| `produces` | *(none — type + endpoints suffice)* |
+| `composed_of` | *(none — type + endpoints suffice)* |
+| `sells_to` | `commodity`, `contract_ref` |
+| `attested_by` | `scope` |
+| `same_as` | *(always unique — never merged)* |
+
+Temporal properties (`valid_from`, `valid_to`) are excluded from merge-identity comparison. Two edges with the same type, endpoints, and merge-identity properties but different validity dates represent the same relationship observed at different times and SHOULD be merged.
+
 ---
 
 ## 4. Merge Procedure
@@ -58,10 +87,30 @@ Given files A and B:
 3. **Compute transitive closure** of merge candidates. If node X is a merge candidate with node Y (via identifier I1), and node Y is a merge candidate with node Z (via identifier I2), then X, Y, and Z are all merged into a single node. This is required because the same real-world entity may carry different identifiers in different files (e.g., LEI in file A, DUNS in file B, both LEI and DUNS in file C).
 4. **Merge** each candidate group:
    - The merged node retains the **union** of all identifier records from all sources.
+   - After merge, the `identifiers` array MUST be sorted by the canonical string form (OMTSF-SPEC-002, Section 4) in lexicographic UTF-8 byte order. This ensures deterministic output regardless of merge order, supporting the commutativity property.
    - For each property present in multiple source nodes:
      - If values are equal: retain the value.
      - If values differ: the merger MUST record both values with their provenance (source file, reporting entity). Conflict resolution is a tooling concern.
    - The merged node's graph-local `id` is assigned by the merger (it is an arbitrary file-local string).
+
+**Conflict record structure.** When property values differ across source nodes, the merger SHOULD record conflicts in a `_conflicts` array on the merged node (serialized at the top level for nodes, inside `properties` for edges):
+
+```json
+{
+  "_conflicts": [
+    {
+      "field": "name",
+      "values": [
+        { "value": "Acme GmbH", "source_file": "export-sap.omts" },
+        { "value": "ACME Manufacturing GmbH", "source_file": "export-ariba.omts" }
+      ]
+    }
+  ]
+}
+```
+
+Conflict records are informational. Validators MUST NOT reject files containing `_conflicts`. Tooling SHOULD present conflicts to users for resolution.
+
 5. **Rewrite** all edge source/target references to use the merged node IDs.
 6. **Identify** merge candidate edge pairs using the edge identity predicate (Section 3).
 7. **Deduplicate** edges that are merge candidates, merging their properties as with nodes.
@@ -80,6 +129,14 @@ For the decentralized merge model to work -- where different parties independent
 **Idempotency:** `merge(A, A) = A`. Merging a file with itself MUST produce an equivalent graph (same nodes, edges, identifiers, and properties; graph-local IDs may differ).
 
 **Implementation note:** The transitive closure requirement means merge implementations SHOULD use a union-find (disjoint set) data structure for efficient merge candidate grouping. This operates in O(n * α(n)) time, where α is the inverse Ackermann function (effectively constant).
+
+### 5.1 Post-Merge Validation
+
+After merge completes, the merged file MUST satisfy the same structural validation rules as any other `.omts` file:
+
+- All L1 rules from OMTSF-SPEC-001 and OMTSF-SPEC-002 MUST hold on the merged output.
+- If any L1 rule fails after merge (e.g., duplicate node IDs from ID assignment, broken edge references), the merge implementation MUST correct the violation or report a merge failure. Implementations MUST NOT produce output that fails L1 validation.
+- L2 and L3 rules SHOULD be re-evaluated on the merged output. Merge may resolve some L2 warnings (e.g., a node that lacked external identifiers in one file may gain them from the other).
 
 ---
 
@@ -159,9 +216,25 @@ ERP systems frequently contain duplicate records for the same real-world entity.
 
 ---
 
-## 9. Validation Rules
+## 9. Enrichment and Merge Interaction
 
-### 9.1 Level 3 -- Enrichment
+Enrichment (adding external identifiers to nodes, as described in OMTSF-SPEC-005, Section 5) is not purely additive with respect to the merge graph. Adding an external identifier to a node may:
+
+1. **Create new merge candidates.** If enrichment adds a DUNS number to node A, and node B in another file already carries that DUNS, nodes A and B become merge candidates that were not previously linkable.
+
+2. **Reveal prior merge errors.** If two nodes were merged via a shared DUNS number, and subsequent enrichment reveals they have different LEIs, the merge may have been based on a reassigned identifier (see temporal compatibility in Section 2, condition 4).
+
+**Recommendations for enrichment tooling:**
+
+- After adding external identifiers, re-evaluate merge groups using the updated identity predicate.
+- Record in `merge_metadata` (Section 6) whether the merge was performed pre- or post-enrichment.
+- When enrichment creates new merge candidates, emit `same_as` edges with `confidence: "probable"` and `basis: "enrichment_match"` rather than performing automatic merge. This allows human review before graph topology changes.
+
+---
+
+## 10. Validation Rules
+
+### 10.1 Level 3 -- Enrichment
 
 These rules require external data or cross-file context and are intended for enrichment tooling.
 
@@ -172,8 +245,8 @@ These rules require external data or cross-file context and are intended for enr
 
 ---
 
-## 10. Open Questions
+## 11. Open Questions
 
-1. **Edge merge strategy.** Should edge identity for cross-file merge use independent edge identifiers (requiring explicit IDs on edges), or a composite key of (resolved source, resolved target, type, properties hash)? The current spec supports both but does not mandate edge identifiers for merge.
+1. ~~**Edge merge strategy.**~~ **Resolved.** Edge merge uses a two-tier strategy: (a) if edges carry explicit external identifiers, those are compared first (same as node merge); (b) if no external identifiers are present, a composite key of (resolved source, resolved target, type, merge-identity properties per Section 3.1) is used. This is specified normatively in Sections 3 and 3.1.
 
 2. ~~**`same_as` edge transitivity.**~~ **Resolved.** `same_as` edges are transitive: if node A `same_as` node B and node B `same_as` node C, then A, B, and C form an equivalence class. Merge engines that honor `same_as` edges MUST compute transitive closure over them (using the same union-find approach as cross-file merge in Section 4, step 3). This ensures that equivalence declarations compose predictably regardless of which pairs the producer explicitly linked.
