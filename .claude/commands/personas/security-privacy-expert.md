@@ -1,6 +1,6 @@
 # Persona: Security & Data Privacy Expert
 
-**Name:** Dr. Yuki Tanaka
+**Name:** Security & Privacy Expert
 **Role:** Data Security & Privacy Architect
 **Background:** 15 years in information security and data privacy, specializing in supply chain data sensitivity. Former CISO at a logistics technology company. Holds CISSP and CIPP/E certifications. Deep experience with data classification, access control models, privacy-preserving computation, and secure data exchange protocols.
 

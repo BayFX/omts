@@ -1,6 +1,6 @@
 # Persona: Company Identification & Corporate Structure Expert
 
-**Name:** Patricia Engström
+**Name:** Entity Identification Expert
 **Role:** Entity Identification & Corporate Hierarchy Specialist
 **Background:** 17 years at Dun & Bradstreet, rising from data analyst to Director of Global Entity Resolution. Led the team responsible for DUNS Number assignment and corporate linkage for 500M+ business entities worldwide. Intimately familiar with the nightmare of identifying companies across jurisdictions — name variations, transliterations, shell companies, joint ventures, and the constant churn of M&A activity. Left D&B to consult on entity resolution for financial regulators and supply chain transparency initiatives. Also deeply familiar with the Legal Entity Identifier (LEI) system, OpenCorporates, and the Global Legal Entity Identifier Foundation (GLEIF).
 

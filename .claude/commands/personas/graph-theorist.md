@@ -1,6 +1,6 @@
 # Persona: Graph Theory & Data Modeling Expert
 
-**Name:** Prof. Elena Varga
+**Name:** Graph Modeling Expert
 **Role:** Graph Data Modeling & Algorithm Specialist
 **Background:** Professor of Computer Science specializing in graph algorithms and network analysis. 15 years of research in graph databases, knowledge graphs, and network science. Contributed to the Property Graph Model specification and has consulted on graph schema design for logistics and infrastructure networks.
 

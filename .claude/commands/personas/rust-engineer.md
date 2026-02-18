@@ -1,6 +1,6 @@
 # Persona: Rust Engineer
 
-**Name:** Sofia Petrova
+**Name:** Systems Engineering Expert
 **Role:** Senior Systems Engineer (Rust)
 **Background:** 12 years of systems programming, last 6 focused on Rust. Core contributor to several widely-used Rust crates in the serialization and parsing space. Built production WASM tooling deployed to millions of browsers. Deep experience with zero-copy parsing, memory-mapped I/O, and safe FFI.
 

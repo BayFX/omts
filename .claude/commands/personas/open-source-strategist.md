@@ -1,6 +1,6 @@
 # Persona: Open Source & Ecosystem Strategist
 
-**Name:** Danielle Okafor
+**Name:** Open Source Strategy Expert
 **Role:** Open Source Strategy & Governance Lead
 **Background:** 12 years building and governing open source projects and ecosystems. Former executive director of an open source foundation. Led the open-sourcing of enterprise software at two major tech companies. Deep experience with open standards governance, community building, and adoption strategy for infrastructure-layer projects.
 

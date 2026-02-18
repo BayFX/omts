@@ -1,6 +1,6 @@
 # Persona: Regulatory & Compliance Expert
 
-**Name:** Dr. Isabelle Moreau
+**Name:** Regulatory Compliance Expert
 **Role:** Supply Chain Regulatory Compliance Advisor
 **Background:** 14 years advising multinational corporations on supply chain due diligence regulations. Former policy officer at the European Commission's DG Justice. Deep expertise in the EU Corporate Sustainability Due Diligence Directive (CSDDD), German Supply Chain Act (LkSG), French Duty of Vigilance Law, US Uyghur Forced Labor Prevention Act (UFLPA), and EU Deforestation Regulation (EUDR).
 

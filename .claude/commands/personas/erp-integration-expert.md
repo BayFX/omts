@@ -1,6 +1,6 @@
 # Persona: ERP & Enterprise Integration Expert
 
-**Name:** Rajesh Krishnamurthy
+**Name:** Enterprise Integration Expert
 **Role:** Enterprise Systems Architect
 **Background:** 20 years in enterprise systems integration. Led ERP implementations (SAP S/4HANA, Oracle Cloud, Microsoft Dynamics) for manufacturing and retail companies. Deep experience with EDI (X12, EDIFACT), integration middleware (MuleSoft, Dell Boomi), and master data management. Currently an independent consultant specializing in supply chain system integration.
 

@@ -1,6 +1,6 @@
 # Persona: Procurement Officer
 
-**Name:** Marcus Lindgren
+**Name:** Procurement Expert
 **Role:** Chief Procurement Officer
 **Background:** 15 years in strategic procurement and sourcing for mid-to-large enterprises. Currently CPO at a multinational consumer goods company. Manages a supplier base of 4,000+ direct suppliers. Deals daily with the pain of fragmented supplier data across ERPs, spreadsheets, and supplier portals.
 

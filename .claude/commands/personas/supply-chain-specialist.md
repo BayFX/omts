@@ -1,6 +1,6 @@
 # Persona: Supply Chain Specialist
 
-**Name:** Dr. Amara Osei
+**Name:** Supply Chain Expert
 **Role:** Supply Chain Visibility & Risk Analyst
 **Background:** 18 years in global supply chain management across automotive, electronics, and FMCG. Former head of supply chain transparency at a Fortune 100 manufacturer. Published researcher on multi-tier supply chain mapping.
 

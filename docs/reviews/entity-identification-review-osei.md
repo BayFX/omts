@@ -1,6 +1,6 @@
 # Expert Review: OMTSF Entity Identification Specification
 
-**Reviewer:** Dr. Amara Osei, Supply Chain Visibility & Risk Analyst
+**Reviewer:** Supply Chain Expert, Supply Chain Visibility & Risk Analyst
 **Spec Reviewed:** OMTSF-SPEC-001 -- Entity Identification (Draft, 2026-02-17)
 **Date:** 2026-02-17
 
@@ -55,12 +55,12 @@ However, from a supply chain visibility and risk analysis perspective, I see mea
 
 ## Cross-Expert Notes
 
-- **For Prof. Varga (Graph Modeling):** The absence of a supply edge type taxonomy means the formal graph model is only half-specified. Corporate hierarchy edges are well-defined, but the commercial/operational edges that constitute the actual supply network remain informal. The merge semantics for edges (Section 7.2) depend on edge `type` equality, but if types are uncontrolled strings, merge correctness is implementation-dependent.
+- **For Prof. Graph Modeling Expert (Graph Modeling):** The absence of a supply edge type taxonomy means the formal graph model is only half-specified. Corporate hierarchy edges are well-defined, but the commercial/operational edges that constitute the actual supply network remain informal. The merge semantics for edges (Section 7.2) depend on edge `type` equality, but if types are uncontrolled strings, merge correctness is implementation-dependent.
 
-- **For Rajesh Krishnamurthy (Enterprise Systems):** The ERP integration mappings in Section 11 are excellent for entity data, but supply relationship edges also need ERP mapping guidance. SAP's purchasing info records (table `EINA`/`EINE`), scheduling agreements, and source lists all carry relationship data that should map to typed supply edges in OMTSF. Without this, the ERP export produces nodes without meaningful edges.
+- **For Enterprise Integration Expert (Enterprise Systems):** The ERP integration mappings in Section 11 are excellent for entity data, but supply relationship edges also need ERP mapping guidance. SAP's purchasing info records (table `EINA`/`EINE`), scheduling agreements, and source lists all carry relationship data that should map to typed supply edges in OMTSF. Without this, the ERP export produces nodes without meaningful edges.
 
-- **For Dr. Moreau (Regulatory Compliance):** The regulatory alignment table in Section 10.3 correctly identifies the regulations but understates the data granularity required. EUDR demands lot-level linkage to geolocated production plots, not just facility-level coordinates. CSDDD requires risk assessment results and remediation actions, not just network topology. The spec should either define extension points for regulatory-specific data or acknowledge that additional specs are needed.
+- **For Dr. Regulatory Compliance Expert (Regulatory Compliance):** The regulatory alignment table in Section 10.3 correctly identifies the regulations but understates the data granularity required. EUDR demands lot-level linkage to geolocated production plots, not just facility-level coordinates. CSDDD requires risk assessment results and remediation actions, not just network topology. The spec should either define extension points for regulatory-specific data or acknowledge that additional specs are needed.
 
-- **For Dr. Tanaka (Security & Privacy):** The boundary reference design in Section 8.2 is well-constructed, but its security depends on the salt being truly random and unique per file generation. If a producer reuses salts, the anti-enumeration property collapses. The spec should add a validation rule requiring salt uniqueness or at minimum a SHOULD-level recommendation for cryptographic random generation.
+- **For Dr. Security & Privacy Expert (Security & Privacy):** The boundary reference design in Section 8.2 is well-constructed, but its security depends on the salt being truly random and unique per file generation. If a producer reuses salts, the anti-enumeration property collapses. The spec should add a validation rule requiring salt uniqueness or at minimum a SHOULD-level recommendation for cryptographic random generation.
 
-- **For Patricia Engstrom (Entity Identification):** Open Question #2 (minimum identifier requirement at Level 1 vs. Level 2) should remain at Level 2. In my experience mapping sub-tier suppliers in emerging markets, many entities have no global identifier at all -- only a name, a city, and an internal vendor code. Blocking these files at Level 1 would make the format unusable for precisely the supply chain tiers where visibility is most needed.
+- **For Entity Identification Expert (Entity Identification):** Open Question #2 (minimum identifier requirement at Level 1 vs. Level 2) should remain at Level 2. In my experience mapping sub-tier suppliers in emerging markets, many entities have no global identifier at all -- only a name, a city, and an internal vendor code. Blocking these files at Level 1 would make the format unusable for precisely the supply chain tiers where visibility is most needed.

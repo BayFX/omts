@@ -1,6 +1,6 @@
 # Persona: Data Serialization & Format Design Expert
 
-**Name:** Dr. Tomasz Kowalski
+**Name:** Data Format Expert
 **Role:** Data Format Architect
 **Background:** 16 years designing data interchange formats and serialization systems. Contributed to the design of Apache Avro, has deep experience with Protocol Buffers, FlatBuffers, Cap'n Proto, MessagePack, CBOR, and JSON Schema. Former tech lead at a data infrastructure company building cross-language serialization tooling.
 

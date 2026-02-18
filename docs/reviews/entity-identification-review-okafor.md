@@ -1,6 +1,6 @@
 # Expert Review: OMTSF Entity Identification Specification (Revision 2)
 
-**Reviewer:** Danielle Okafor, Open Source Strategy & Governance Lead
+**Reviewer:** Open Source Strategy Expert, Open Source Strategy & Governance Lead
 **Spec Reviewed:** OMTSF-SPEC-001 -- Entity Identification (Draft, Revision 2, 2026-02-17)
 **Review Date:** 2026-02-18
 
@@ -48,12 +48,12 @@ From an adoption strategy perspective, Revision 2 strengthens the spec considera
 
 ## Cross-Expert Notes
 
-- **For Dr. Nakamura (Standards):** The governance process in Section 4.3 aligns well with your recommendation for formal scheme registration. However, the TSC that would execute this process does not yet exist. I recommend we jointly draft a TSC charter that incorporates your ISO 6523 alignment concerns as a standing review criterion for new scheme proposals.
+- **For Dr. Standards Expert (Standards):** The governance process in Section 4.3 aligns well with your recommendation for formal scheme registration. However, the TSC that would execute this process does not yet exist. I recommend we jointly draft a TSC charter that incorporates your ISO 6523 alignment concerns as a standing review criterion for new scheme proposals.
 
-- **For Marcus Lindgren (Procurement):** The adoption complexity concern I raised is directly connected to your enrichment lifecycle model (Section 14.2). The progression from internal-only to enriched is well-described for implementers, but needs a companion document for the procurement professionals who will be the actual users. A quick-start guide co-authored with your perspective on what a CPO needs to see would be highly effective.
+- **For Procurement Expert (Procurement):** The adoption complexity concern I raised is directly connected to your enrichment lifecycle model (Section 14.2). The progression from internal-only to enriched is well-described for implementers, but needs a companion document for the procurement professionals who will be the actual users. A quick-start guide co-authored with your perspective on what a CPO needs to see would be highly effective.
 
-- **For Prof. Varga (Graph Modeling):** The scheme governance process (Section 4.3) handles vocabulary evolution but does not address evolution of the merge semantics or edge type taxonomy. If the formal algebraic properties of merge are changed in a future spec version, the governance implications are significant -- existing merged datasets may become inconsistent. The TSC charter should explicitly scope governance authority over merge semantics, not just the scheme registry.
+- **For Prof. Graph Modeling Expert (Graph Modeling):** The scheme governance process (Section 4.3) handles vocabulary evolution but does not address evolution of the merge semantics or edge type taxonomy. If the formal algebraic properties of merge are changed in a future spec version, the governance implications are significant -- existing merged datasets may become inconsistent. The TSC charter should explicitly scope governance authority over merge semantics, not just the scheme registry.
 
-- **For Dr. Tanaka (Security):** The GLEIF RA list versioning (Section 4.4) uses a standard PR workflow without TSC approval. This is correct for routine data updates, but the validator fallback behavior (warning-not-rejection for unknown codes) has security implications: a malicious file could use fabricated RA codes to bypass validation. The conformance test suite should include test cases for unknown RA code handling to ensure validators implement the fallback correctly.
+- **For Dr. Security & Privacy Expert (Security):** The GLEIF RA list versioning (Section 4.4) uses a standard PR workflow without TSC approval. This is correct for routine data updates, but the validator fallback behavior (warning-not-rejection for unknown codes) has security implications: a malicious file could use fabricated RA codes to bypass validation. The conformance test suite should include test cases for unknown RA code handling to ensure validators implement the fallback correctly.
 
-- **For Dr. Kowalski (Data Format):** The scheme governance process and extension scheme namespace are well-defined textually, but the conformance test suite I am recommending would be the authoritative machine-readable expression of the validation rules. I would welcome your input on the test vector format, particularly for the boundary reference hash test vectors you advocated for in your review.
+- **For Dr. Data Format Expert (Data Format):** The scheme governance process and extension scheme namespace are well-defined textually, but the conformance test suite I am recommending would be the authoritative machine-readable expression of the validation rules. I would welcome your input on the test vector format, particularly for the boundary reference hash test vectors you advocated for in your review.

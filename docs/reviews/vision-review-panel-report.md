@@ -22,17 +22,17 @@ The panel also surfaced productive tensions. The "strict validation" principle, 
 
 | Name | Role | Key Focus Area |
 |------|------|---------------|
-| Dr. Amara Osei | Supply Chain Visibility & Risk Analyst | Multi-tier visibility, temporal modeling, regulatory data needs |
-| Marcus Lindgren | Chief Procurement Officer | Supplier adoption, ERP feasibility, operational cost |
-| Dr. Kenji Nakamura | Standards & Interoperability Specialist | GS1/ISO/UN alignment, identifier strategy, governance |
-| Sofia Petrova | Senior Systems Engineer (Rust) | Implementation architecture, WASM, parsing safety, performance |
-| Prof. Elena Varga | Graph Data Modeling & Algorithm Specialist | Formal graph model, merge semantics, serialization round-trip |
-| Rajesh Krishnamurthy | Enterprise Systems Architect | ERP integration, master data mapping, delta updates |
-| Dr. Isabelle Moreau | Regulatory Compliance Advisor | CSDDD, EUDR, LkSG, UFLPA, attestation, audit trails |
-| Dr. Tomasz Kowalski | Data Format Architect | Serialization, schema evolution, file structure, compression |
-| Danielle Okafor | Open Source Strategy & Governance Lead | Governance, licensing, adoption strategy, ecosystem |
-| Dr. Yuki Tanaka | Data Security & Privacy Architect | Integrity, selective disclosure, threat modeling, local processing |
-| Patricia Engstrom | Entity Identification & Corporate Hierarchy Specialist | DUNS/LEI, entity resolution, corporate hierarchy, M&A |
+| Supply Chain Expert | Supply Chain Visibility & Risk Analyst | Multi-tier visibility, temporal modeling, regulatory data needs |
+| Procurement Expert | Chief Procurement Officer | Supplier adoption, ERP feasibility, operational cost |
+| Standards Expert | Standards & Interoperability Specialist | GS1/ISO/UN alignment, identifier strategy, governance |
+| Systems Engineering Expert | Senior Systems Engineer (Rust) | Implementation architecture, WASM, parsing safety, performance |
+| Graph Modeling Expert | Graph Data Modeling & Algorithm Specialist | Formal graph model, merge semantics, serialization round-trip |
+| Enterprise Integration Expert | Enterprise Systems Architect | ERP integration, master data mapping, delta updates |
+| Regulatory Compliance Expert | Regulatory Compliance Advisor | CSDDD, EUDR, LkSG, UFLPA, attestation, audit trails |
+| Data Format Expert | Data Format Architect | Serialization, schema evolution, file structure, compression |
+| Open Source Strategy Expert | Open Source Strategy & Governance Lead | Governance, licensing, adoption strategy, ecosystem |
+| Security & Privacy Expert | Data Security & Privacy Architect | Integrity, selective disclosure, threat modeling, local processing |
+| Entity Identification Expert | Entity Identification & Corporate Hierarchy Specialist | DUNS/LEI, entity resolution, corporate hierarchy, M&A |
 
 ---
 
@@ -40,17 +40,17 @@ The panel also surfaced productive tensions. The "strict validation" principle, 
 
 These issues were independently raised by multiple experts, lending them the highest confidence:
 
-1. **Entity identification is the #1 critical gap** (Osei, Lindgren, Nakamura, Varga, Krishnamurthy, Moreau, Okafor, Tanaka, Engstrom -- 9 of 11). Without a defined identifier strategy supporting LEI, DUNS, GLN, and composite identifiers, the merge-by-concatenation model is theoretical. This must be resolved before any other spec work.
+1. **Entity identification is the #1 critical gap** (Supply Chain Expert, Procurement Expert, Standards Expert, Graph Modeling Expert, Enterprise Integration Expert, Regulatory Compliance Expert, Open Source Strategy Expert, Security & Privacy Expert, Entity Identification Expert -- 9 of 11). Without a defined identifier strategy supporting LEI, DUNS, GLN, and composite identifiers, the merge-by-concatenation model is theoretical. This must be resolved before any other spec work.
 
-2. **Temporal dimension is missing from the data model** (Osei, Lindgren, Moreau, Varga, Engstrom -- 5 of 11). Supply chains change constantly. Nodes and edges need `valid_from`/`valid_to` timestamps. Files need snapshot dates. Without temporal metadata, the format cannot support regulatory due diligence (which requires periodic re-assessment) or distinguish current from historical relationships.
+2. **Temporal dimension is missing from the data model** (Supply Chain Expert, Procurement Expert, Regulatory Compliance Expert, Graph Modeling Expert, Entity Identification Expert -- 5 of 11). Supply chains change constantly. Nodes and edges need `valid_from`/`valid_to` timestamps. Files need snapshot dates. Without temporal metadata, the format cannot support regulatory due diligence (which requires periodic re-assessment) or distinguish current from historical relationships.
 
-3. **No governance model despite "vendor-neutral" claims** (Nakamura, Okafor -- 2 of 11, but both rated Critical). The repository is copyrighted by BayFX under MIT with no governance charter, no TSC, no CLA/DCO, and no IP policy. This gap between stated intent and actual structure will block enterprise and government adoption.
+3. **No governance model despite "vendor-neutral" claims** (Standards Expert, Open Source Strategy Expert -- 2 of 11, but both rated Critical). The repository is copyrighted by BayFX under MIT with no governance charter, no TSC, no CLA/DCO, and no IP policy. This gap between stated intent and actual structure will block enterprise and government adoption.
 
-4. **No file integrity or authenticity mechanism** (Tanaka, Kowalski, Moreau -- 3 of 11). Files exchanged between parties need checksums and optional digital signatures. Without these, recipients cannot verify provenance or detect tampering -- a requirement for regulatory submissions.
+4. **No file integrity or authenticity mechanism** (Security & Privacy Expert, Data Format Expert, Regulatory Compliance Expert -- 3 of 11). Files exchanged between parties need checksums and optional digital signatures. Without these, recipients cannot verify provenance or detect tampering -- a requirement for regulatory submissions.
 
-5. **Merge semantics are underspecified** (Varga, Osei, Krishnamurthy, Nakamura, Engstrom -- 5 of 11). "Concatenate and deduplicate" requires a definition of identity that does not yet exist. The spec must define identity predicates for both nodes and edges, or merge behavior will be implementation-dependent.
+5. **Merge semantics are underspecified** (Graph Modeling Expert, Supply Chain Expert, Enterprise Integration Expert, Standards Expert, Entity Identification Expert -- 5 of 11). "Concatenate and deduplicate" requires a definition of identity that does not yet exist. The spec must define identity predicates for both nodes and edges, or merge behavior will be implementation-dependent.
 
-6. **Strict validation vs. real-world data quality** (Lindgren, Krishnamurthy -- 2 of 11). ERP data is messy. If the format rejects files with incomplete metadata, adoption is blocked. The resolution: tiered validation levels (structural vs. completeness vs. enrichment).
+6. **Strict validation vs. real-world data quality** (Procurement Expert, Enterprise Integration Expert -- 2 of 11). ERP data is messy. If the format rejects files with incomplete metadata, adoption is blocked. The resolution: tiered validation levels (structural vs. completeness vs. enrichment).
 
 ---
 
@@ -60,21 +60,21 @@ Issues rated **[Critical]** by at least one expert. These must be addressed befo
 
 | # | Issue | Flagged By |
 |---|-------|-----------|
-| C1 | **No entity identifier strategy** -- No reference to LEI, DUNS, GLN, or any existing identification standard. Merge, regulatory reporting, and ERP integration all depend on this. | Nakamura, Lindgren, Krishnamurthy, Moreau, Engstrom |
-| C2 | **No temporal dimension** -- Static graph cannot represent supply chain changes over time. Required for regulatory due diligence and disruption analysis. | Osei, Moreau |
-| C3 | **No data quality/confidence signals** -- No provenance metadata (who reported this? how verified?). Validated files give false confidence without factual reliability signals. | Osei, Moreau |
-| C4 | **No governance model** -- BayFX copyright, MIT license, no charter, no TSC, no contribution process. Enterprise and government adopters will not build on a single-company standard. | Okafor, Nakamura |
-| C5 | **Licensing mismatch** -- MIT for the spec allows forking; no patent grant. Spec should be CC-BY-4.0, code should be Apache 2.0. | Okafor |
-| C6 | **No integrity/authenticity mechanism** -- No checksums, content hashes, or digital signatures. Files cannot be verified for tampering or provenance. | Tanaka, Kowalski |
-| C7 | **No selective disclosure model** -- Access control dismissed as out of scope, but data compartmentalization is a format concern. Companies cannot share partial graphs without revealing their entire network. | Tanaka |
-| C8 | **No formal graph model** -- Vision does not commit to simple graph vs. multigraph. Supply chains inherently require parallel edges (same supplier, different goods). Edge identity model is undefined. | Varga |
-| C9 | **No resource limits for parser safety** -- No max file size, node count, or string length. Untrusted input parsing without bounds enables DoS. WASM heap is ~2-4 GB. | Petrova |
-| C10 | **No supplier-side authoring strategy** -- Vision assumes systems export files but doesn't address how small suppliers without ERPs will produce `.omts` files. | Lindgren |
-| C11 | **No incremental/delta update model** -- Large manufacturers cannot regenerate entire supply network files on every change. Delta extraction from ERPs is standard practice. | Krishnamurthy |
-| C12 | **No mapping to existing standards** -- No mention of GS1 EPCIS, UN/CEFACT, ISO/TC 154, or W3C PROV-O. Risks reinventing existing vocabularies. | Nakamura |
-| C13 | **Schema evolution deferred but foundational** -- Evolution rules (field numbering, unknown field handling, optionality) must be defined before the schema, not after. | Kowalski |
-| C14 | **No dual-format strategy** -- Need both human-readable (JSON) and binary (CBOR/MessagePack) encodings. Single format forces a compromise that satisfies neither use case. | Kowalski |
-| C15 | **Corporate hierarchy absent from data model** -- No ownership, control, or parent-subsidiary edges. Required for CSDDD and LkSG regulatory compliance. | Engstrom |
+| C1 | **No entity identifier strategy** -- No reference to LEI, DUNS, GLN, or any existing identification standard. Merge, regulatory reporting, and ERP integration all depend on this. | Standards Expert, Procurement Expert, Enterprise Integration Expert, Regulatory Compliance Expert, Entity Identification Expert |
+| C2 | **No temporal dimension** -- Static graph cannot represent supply chain changes over time. Required for regulatory due diligence and disruption analysis. | Supply Chain Expert, Regulatory Compliance Expert |
+| C3 | **No data quality/confidence signals** -- No provenance metadata (who reported this? how verified?). Validated files give false confidence without factual reliability signals. | Supply Chain Expert, Regulatory Compliance Expert |
+| C4 | **No governance model** -- BayFX copyright, MIT license, no charter, no TSC, no contribution process. Enterprise and government adopters will not build on a single-company standard. | Open Source Strategy Expert, Standards Expert |
+| C5 | **Licensing mismatch** -- MIT for the spec allows forking; no patent grant. Spec should be CC-BY-4.0, code should be Apache 2.0. | Open Source Strategy Expert |
+| C6 | **No integrity/authenticity mechanism** -- No checksums, content hashes, or digital signatures. Files cannot be verified for tampering or provenance. | Security & Privacy Expert, Data Format Expert |
+| C7 | **No selective disclosure model** -- Access control dismissed as out of scope, but data compartmentalization is a format concern. Companies cannot share partial graphs without revealing their entire network. | Security & Privacy Expert |
+| C8 | **No formal graph model** -- Vision does not commit to simple graph vs. multigraph. Supply chains inherently require parallel edges (same supplier, different goods). Edge identity model is undefined. | Graph Modeling Expert |
+| C9 | **No resource limits for parser safety** -- No max file size, node count, or string length. Untrusted input parsing without bounds enables DoS. WASM heap is ~2-4 GB. | Systems Engineering Expert |
+| C10 | **No supplier-side authoring strategy** -- Vision assumes systems export files but doesn't address how small suppliers without ERPs will produce `.omts` files. | Procurement Expert |
+| C11 | **No incremental/delta update model** -- Large manufacturers cannot regenerate entire supply network files on every change. Delta extraction from ERPs is standard practice. | Enterprise Integration Expert |
+| C12 | **No mapping to existing standards** -- No mention of GS1 EPCIS, UN/CEFACT, ISO/TC 154, or W3C PROV-O. Risks reinventing existing vocabularies. | Standards Expert |
+| C13 | **Schema evolution deferred but foundational** -- Evolution rules (field numbering, unknown field handling, optionality) must be defined before the schema, not after. | Data Format Expert |
+| C14 | **No dual-format strategy** -- Need both human-readable (JSON) and binary (CBOR/MessagePack) encodings. Single format forces a compromise that satisfies neither use case. | Data Format Expert |
+| C15 | **Corporate hierarchy absent from data model** -- No ownership, control, or parent-subsidiary edges. Required for CSDDD and LkSG regulatory compliance. | Entity Identification Expert |
 
 ---
 
@@ -84,23 +84,23 @@ Issues rated **[Major]** by at least one expert.
 
 | # | Issue | Flagged By |
 |---|-------|-----------|
-| M1 | **Geolocation not mentioned** -- EUDR requires polygon-level coordinates. CBAM requires facility-level location. Must be core, not an extension. | Osei, Moreau |
-| M2 | **No relationship type taxonomy** -- Subcontracting, tolling, licensed manufacturing, brokerage all have different regulatory implications. | Osei |
-| M3 | **No ERP mapping guidance** -- No reference to SAP vendor master, Oracle supplier attributes, or standard ERP export mechanisms. | Krishnamurthy, Lindgren |
-| M4 | **Domain fields deferred too aggressively** -- Commodity codes (HS/UNSPSC), certifications (ISO, SA8000), and country codes are universal regulatory requirements. | Lindgren, Moreau |
-| M5 | **Strict validation blocks incremental adoption** -- Need "structurally valid but incomplete" files. | Lindgren, Krishnamurthy |
-| M6 | **No conformance clauses** -- No definition of conformant producer, consumer, or validator. "Conformance is sufficient for interoperability" is untestable. | Nakamura |
-| M7 | **Extensibility mechanism unspecified** -- Extensions (new node types, edge types, metadata fields) need must-understand vs. may-ignore rules. Without this, format fragments. | Nakamura, Petrova |
-| M8 | **Serialization format has deep WASM implications** -- JSON vs. CBOR vs. rkyv affects zero-copy, binary size, and streaming parse. Rust team must co-decide. | Petrova |
-| M9 | **No `no_std` support mentioned** -- Core crate should target `#![no_std] + alloc` for true WASM portability. Retrofitting is painful. | Petrova |
-| M10 | **"Data stays local" not architecturally enforced** -- CLI could make network calls unless built without network-capable dependencies. Needs verifiable no-network property. | Tanaka |
-| M11 | **No threat model** -- No enumeration of adversaries or attack scenarios for file exchange. | Tanaka |
-| M12 | **No magic bytes or content-type registration** -- Self-contained file format needs magic bytes for detection and IANA media type registration. | Kowalski |
-| M13 | **No content integrity model** -- No checksums or content hashes in file header. | Kowalski |
-| M14 | **Compression not designed** -- Block-level vs. whole-file compression affects random access and streaming. Interacts with every other format decision. | Kowalski |
-| M15 | **No CLA/DCO** -- No mechanism to ensure contributions are properly licensed. Blocks enterprise contributors and foundation hosting. | Okafor |
-| M16 | **No adoption strategy** -- No identified first movers, target use cases, or path from reference implementation to real-world usage. | Okafor |
-| M17 | **No ecosystem plan** -- No language bindings, conformance test suite, or certification process for third-party implementations. | Okafor |
+| M1 | **Geolocation not mentioned** -- EUDR requires polygon-level coordinates. CBAM requires facility-level location. Must be core, not an extension. | Supply Chain Expert, Regulatory Compliance Expert |
+| M2 | **No relationship type taxonomy** -- Subcontracting, tolling, licensed manufacturing, brokerage all have different regulatory implications. | Supply Chain Expert |
+| M3 | **No ERP mapping guidance** -- No reference to SAP vendor master, Oracle supplier attributes, or standard ERP export mechanisms. | Enterprise Integration Expert, Procurement Expert |
+| M4 | **Domain fields deferred too aggressively** -- Commodity codes (HS/UNSPSC), certifications (ISO, SA8000), and country codes are universal regulatory requirements. | Procurement Expert, Regulatory Compliance Expert |
+| M5 | **Strict validation blocks incremental adoption** -- Need "structurally valid but incomplete" files. | Procurement Expert, Enterprise Integration Expert |
+| M6 | **No conformance clauses** -- No definition of conformant producer, consumer, or validator. "Conformance is sufficient for interoperability" is untestable. | Standards Expert |
+| M7 | **Extensibility mechanism unspecified** -- Extensions (new node types, edge types, metadata fields) need must-understand vs. may-ignore rules. Without this, format fragments. | Standards Expert, Systems Engineering Expert |
+| M8 | **Serialization format has deep WASM implications** -- JSON vs. CBOR vs. rkyv affects zero-copy, binary size, and streaming parse. Rust team must co-decide. | Systems Engineering Expert |
+| M9 | **No `no_std` support mentioned** -- Core crate should target `#![no_std] + alloc` for true WASM portability. Retrofitting is painful. | Systems Engineering Expert |
+| M10 | **"Data stays local" not architecturally enforced** -- CLI could make network calls unless built without network-capable dependencies. Needs verifiable no-network property. | Security & Privacy Expert |
+| M11 | **No threat model** -- No enumeration of adversaries or attack scenarios for file exchange. | Security & Privacy Expert |
+| M12 | **No magic bytes or content-type registration** -- Self-contained file format needs magic bytes for detection and IANA media type registration. | Data Format Expert |
+| M13 | **No content integrity model** -- No checksums or content hashes in file header. | Data Format Expert |
+| M14 | **Compression not designed** -- Block-level vs. whole-file compression affects random access and streaming. Interacts with every other format decision. | Data Format Expert |
+| M15 | **No CLA/DCO** -- No mechanism to ensure contributions are properly licensed. Blocks enterprise contributors and foundation hosting. | Open Source Strategy Expert |
+| M16 | **No adoption strategy** -- No identified first movers, target use cases, or path from reference implementation to real-world usage. | Open Source Strategy Expert |
+| M17 | **No ecosystem plan** -- No language bindings, conformance test suite, or certification process for third-party implementations. | Open Source Strategy Expert |
 
 ---
 
@@ -108,21 +108,21 @@ Issues rated **[Major]** by at least one expert.
 
 | # | Issue | Flagged By |
 |---|-------|-----------|
-| m1 | Circular flows (recycling, reverse logistics) unaddressed | Osei |
-| m2 | Merge conflict resolution deferred but critical for procurement workflows | Lindgren |
-| m3 | No mention of data freshness or temporal validity | Lindgren |
-| m4 | No versioning semantics stated (semantic versioning? forward compatibility?) | Nakamura |
-| m5 | No error reporting contract (machine-readable vs. human-readable) | Petrova |
-| m6 | No fuzzing or adversarial input testing commitment | Petrova |
-| m7 | Graph directionality constraints not stated (DAG vs. cyclic) | Varga |
-| m8 | "Adjacency list" terminology may confuse graph theory community | Varga |
-| m9 | No EDI coexistence positioning | Krishnamurthy |
-| m10 | No canonical encoding for deterministic diffing and signatures | Kowalski |
-| m11 | No RFC or specification development process | Okafor |
-| m12 | No code of conduct or contribution guide | Okafor |
-| m13 | No encryption-at-rest envelope for files on shared drives/email | Tanaka |
-| m14 | Merge from different trust domains has security implications | Tanaka |
-| m15 | "Facilities" conflated with "organizations" -- different entity types | Engstrom |
+| m1 | Circular flows (recycling, reverse logistics) unaddressed | Supply Chain Expert |
+| m2 | Merge conflict resolution deferred but critical for procurement workflows | Procurement Expert |
+| m3 | No mention of data freshness or temporal validity | Procurement Expert |
+| m4 | No versioning semantics stated (semantic versioning? forward compatibility?) | Standards Expert |
+| m5 | No error reporting contract (machine-readable vs. human-readable) | Systems Engineering Expert |
+| m6 | No fuzzing or adversarial input testing commitment | Systems Engineering Expert |
+| m7 | Graph directionality constraints not stated (DAG vs. cyclic) | Graph Modeling Expert |
+| m8 | "Adjacency list" terminology may confuse graph theory community | Graph Modeling Expert |
+| m9 | No EDI coexistence positioning | Enterprise Integration Expert |
+| m10 | No canonical encoding for deterministic diffing and signatures | Data Format Expert |
+| m11 | No RFC or specification development process | Open Source Strategy Expert |
+| m12 | No code of conduct or contribution guide | Open Source Strategy Expert |
+| m13 | No encryption-at-rest envelope for files on shared drives/email | Security & Privacy Expert |
+| m14 | Merge from different trust domains has security implications | Security & Privacy Expert |
+| m15 | "Facilities" conflated with "organizations" -- different entity types | Entity Identification Expert |
 
 ---
 
@@ -132,65 +132,65 @@ Issues rated **[Major]** by at least one expert.
 
 | # | Recommendation | Originated By |
 |---|---------------|--------------|
-| P0-1 | **Define composite entity identifier model.** Support LEI, DUNS, GLN, national registry numbers, tax IDs, and internal system IDs. Allow multiple identifiers per node. Define equivalence rules for merge. | Engstrom, Nakamura, Lindgren, Krishnamurthy, Moreau |
-| P0-2 | **Introduce temporal metadata.** `valid_from`, `valid_to`, `last_verified`, `snapshot_date` on nodes, edges, and file header. Non-negotiable for regulatory use. | Osei, Moreau, Engstrom |
-| P0-3 | **Define data provenance/confidence structure.** `reported_by`, `confidence` (confirmed/reported/inferred/unverified), `verification_method`, `assertion_date` attachable to any node or edge. | Osei, Moreau |
-| P0-4 | **Publish governance charter.** TSC, decision-making process, IP policy, contribution process. Consider CNCF governance template or TODO Group principles. | Okafor, Nakamura |
-| P0-5 | **Separate spec and code licensing.** Spec: CC-BY-4.0. Code: Apache 2.0 (explicit patent grant). Adopt DCO for contributions. | Okafor |
-| P0-6 | **Define formal graph model.** Commit to directed labeled multigraph with attributed nodes and edges, both carrying independent identifiers. Reference ISO GQL (ISO/IEC 39075) Property Graph Model. | Varga |
-| P0-7 | **Define resource limits in spec.** Max file size, node count, edge count, string length. Parser must enforce during streaming deserialization, not post-hoc. | Petrova |
-| P0-8 | **Define magic bytes and file header structure.** 4-8 byte magic sequence, format version, encoding type, flags field. Cheap now, expensive to change later. | Kowalski |
-| P0-9 | **Commit to dual-encoding strategy.** Human-readable (JSON) + binary (CBOR or MessagePack). File header encoding type field distinguishes them. | Kowalski |
-| P0-10 | **Define schema evolution rules before defining the schema.** Field identification (name vs. number), optionality rules, unknown field handling. | Kowalski |
-| P0-11 | **Publish explicit standards mapping.** For each OMTSF concept, document corresponding GS1, UN/CEFACT, and ISO construct. State whether OMTSF reuses, extends, or diverges. | Nakamura |
-| P0-12 | **Define supplier authoring strategy.** Document how small suppliers without ERPs produce valid files. WASM-powered web form outputting `.omts`. | Lindgren |
-| P0-13 | **Include Rust implementation team in serialization format decision.** Joint decision matrix: JSON, CBOR, MessagePack, FlatBuffers, rkyv across readability, zero-copy, WASM size, streaming. | Petrova |
+| P0-1 | **Define composite entity identifier model.** Support LEI, DUNS, GLN, national registry numbers, tax IDs, and internal system IDs. Allow multiple identifiers per node. Define equivalence rules for merge. | Entity Identification Expert, Standards Expert, Procurement Expert, Enterprise Integration Expert, Regulatory Compliance Expert |
+| P0-2 | **Introduce temporal metadata.** `valid_from`, `valid_to`, `last_verified`, `snapshot_date` on nodes, edges, and file header. Non-negotiable for regulatory use. | Supply Chain Expert, Regulatory Compliance Expert, Entity Identification Expert |
+| P0-3 | **Define data provenance/confidence structure.** `reported_by`, `confidence` (confirmed/reported/inferred/unverified), `verification_method`, `assertion_date` attachable to any node or edge. | Supply Chain Expert, Regulatory Compliance Expert |
+| P0-4 | **Publish governance charter.** TSC, decision-making process, IP policy, contribution process. Consider CNCF governance template or TODO Group principles. | Open Source Strategy Expert, Standards Expert |
+| P0-5 | **Separate spec and code licensing.** Spec: CC-BY-4.0. Code: Apache 2.0 (explicit patent grant). Adopt DCO for contributions. | Open Source Strategy Expert |
+| P0-6 | **Define formal graph model.** Commit to directed labeled multigraph with attributed nodes and edges, both carrying independent identifiers. Reference ISO GQL (ISO/IEC 39075) Property Graph Model. | Graph Modeling Expert |
+| P0-7 | **Define resource limits in spec.** Max file size, node count, edge count, string length. Parser must enforce during streaming deserialization, not post-hoc. | Systems Engineering Expert |
+| P0-8 | **Define magic bytes and file header structure.** 4-8 byte magic sequence, format version, encoding type, flags field. Cheap now, expensive to change later. | Data Format Expert |
+| P0-9 | **Commit to dual-encoding strategy.** Human-readable (JSON) + binary (CBOR or MessagePack). File header encoding type field distinguishes them. | Data Format Expert |
+| P0-10 | **Define schema evolution rules before defining the schema.** Field identification (name vs. number), optionality rules, unknown field handling. | Data Format Expert |
+| P0-11 | **Publish explicit standards mapping.** For each OMTSF concept, document corresponding GS1, UN/CEFACT, and ISO construct. State whether OMTSF reuses, extends, or diverges. | Standards Expert |
+| P0-12 | **Define supplier authoring strategy.** Document how small suppliers without ERPs produce valid files. WASM-powered web form outputting `.omts`. | Procurement Expert |
+| P0-13 | **Include Rust implementation team in serialization format decision.** Joint decision matrix: JSON, CBOR, MessagePack, FlatBuffers, rkyv across readability, zero-copy, WASM size, streaming. | Systems Engineering Expert |
 
 ### P1 -- Before v1
 
 | # | Recommendation | Originated By |
 |---|---------------|--------------|
-| P1-1 | **Make geolocation a core node attribute.** WGS 84 coordinates on facility nodes. Polygon geometries for EUDR land parcels. | Osei, Moreau |
-| P1-2 | **Add corporate hierarchy as core edge types.** Ownership (with percentage), operational control, legal parentage. Reference GLEIF Level 2 data. | Engstrom |
-| P1-3 | **Define relationship type taxonomy.** Direct supply, subcontracting, tolling, licensed manufacturing, brokerage, logistics. | Osei |
-| P1-4 | **Implement tiered validation levels.** Level 1: structural (graph integrity). Level 2: completeness (recommended fields). Level 3: enrichment (cross-references). | Lindgren, Krishnamurthy |
-| P1-5 | **Add file integrity mechanism.** SHA-256 content hash in file header. Optional COSE Sign1 signature envelope. | Tanaka, Kowalski |
-| P1-6 | **Introduce subgraph projection concept.** Valid subset files with boundary markers. Opaque hashed references for redacted nodes. | Tanaka |
-| P1-7 | **Specify extension mechanism.** Must-understand vs. may-ignore rules. Namespace-qualified to prevent collision. | Nakamura, Petrova |
-| P1-8 | **Design core crate as `#![no_std] + alloc`.** Forces WASM-clean dependencies from day one. | Petrova |
-| P1-9 | **Publish ERP integration guides.** Reference mappings for SAP S/4HANA, Oracle SCM Cloud, Microsoft Dynamics 365. | Krishnamurthy, Lindgren |
-| P1-10 | **Include minimal regulatory fields in core schema.** ISO 3166 country codes, HS/CN commodity codes, ISIC/NACE sector codes. | Moreau, Lindgren |
-| P1-11 | **Define conformance levels.** Producer, consumer, and validator conformance with testable assertion sets. | Nakamura |
-| P1-12 | **Commit to continuous fuzz testing.** `cargo-fuzz` targets for every deserialization entry point. CI-integrated with growing corpus. | Petrova |
-| P1-13 | **Publish lightweight threat model.** Enumerate: malicious file injection, topology inference, tampering in transit, unauthorized re-sharing. | Tanaka |
-| P1-14 | **Enforce no-network in CLI.** Build without network I/O libraries. CI check auditing dependency tree. | Tanaka |
-| P1-15 | **Design delta/patch file format.** Lightweight envelope marking nodes/edges as added/modified/removed relative to prior version. | Krishnamurthy |
-| P1-16 | **Define canonical encoding for human-readable format.** RFC 8785 (JCS) or custom canonicalization for deterministic diffing and signatures. | Kowalski |
-| P1-17 | **Define adoption wedge.** Target EU CSDDD/LkSG compliance reporting with 2-3 concrete early adopters. | Okafor |
-| P1-18 | **Plan language bindings.** Python (PyO3), JavaScript/TypeScript, Java on the roadmap. | Okafor |
-| P1-19 | **Design extensibility mechanism concurrently with core types.** Prototype typed enum vs. opaque Value map in Rust. Evaluate against serde round-trip, zero-copy, WASM size. | Petrova |
-| P1-20 | **Specify identifier equivalence rules for merge.** Shared external identifier = merge candidate. Define matching logic explicitly. | Engstrom |
+| P1-1 | **Make geolocation a core node attribute.** WGS 84 coordinates on facility nodes. Polygon geometries for EUDR land parcels. | Supply Chain Expert, Regulatory Compliance Expert |
+| P1-2 | **Add corporate hierarchy as core edge types.** Ownership (with percentage), operational control, legal parentage. Reference GLEIF Level 2 data. | Entity Identification Expert |
+| P1-3 | **Define relationship type taxonomy.** Direct supply, subcontracting, tolling, licensed manufacturing, brokerage, logistics. | Supply Chain Expert |
+| P1-4 | **Implement tiered validation levels.** Level 1: structural (graph integrity). Level 2: completeness (recommended fields). Level 3: enrichment (cross-references). | Procurement Expert, Enterprise Integration Expert |
+| P1-5 | **Add file integrity mechanism.** SHA-256 content hash in file header. Optional COSE Sign1 signature envelope. | Security & Privacy Expert, Data Format Expert |
+| P1-6 | **Introduce subgraph projection concept.** Valid subset files with boundary markers. Opaque hashed references for redacted nodes. | Security & Privacy Expert |
+| P1-7 | **Specify extension mechanism.** Must-understand vs. may-ignore rules. Namespace-qualified to prevent collision. | Standards Expert, Systems Engineering Expert |
+| P1-8 | **Design core crate as `#![no_std] + alloc`.** Forces WASM-clean dependencies from day one. | Systems Engineering Expert |
+| P1-9 | **Publish ERP integration guides.** Reference mappings for SAP S/4HANA, Oracle SCM Cloud, Microsoft Dynamics 365. | Enterprise Integration Expert, Procurement Expert |
+| P1-10 | **Include minimal regulatory fields in core schema.** ISO 3166 country codes, HS/CN commodity codes, ISIC/NACE sector codes. | Regulatory Compliance Expert, Procurement Expert |
+| P1-11 | **Define conformance levels.** Producer, consumer, and validator conformance with testable assertion sets. | Standards Expert |
+| P1-12 | **Commit to continuous fuzz testing.** `cargo-fuzz` targets for every deserialization entry point. CI-integrated with growing corpus. | Systems Engineering Expert |
+| P1-13 | **Publish lightweight threat model.** Enumerate: malicious file injection, topology inference, tampering in transit, unauthorized re-sharing. | Security & Privacy Expert |
+| P1-14 | **Enforce no-network in CLI.** Build without network I/O libraries. CI check auditing dependency tree. | Security & Privacy Expert |
+| P1-15 | **Design delta/patch file format.** Lightweight envelope marking nodes/edges as added/modified/removed relative to prior version. | Enterprise Integration Expert |
+| P1-16 | **Define canonical encoding for human-readable format.** RFC 8785 (JCS) or custom canonicalization for deterministic diffing and signatures. | Data Format Expert |
+| P1-17 | **Define adoption wedge.** Target EU CSDDD/LkSG compliance reporting with 2-3 concrete early adopters. | Open Source Strategy Expert |
+| P1-18 | **Plan language bindings.** Python (PyO3), JavaScript/TypeScript, Java on the roadmap. | Open Source Strategy Expert |
+| P1-19 | **Design extensibility mechanism concurrently with core types.** Prototype typed enum vs. opaque Value map in Rust. Evaluate against serde round-trip, zero-copy, WASM size. | Systems Engineering Expert |
+| P1-20 | **Specify identifier equivalence rules for merge.** Shared external identifier = merge candidate. Define matching logic explicitly. | Entity Identification Expert |
 
 ### P2 -- Future
 
 | # | Recommendation | Originated By |
 |---|---------------|--------------|
-| P2-1 | Add regulatory mapping layer as first-class extension (EUDR, UFLPA, CBAM markers). | Osei |
-| P2-2 | Explicitly state directed graph may contain cycles. Ensure runtime handles cyclic graphs. | Osei, Varga |
-| P2-3 | Develop cost-of-adoption model for procurement leaders. | Lindgren |
-| P2-4 | Engage GS1 and UN/CEFACT for liaison/review. | Nakamura |
-| P2-5 | Define machine-readable error output format (JSON Lines with byte spans). | Petrova |
-| P2-6 | Consider hyperedge/n-ary relationship support for composite relationships. | Varga |
-| P2-7 | Use precise graph terminology ("node-link representation" not "adjacency list"). | Varga |
-| P2-8 | Define explicit EDI coexistence position. | Krishnamurthy |
-| P2-9 | Publish regulatory alignment matrix mapping regulations to schema elements. | Moreau |
-| P2-10 | Evaluate block-level compression with zstd. Per-section compression for partial access. | Kowalski |
-| P2-11 | Evaluate foundation hosting (Linux Foundation, OASIS, Eclipse). | Okafor |
-| P2-12 | Establish RFC process for spec changes. | Okafor |
-| P2-13 | Specify optional encryption envelope (age or COSE). | Tanaka |
-| P2-14 | Add per-node provenance metadata for post-merge auditability. | Tanaka |
-| P2-15 | Define canonical entity reference format (`lei:XXX`, `duns:YYY`, `gb-coh:ZZZ`). | Engstrom |
-| P2-16 | Register IANA media types (`application/vnd.omtsf+json`, `application/vnd.omtsf+cbor`). | Kowalski |
+| P2-1 | Add regulatory mapping layer as first-class extension (EUDR, UFLPA, CBAM markers). | Supply Chain Expert |
+| P2-2 | Explicitly state directed graph may contain cycles. Ensure runtime handles cyclic graphs. | Supply Chain Expert, Graph Modeling Expert |
+| P2-3 | Develop cost-of-adoption model for procurement leaders. | Procurement Expert |
+| P2-4 | Engage GS1 and UN/CEFACT for liaison/review. | Standards Expert |
+| P2-5 | Define machine-readable error output format (JSON Lines with byte spans). | Systems Engineering Expert |
+| P2-6 | Consider hyperedge/n-ary relationship support for composite relationships. | Graph Modeling Expert |
+| P2-7 | Use precise graph terminology ("node-link representation" not "adjacency list"). | Graph Modeling Expert |
+| P2-8 | Define explicit EDI coexistence position. | Enterprise Integration Expert |
+| P2-9 | Publish regulatory alignment matrix mapping regulations to schema elements. | Regulatory Compliance Expert |
+| P2-10 | Evaluate block-level compression with zstd. Per-section compression for partial access. | Data Format Expert |
+| P2-11 | Evaluate foundation hosting (Linux Foundation, OASIS, Eclipse). | Open Source Strategy Expert |
+| P2-12 | Establish RFC process for spec changes. | Open Source Strategy Expert |
+| P2-13 | Specify optional encryption envelope (age or COSE). | Security & Privacy Expert |
+| P2-14 | Add per-node provenance metadata for post-merge auditability. | Security & Privacy Expert |
+| P2-15 | Define canonical entity reference format (`lei:XXX`, `duns:YYY`, `gb-coh:ZZZ`). | Entity Identification Expert |
+| P2-16 | Register IANA media types (`application/vnd.omtsf+json`, `application/vnd.omtsf+cbor`). | Data Format Expert |
 
 ---
 
@@ -198,27 +198,27 @@ Issues rated **[Major]** by at least one expert.
 
 The most valuable insights from a multi-expert review are the interdependencies between domains. Key interactions identified:
 
-1. **Identity + Graph Model + Merge (Engstrom + Varga + Nakamura):** The identifier strategy determines whether merge is tractable. The formal graph model determines whether edges need independent IDs. Together, these three decisions form a single architectural unit that must be co-designed.
+1. **Identity + Graph Model + Merge (Entity Identification Expert + Graph Modeling Expert + Standards Expert):** The identifier strategy determines whether merge is tractable. The formal graph model determines whether edges need independent IDs. Together, these three decisions form a single architectural unit that must be co-designed.
 
-2. **Identity + ERP Integration (Engstrom + Krishnamurthy):** ERP systems use internal vendor numbers. The identifier model must support system-local IDs alongside global identifiers, or enterprise adoption requires a translation layer that defeats the purpose.
+2. **Identity + ERP Integration (Entity Identification Expert + Enterprise Integration Expert):** ERP systems use internal vendor numbers. The identifier model must support system-local IDs alongside global identifiers, or enterprise adoption requires a translation layer that defeats the purpose.
 
-3. **Serialization + Rust Implementation (Kowalski + Petrova):** The dual-encoding decision doubles the parser surface and fuzzing requirement. The extensibility mechanism determines Rust type design (enum vs. HashMap). These must be joint decisions.
+3. **Serialization + Rust Implementation (Data Format Expert + Systems Engineering Expert):** The dual-encoding decision doubles the parser surface and fuzzing requirement. The extensibility mechanism determines Rust type design (enum vs. HashMap). These must be joint decisions.
 
-4. **Temporal Model + Graph Algorithms (Osei + Varga + Moreau):** Temporal validity on edges creates a time-varying graph. Runtime analysis must support temporal queries ("was there a valid path on this date?"). This affects both the data model and the `petgraph` graph structure choice.
+4. **Temporal Model + Graph Algorithms (Supply Chain Expert + Graph Modeling Expert + Regulatory Compliance Expert):** Temporal validity on edges creates a time-varying graph. Runtime analysis must support temporal queries ("was there a valid path on this date?"). This affects both the data model and the `petgraph` graph structure choice.
 
-5. **Strict Validation + Data Quality (Nakamura + Lindgren + Krishnamurthy):** The tension between strict validation and messy ERP data is resolved by tiered validation levels, but the tier definitions must satisfy both the standards community (who want rigor) and the procurement community (who need gradual onboarding).
+5. **Strict Validation + Data Quality (Standards Expert + Procurement Expert + Enterprise Integration Expert):** The tension between strict validation and messy ERP data is resolved by tiered validation levels, but the tier definitions must satisfy both the standards community (who want rigor) and the procurement community (who need gradual onboarding).
 
-6. **Security + Serialization + Regulatory (Tanaka + Kowalski + Moreau):** File integrity (checksums, signatures) requires canonical encoding. Attestation metadata increases per-element payload. Privacy-sensitive fields (auditor names in provenance data) intersect with GDPR. These three domains must coordinate.
+6. **Security + Serialization + Regulatory (Security & Privacy Expert + Data Format Expert + Regulatory Compliance Expert):** File integrity (checksums, signatures) requires canonical encoding. Attestation metadata increases per-element payload. Privacy-sensitive fields (auditor names in provenance data) intersect with GDPR. These three domains must coordinate.
 
-7. **Governance + Standards Alignment + Adoption (Okafor + Nakamura + Lindgren):** Enterprise adoption requires governance credibility. Standards body alignment requires governance structure. Supplier adoption requires low-barrier authoring tools. All three feed the adoption flywheel.
+7. **Governance + Standards Alignment + Adoption (Open Source Strategy Expert + Standards Expert + Procurement Expert):** Enterprise adoption requires governance credibility. Standards body alignment requires governance structure. Supplier adoption requires low-barrier authoring tools. All three feed the adoption flywheel.
 
-8. **Selective Disclosure + Identity (Tanaka + Engstrom):** Hashed identifiers at graph boundaries for redacted nodes are only private if the identifiers are not predictable. The identifier scheme must support opaque, non-reversible references.
+8. **Selective Disclosure + Identity (Security & Privacy Expert + Entity Identification Expert):** Hashed identifiers at graph boundaries for redacted nodes are only private if the identifiers are not predictable. The identifier scheme must support opaque, non-reversible references.
 
 ---
 
 ## Individual Expert Reports
 
-### Dr. Amara Osei -- Supply Chain Visibility & Risk Analyst
+### Supply Chain Expert -- Supply Chain Visibility & Risk Analyst
 
 #### Assessment
 
@@ -254,7 +254,7 @@ The regulatory alignment story is promising but underspecified. The EU Deforesta
 
 ---
 
-### Marcus Lindgren -- Chief Procurement Officer
+### Procurement Expert -- Chief Procurement Officer
 
 #### Assessment
 
@@ -290,7 +290,7 @@ That said, the vision is written from an engineering-architecture perspective. W
 
 ---
 
-### Dr. Kenji Nakamura -- Standards & Interoperability Specialist
+### Standards Expert -- Standards & Interoperability Specialist
 
 #### Assessment
 
@@ -323,7 +323,7 @@ However, the vision document is conspicuously silent on how OMTSF relates to the
 
 ---
 
-### Sofia Petrova -- Senior Systems Engineer (Rust)
+### Systems Engineering Expert -- Senior Systems Engineer (Rust)
 
 #### Assessment
 
@@ -357,7 +357,7 @@ Where the vision needs more specificity is at the boundary between "data model" 
 
 ---
 
-### Prof. Elena Varga -- Graph Data Modeling & Algorithm Specialist
+### Graph Modeling Expert -- Graph Data Modeling & Algorithm Specialist
 
 #### Assessment
 
@@ -391,7 +391,7 @@ However, the vision document leaves critical graph-modeling questions unresolved
 
 ---
 
-### Rajesh Krishnamurthy -- Enterprise Systems Architect
+### Enterprise Integration Expert -- Enterprise Systems Architect
 
 #### Assessment
 
@@ -422,7 +422,7 @@ That said, the vision underestimates the gravity of the ERP integration challeng
 
 ---
 
-### Dr. Isabelle Moreau -- Regulatory Compliance Advisor
+### Regulatory Compliance Expert -- Regulatory Compliance Advisor
 
 #### Assessment
 
@@ -456,7 +456,7 @@ However, the vision is silent on several data dimensions that are not optional f
 
 ---
 
-### Dr. Tomasz Kowalski -- Data Format Architect
+### Data Format Expert -- Data Format Architect
 
 #### Assessment
 
@@ -489,7 +489,7 @@ However, the document is deliberately silent on nearly every decision that falls
 
 ---
 
-### Danielle Okafor -- Open Source Strategy & Governance Lead
+### Open Source Strategy Expert -- Open Source Strategy & Governance Lead
 
 #### Assessment
 
@@ -523,7 +523,7 @@ The vision document articulates a compelling and well-scoped problem. The techni
 
 ---
 
-### Dr. Yuki Tanaka -- Data Security & Privacy Architect
+### Security & Privacy Expert -- Data Security & Privacy Architect
 
 #### Assessment
 
@@ -557,7 +557,7 @@ However, from a security and privacy standpoint, the vision has a significant st
 
 ---
 
-### Patricia Engstrom -- Entity Identification & Corporate Hierarchy Specialist
+### Entity Identification Expert -- Entity Identification & Corporate Hierarchy Specialist
 
 #### Assessment
 

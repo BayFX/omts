@@ -1,6 +1,6 @@
 # Expert Review: OMTSF Entity Identification Specification (Revision 2)
 
-**Reviewer:** Dr. Isabelle Moreau, Supply Chain Regulatory Compliance Advisor
+**Reviewer:** Regulatory Compliance Expert, Supply Chain Regulatory Compliance Advisor
 **Spec Reviewed:** OMTSF-SPEC-001 -- Entity Identification (Draft, Revision 2, 2026-02-17)
 **Date:** 2026-02-18
 **Review Type:** Post-panel follow-up (assessing P0 remediation)
@@ -40,7 +40,7 @@ The regulatory alignment table (Section 12.3) has been expanded to include AMLD 
 
 ## Recommendations
 
-1. **(P1) Illustrate and formalize consignment-level attestation linkage.** Add an example showing an `attested_by` edge from a `good` node to an EUDR DDS attestation node. Clarify in Section 8.2 that `attested_by` edges MAY originate from any node type (organization, facility, or good). Consider whether a `consignment` or `lot` construct (per Dr. Osei's batch-level recommendation) is needed to complete the chain-of-custody model.
+1. **(P1) Illustrate and formalize consignment-level attestation linkage.** Add an example showing an `attested_by` edge from a `good` node to an EUDR DDS attestation node. Clarify in Section 8.2 that `attested_by` edges MAY originate from any node type (organization, facility, or good). Consider whether a `consignment` or `lot` construct (per Dr. Supply Chain Expert's batch-level recommendation) is needed to complete the chain-of-custody model.
 
 2. **(P1) Add attestation lifecycle status.** Extend the `attestation` node with a `status` field: `active`, `revoked`, `superseded`, `withdrawn`. Optionally add a `superseded_by` property containing the graph-local ID of the replacement attestation node. This is essential for audit trail integrity -- regulators need to know not just what certifications exist, but whether they remain valid.
 
@@ -52,10 +52,10 @@ The regulatory alignment table (Section 12.3) has been expanded to include AMLD 
 
 ## Cross-Expert Notes
 
-- **For Dr. Osei (Supply Chain Visibility):** The consignment-level attestation gap I identify above directly connects to your recommendation for batch/lot-level `good` node support (P2-11 in the panel report). If the spec introduces a lot-level construct, attestation linkage at that granularity becomes straightforward. I would support elevating your lot-level recommendation to P1 given the EUDR enforcement timeline (December 2025 for large operators, already in effect).
+- **For Dr. Supply Chain Expert (Supply Chain Visibility):** The consignment-level attestation gap I identify above directly connects to your recommendation for batch/lot-level `good` node support (P2-11 in the panel report). If the spec introduces a lot-level construct, attestation linkage at that granularity becomes straightforward. I would support elevating your lot-level recommendation to P1 given the EUDR enforcement timeline (December 2025 for large operators, already in effect).
 
-- **For Dr. Tanaka (Security & Privacy):** The `person` node privacy constraints are well-designed. One edge case worth examining: when `beneficial_ownership` edges are stripped from public-scope files, the resulting graph may still reveal UBO-adjacent information through `ownership` edge chains that terminate at entities with suspiciously high ownership percentages. A determined adversary could infer the existence of redacted `person` nodes. This is likely acceptable given the GDPR balancing test, but worth documenting.
+- **For Dr. Security & Privacy Expert (Security & Privacy):** The `person` node privacy constraints are well-designed. One edge case worth examining: when `beneficial_ownership` edges are stripped from public-scope files, the resulting graph may still reveal UBO-adjacent information through `ownership` edge chains that terminate at entities with suspiciously high ownership percentages. A determined adversary could infer the existence of redacted `person` nodes. This is likely acceptable given the GDPR balancing test, but worth documenting.
 
-- **For Patricia Engstrom (Entity Identification):** The `beneficial_ownership` edge type correctly handles the UBO data model, but in practice, UBO data quality is poor -- national registers are often outdated, nominee structures obscure true ownership, and thresholds vary across jurisdictions. The `confidence` field you recommended for identifier records (P1-25/31 in the panel report) would be equally valuable on `beneficial_ownership` edges. I would support a generalized confidence/verification metadata model applicable to both identifiers and edges.
+- **For Entity Identification Expert (Entity Identification):** The `beneficial_ownership` edge type correctly handles the UBO data model, but in practice, UBO data quality is poor -- national registers are often outdated, nominee structures obscure true ownership, and thresholds vary across jurisdictions. The `confidence` field you recommended for identifier records (P1-25/31 in the panel report) would be equally valuable on `beneficial_ownership` edges. I would support a generalized confidence/verification metadata model applicable to both identifiers and edges.
 
-- **For Danielle Okafor (Open Source Strategy):** The attestation model creates an opportunity for community-maintained mappings between attestation `standard` values and regulatory requirements. A registry of recognized `standard` codes (similar to the identifier scheme vocabulary) would prevent fragmentation -- one producer writing `SA8000:2014` and another writing `SA-8000` for the same certification standard.
+- **For Open Source Strategy Expert (Open Source Strategy):** The attestation model creates an opportunity for community-maintained mappings between attestation `standard` values and regulatory requirements. A registry of recognized `standard` codes (similar to the identifier scheme vocabulary) would prevent fragmentation -- one producer writing `SA8000:2014` and another writing `SA-8000` for the same certification standard.

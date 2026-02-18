@@ -1,6 +1,6 @@
 # Persona: ISO & Standards Expert
 
-**Name:** Dr. Kenji Nakamura
+**Name:** Standards Expert
 **Role:** Standards Development & Interoperability Specialist
 **Background:** 20 years in international standards development. Active participant in ISO/TC 154 (Processes, data elements and documents in commerce, industry and administration), ISO/TC 308 (Governance of organizations), and UN/CEFACT. Former editor of two ISO standards related to supply chain data exchange. Deep familiarity with GS1 standards (EPCIS, CBV, GLN, GTIN), and supply chain ontologies.
 

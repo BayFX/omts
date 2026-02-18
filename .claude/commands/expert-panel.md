@@ -13,17 +13,17 @@ $ARGUMENTS
 Read the topic above and the project context (especially `docs/vision.md` and any other relevant files in the repository). Then select the most relevant expert personas from `.claude/commands/personas/`. You may select anywhere from 3 to all 11 experts depending on the breadth of the topic. For broad, foundational reviews (e.g., the full vision document), use all of them. For narrow, focused topics, pick the 3-7 most relevant.
 
 Available personas:
-- **Supply Chain Specialist** (`personas/supply-chain-specialist.md`) — Dr. Amara Osei. Multi-tier visibility, risk, traceability, regulatory alignment.
-- **Procurement Officer** (`personas/procurement-officer.md`) — Marcus Lindgren. Operational usability, ERP integration, supplier burden, adoption cost.
-- **ISO & Standards Expert** (`personas/iso-standards-expert.md`) — Dr. Kenji Nakamura. Interoperability with GS1/ISO/UN, specification rigor, identifier strategy, governance.
-- **Rust Engineer** (`personas/rust-engineer.md`) — Sofia Petrova. Rust implementation, WASM, parsing safety, crate architecture, performance.
-- **Graph Theory Expert** (`personas/graph-theorist.md`) — Prof. Elena Varga. Graph data model, serialization round-trip, merge semantics, algorithms.
-- **ERP Integration Expert** (`personas/erp-integration-expert.md`) — Rajesh Krishnamurthy. ERP export/import, master data, EDI coexistence, data quality.
-- **Regulatory Compliance Expert** (`personas/regulatory-compliance-expert.md`) — Dr. Isabelle Moreau. CSDDD, EUDR, UFLPA, audit trails, cross-jurisdictional compliance.
-- **Data Serialization Expert** (`personas/data-serialization-expert.md`) — Dr. Tomasz Kowalski. Format selection, schema evolution, self-describing files, integrity, compression.
-- **Open Source Strategist** (`personas/open-source-strategist.md`) — Danielle Okafor. Governance, licensing, adoption flywheel, community, ecosystem.
-- **Security & Privacy Expert** (`personas/security-privacy-expert.md`) — Dr. Yuki Tanaka. Data sensitivity, selective disclosure, signatures, local processing, minimization.
-- **Company Identification Expert** (`personas/company-identification-expert.md`) — Patricia Engström. Entity resolution, DUNS/LEI, corporate hierarchies, M&A identity changes, cross-referencing identifiers.
+- **Supply Chain Specialist** (`personas/supply-chain-specialist.md`) — Supply Chain Expert. Multi-tier visibility, risk, traceability, regulatory alignment.
+- **Procurement Officer** (`personas/procurement-officer.md`) — Procurement Expert. Operational usability, ERP integration, supplier burden, adoption cost.
+- **ISO & Standards Expert** (`personas/iso-standards-expert.md`) — Standards Expert. Interoperability with GS1/ISO/UN, specification rigor, identifier strategy, governance.
+- **Rust Engineer** (`personas/rust-engineer.md`) — Systems Engineering Expert. Rust implementation, WASM, parsing safety, crate architecture, performance.
+- **Graph Theory Expert** (`personas/graph-theorist.md`) — Graph Modeling Expert. Graph data model, serialization round-trip, merge semantics, algorithms.
+- **ERP Integration Expert** (`personas/erp-integration-expert.md`) — Enterprise Integration Expert. ERP export/import, master data, EDI coexistence, data quality.
+- **Regulatory Compliance Expert** (`personas/regulatory-compliance-expert.md`) — Regulatory Compliance Expert. CSDDD, EUDR, UFLPA, audit trails, cross-jurisdictional compliance.
+- **Data Serialization Expert** (`personas/data-serialization-expert.md`) — Data Format Expert. Format selection, schema evolution, self-describing files, integrity, compression.
+- **Open Source Strategist** (`personas/open-source-strategist.md`) — Open Source Strategy Expert. Governance, licensing, adoption flywheel, community, ecosystem.
+- **Security & Privacy Expert** (`personas/security-privacy-expert.md`) — Security & Privacy Expert. Data sensitivity, selective disclosure, signatures, local processing, minimization.
+- **Company Identification Expert** (`personas/company-identification-expert.md`) — Entity Identification Expert. Entity resolution, DUNS/LEI, corporate hierarchies, M&A identity changes, cross-referencing identifiers.
 
 ### Phase 2: Expert Dispatch
 
@@ -73,7 +73,7 @@ Bulleted list of issues, gaps, or risks you identify. For each concern, rate sev
 Numbered list of specific, actionable recommendations. For each, indicate priority (P0 = immediate, P1 = before v1, P2 = future).
 
 ### Cross-Expert Notes
-If your analysis has implications for other panelists' domains, note them here. For example: "The identity model choice (Dr. Nakamura's domain) will directly affect merge semantics — I recommend X approach from a graph theory perspective."
+If your analysis has implications for other panelists' domains, note them here. For example: "The identity model choice (Standards Expert's domain) will directly affect merge semantics — I recommend X approach from a graph theory perspective."
 
 ## Research
 You SHOULD use WebSearch and WebFetch to research relevant standards, prior art, regulations, or technical details that inform your review. Ground your analysis in current, real-world information — not just general knowledge. Cite sources where relevant.
