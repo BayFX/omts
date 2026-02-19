@@ -4,10 +4,12 @@ pub mod canonical;
 pub mod enums;
 pub mod file;
 pub mod graph;
+pub mod identity;
 pub mod newtypes;
 pub mod serde_helpers;
 pub mod structures;
 pub mod types;
+pub mod union_find;
 pub mod validation;
 
 pub use canonical::{CanonicalId, build_identifier_index};
@@ -19,9 +21,11 @@ pub use enums::{
 };
 pub use file::OmtsFile;
 pub use graph::{EdgeWeight, GraphBuildError, NodeWeight, OmtsGraph, build_graph};
+pub use identity::{identifiers_match, is_lei_annulled, temporal_compatible};
 pub use newtypes::{CalendarDate, CountryCode, EdgeId, FileSalt, NewtypeError, NodeId, SemVer};
 pub use structures::{Edge, EdgeProperties, Node};
 pub use types::{DataQuality, Geo, GeoParseError, Identifier, Label, parse_geo};
+pub use union_find::UnionFind;
 pub use validation::{
     Diagnostic, Level, Location, ParseError, RuleId, Severity, ValidateOutput, ValidationConfig,
     ValidationResult, ValidationRule, build_registry, validate,
