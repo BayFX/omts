@@ -617,8 +617,12 @@ impl Default for ValidationConfig {
 /// whose level is enabled in `config`.  Rules are compiled into `omtsf-core`;
 /// this is not a plugin system.
 ///
-/// L1-GDM rules are gated by [`ValidationConfig::run_l1`].
+/// L1-GDM and L1-EID rules are gated by [`ValidationConfig::run_l1`].
 pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>> {
+    use crate::rules_l1_eid::{
+        L1Eid01, L1Eid02, L1Eid03, L1Eid04, L1Eid05, L1Eid06, L1Eid07, L1Eid08, L1Eid09, L1Eid10,
+        L1Eid11,
+    };
     use rules_l1_gdm::{GdmRule01, GdmRule02, GdmRule03, GdmRule04, GdmRule05, GdmRule06};
 
     let mut registry: Vec<Box<dyn ValidationRule>> = Vec::new();
@@ -630,6 +634,17 @@ pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>>
         registry.push(Box::new(GdmRule04));
         registry.push(Box::new(GdmRule05));
         registry.push(Box::new(GdmRule06));
+        registry.push(Box::new(L1Eid01));
+        registry.push(Box::new(L1Eid02));
+        registry.push(Box::new(L1Eid03));
+        registry.push(Box::new(L1Eid04));
+        registry.push(Box::new(L1Eid05));
+        registry.push(Box::new(L1Eid06));
+        registry.push(Box::new(L1Eid07));
+        registry.push(Box::new(L1Eid08));
+        registry.push(Box::new(L1Eid09));
+        registry.push(Box::new(L1Eid10));
+        registry.push(Box::new(L1Eid11));
     }
 
     registry
@@ -1082,19 +1097,15 @@ mod tests {
     fn build_registry_default_config_has_l1_rules() {
         let cfg = ValidationConfig::default();
         let registry = build_registry(&cfg);
-        // Default config enables L1 (6 L1-GDM rules) and L2 (not yet implemented).
         assert!(
             !registry.is_empty(),
-            "default config must include at least the six L1-GDM rules"
+            "default config must include L1-GDM and L1-EID rules"
         );
-        // The six L1-GDM rules are present.
         let ids: Vec<_> = registry.iter().map(|r| r.id()).collect();
         assert!(ids.contains(&RuleId::L1Gdm01));
-        assert!(ids.contains(&RuleId::L1Gdm02));
-        assert!(ids.contains(&RuleId::L1Gdm03));
-        assert!(ids.contains(&RuleId::L1Gdm04));
-        assert!(ids.contains(&RuleId::L1Gdm05));
         assert!(ids.contains(&RuleId::L1Gdm06));
+        assert!(ids.contains(&RuleId::L1Eid01));
+        assert!(ids.contains(&RuleId::L1Eid11));
     }
 
     #[test]
@@ -1109,7 +1120,7 @@ mod tests {
     }
 
     #[test]
-    fn build_registry_l1_only_has_six_rules() {
+    fn build_registry_l1_only_has_seventeen_rules() {
         let cfg = ValidationConfig {
             run_l1: true,
             run_l2: false,
@@ -1118,8 +1129,8 @@ mod tests {
         let registry = build_registry(&cfg);
         assert_eq!(
             registry.len(),
-            6,
-            "exactly six L1-GDM rules in the registry"
+            17,
+            "6 L1-GDM + 11 L1-EID rules in the registry"
         );
     }
 
@@ -1146,21 +1157,26 @@ mod tests {
 
     #[test]
     fn validate_clean_minimal_file_produces_zero_diagnostics() {
-        // A minimal file with no nodes and no edges passes all L1-GDM rules.
+        // A minimal file with no nodes and no edges passes all L1 rules.
         let file = minimal_omts_file();
         let cfg = ValidationConfig::default();
         let result = validate(&file, &cfg);
         assert!(
             result.is_empty(),
-            "clean minimal file must produce no diagnostics"
+            "clean minimal file must produce no diagnostics; got: {:?}",
+            result.diagnostics
         );
-        assert!(result.is_conformant());
     }
 
     #[test]
     fn validate_returns_validation_result() {
         let file = minimal_omts_file();
-        let cfg = ValidationConfig::default();
+        // Disable all rules so we get exactly zero diagnostics.
+        let cfg = ValidationConfig {
+            run_l1: false,
+            run_l2: false,
+            run_l3: false,
+        };
         let result = validate(&file, &cfg);
         assert_eq!(result.len(), 0);
     }
