@@ -1,11 +1,13 @@
 #![deny(clippy::print_stdout, clippy::print_stderr)]
 
 pub mod canonical;
+pub mod check_digits;
 pub mod enums;
 pub mod file;
 pub mod graph;
 pub mod identity;
 pub mod newtypes;
+pub mod rules_l1_eid;
 pub mod serde_helpers;
 pub mod structures;
 pub mod types;
