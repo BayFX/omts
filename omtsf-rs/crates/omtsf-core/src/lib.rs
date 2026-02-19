@@ -1,6 +1,7 @@
 #![deny(clippy::print_stdout, clippy::print_stderr)]
 
 pub mod enums;
+pub mod file;
 pub mod newtypes;
 pub mod serde_helpers;
 pub mod structures;
@@ -13,6 +14,7 @@ pub use enums::{
     NodeTypeTag, OrganizationStatus, RiskLikelihood, RiskSeverity, Sensitivity, ServiceType,
     VerificationStatus,
 };
+pub use file::OmtsFile;
 pub use newtypes::{CalendarDate, CountryCode, EdgeId, FileSalt, NewtypeError, NodeId, SemVer};
 pub use structures::{Edge, EdgeProperties, Node};
 pub use types::{DataQuality, Geo, GeoParseError, Identifier, Label, parse_geo};
