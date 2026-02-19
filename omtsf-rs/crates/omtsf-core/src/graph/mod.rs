@@ -1,8 +1,9 @@
 /// Graph construction from an [`OmtsFile`] using `petgraph`, plus query algorithms.
 ///
-/// This module implements Sections 2–4 of the graph-engine technical specification:
+/// This module implements Sections 2–5 of the graph-engine technical specification:
 /// wrapping a `StableDiGraph` with typed node and edge weights, building from
-/// an in-memory [`OmtsFile`], and exposing traversal and query algorithms.
+/// an in-memory [`OmtsFile`], exposing traversal and query algorithms, and
+/// extracting induced subgraphs and ego-graphs.
 ///
 /// # Two-Pass Construction
 ///
@@ -16,8 +17,14 @@
 ///
 /// See the [`queries`] submodule for reachability, shortest-path, and
 /// all-paths enumeration.
+///
+/// # Subgraph Extraction
+///
+/// See the [`extraction`] submodule for [`induced_subgraph`] and [`ego_graph`].
+pub mod extraction;
 pub mod queries;
 
+pub use extraction::{ego_graph, induced_subgraph};
 pub use queries::{
     DEFAULT_MAX_DEPTH, Direction, QueryError, all_paths, reachable_from, shortest_path,
 };
