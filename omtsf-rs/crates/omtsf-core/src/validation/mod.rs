@@ -8,6 +8,8 @@
 /// It also defines the [`ValidationRule`] trait, [`ValidationConfig`],
 /// [`build_registry`], and the top-level [`validate`] dispatch function
 /// described in Sections 3.1 and 3.2.
+pub mod rules_l1_gdm;
+
 use std::fmt;
 
 use crate::file::OmtsFile;
@@ -615,16 +617,22 @@ impl Default for ValidationConfig {
 /// whose level is enabled in `config`.  Rules are compiled into `omtsf-core`;
 /// this is not a plugin system.
 ///
-/// Currently returns an empty registry.  Concrete rules will be appended by
-/// subsequent implementation tasks (T-010, T-011, …).
-pub fn build_registry(_config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>> {
-    // Rules will be added here as T-010, T-011, … are implemented.
-    // Each rule is gated by the corresponding config flag:
-    //
-    //   if config.run_l1 { registry.push(Box::new(rules::l1::GdmRule01)); }
-    //
-    // For now the registry is empty so the engine can be wired up end-to-end.
-    Vec::new()
+/// L1-GDM rules are gated by [`ValidationConfig::run_l1`].
+pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>> {
+    use rules_l1_gdm::{GdmRule01, GdmRule02, GdmRule03, GdmRule04, GdmRule05, GdmRule06};
+
+    let mut registry: Vec<Box<dyn ValidationRule>> = Vec::new();
+
+    if config.run_l1 {
+        registry.push(Box::new(GdmRule01));
+        registry.push(Box::new(GdmRule02));
+        registry.push(Box::new(GdmRule03));
+        registry.push(Box::new(GdmRule04));
+        registry.push(Box::new(GdmRule05));
+        registry.push(Box::new(GdmRule06));
+    }
+
+    registry
 }
 
 /// Run the full validation pipeline on a parsed [`OmtsFile`].
@@ -1071,13 +1079,22 @@ mod tests {
     // --- build_registry ---
 
     #[test]
-    fn build_registry_empty_for_default_config() {
+    fn build_registry_default_config_has_l1_rules() {
         let cfg = ValidationConfig::default();
         let registry = build_registry(&cfg);
+        // Default config enables L1 (6 L1-GDM rules) and L2 (not yet implemented).
         assert!(
-            registry.is_empty(),
-            "registry should be empty until rules are added by T-010+"
+            !registry.is_empty(),
+            "default config must include at least the six L1-GDM rules"
         );
+        // The six L1-GDM rules are present.
+        let ids: Vec<_> = registry.iter().map(|r| r.id()).collect();
+        assert!(ids.contains(&RuleId::L1Gdm01));
+        assert!(ids.contains(&RuleId::L1Gdm02));
+        assert!(ids.contains(&RuleId::L1Gdm03));
+        assert!(ids.contains(&RuleId::L1Gdm04));
+        assert!(ids.contains(&RuleId::L1Gdm05));
+        assert!(ids.contains(&RuleId::L1Gdm06));
     }
 
     #[test]
@@ -1089,6 +1106,21 @@ mod tests {
         };
         let registry = build_registry(&cfg);
         assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn build_registry_l1_only_has_six_rules() {
+        let cfg = ValidationConfig {
+            run_l1: true,
+            run_l2: false,
+            run_l3: false,
+        };
+        let registry = build_registry(&cfg);
+        assert_eq!(
+            registry.len(),
+            6,
+            "exactly six L1-GDM rules in the registry"
+        );
     }
 
     // --- validate ---
@@ -1113,13 +1145,14 @@ mod tests {
     }
 
     #[test]
-    fn validate_empty_registry_produces_zero_diagnostics() {
+    fn validate_clean_minimal_file_produces_zero_diagnostics() {
+        // A minimal file with no nodes and no edges passes all L1-GDM rules.
         let file = minimal_omts_file();
         let cfg = ValidationConfig::default();
         let result = validate(&file, &cfg);
         assert!(
             result.is_empty(),
-            "empty registry must produce no diagnostics"
+            "clean minimal file must produce no diagnostics"
         );
         assert!(result.is_conformant());
     }
