@@ -32,7 +32,6 @@ Two nodes from different files are **merge candidates** if and only if they shar
 4. **Temporal compatibility:** If both identifier records carry `valid_from` and/or `valid_to` fields, their validity periods MUST overlap or at least one period MUST be open-ended (no `valid_to`). Specifically:
    - If both records have `valid_to` and the earlier `valid_to` is before the later `valid_from`, the identifiers are NOT temporally compatible and do NOT satisfy the identity predicate.
    - If either record lacks `valid_from` and `valid_to`, temporal compatibility is assumed (backward-compatible with files that omit temporal fields).
-   - **Rationale:** DUNS and GLN numbers are reassigned after entity dissolution. Without temporal checking, a DUNS number valid 2010-2015 for Entity A and the same DUNS reassigned 2020-2025 to Entity B would produce a false merge.
 
 The `internal` scheme is explicitly excluded: `internal` identifiers NEVER satisfy the identity predicate across files, because they are scoped to their issuing system.
 
@@ -114,7 +113,7 @@ Conflict records are informational. Validators MUST NOT reject files containing 
 
 Transitive closure (step 3) can amplify false-positive matches: a single erroneous identifier match cascades through the entire connected component. To mitigate this risk:
 
-When transitive closure produces a merge group exceeding **50 nodes**, implementations SHOULD emit a warning identifying the group and its bridging identifiers.
+When transitive closure produces an unexpectedly large merge group, implementations SHOULD emit a warning identifying the group and its bridging identifiers.
 
 5. **Rewrite** all edge source/target references to use the merged node IDs.
 6. **Identify** merge candidate edge pairs using the edge identity predicate (Section 3).

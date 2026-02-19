@@ -58,9 +58,7 @@ An `.omts` file is a JSON document with the following top-level structure:
 }
 ```
 
-**First key requirement.** The first key in the top-level JSON object MUST be `"omtsf_version"`. This enables file type detection without full JSON parsing.
-
-> **Note:** JSON objects are formally unordered per RFC 8259. Consumers SHOULD attempt first-key detection but MUST NOT reject files where `omtsf_version` is present but not the first key.
+**First key requirement.** The first key in the top-level JSON object MUST be `"omtsf_version"`. Consumers MUST NOT reject files where `omtsf_version` is present but not the first key.
 
 **Date format.** All date fields in an `.omts` file MUST use the ISO 8601 calendar date format `YYYY-MM-DD` (e.g., `2026-02-18`). No other ISO 8601 profiles (week dates, ordinal dates) are permitted.
 
@@ -160,9 +158,8 @@ A document, certificate, audit result, or due diligence statement that is linked
 
 Attestation nodes MAY carry an `identifiers` array (e.g., an EUDR due diligence statement number, an internal audit ID).
 
-**Usage examples:**
+**Usage example:**
 
-A facility with SA8000 certification:
 ```json
 {
   "id": "att-sa8000-bolt",
@@ -174,20 +171,6 @@ A facility with SA8000 certification:
   "valid_from": "2025-06-01",
   "valid_to": "2028-05-31",
   "outcome": "pass"
-}
-```
-
-An EUDR due diligence statement:
-```json
-{
-  "id": "att-eudr-dds-001",
-  "type": "attestation",
-  "name": "EUDR Due Diligence Statement #DDS-2026-00142",
-  "attestation_type": "due_diligence_statement",
-  "standard": "EUDR-DDS",
-  "valid_from": "2026-01-15",
-  "outcome": "pass",
-  "reference": "DDS-2026-00142"
 }
 ```
 
@@ -252,8 +235,6 @@ Direct legal parent-subsidiary relationship. Maps to GLEIF Level 2 `IS_DIRECTLY_
 | `consolidation_basis` | No | enum | `ifrs10`, `us_gaap_asc810`, `other`, `unknown` |
 
 **Direction convention:** Edge points from child (subsidiary) to parent. `source` = subsidiary, `target` = parent.
-
-> **GLEIF Level 2 coverage note.** `legal_parentage` hierarchies derived from GLEIF Level 2 data may terminate at entities that do not hold LEIs. The topmost parent in a `legal_parentage` chain may not be the true ultimate parent but rather the highest entity that holds an LEI. Enrichment tooling MAY supplement GLEIF Level 2 data with national registry data (via `nat-reg` identifiers) to extend hierarchies beyond the LEI boundary.
 
 ### 5.4 `former_identity`
 
@@ -551,22 +532,22 @@ These rules SHOULD be satisfied. Violations produce warnings, not errors.
 
 ### 9.3 Structural Constraints
 
-**Cycle legality.** Cycles are permitted in the supply relationship subgraph (`supplies`, `subcontracts`, `tolls`, `distributes`, `brokers`, `sells_to`) — circular supply chains exist in practice (e.g., recycling loops). Cycles are NOT permitted in the `legal_parentage` subgraph (L3-MRG-02 in OMTSF-SPEC-003 enforces this as a forest constraint). Cycles in `ownership` are permitted (cross-holdings are common) but circular ownership of 100% is an L2 warning.
+**Cycle legality.** Cycles are permitted in the supply relationship subgraph (`supplies`, `subcontracts`, `tolls`, `distributes`, `brokers`, `sells_to`) — circular supply chains exist in practice (e.g., recycling loops). Cycles are NOT permitted in the `legal_parentage` subgraph (L3-MRG-02 in OMTSF-SPEC-003 enforces this as a forest constraint). Cycles in `ownership` are permitted (cross-holdings are common).
 
 ### 9.4 Advisory Size Limits
 
 To support parser safety and prevent denial-of-service when processing untrusted input, implementations SHOULD enforce the following limits:
 
-| Limit | Recommended Maximum | Rationale |
-|-------|-------------------|-----------|
-| Nodes per file | 1,000,000 | Memory bound for in-memory graph processing |
-| Edges per file | 5,000,000 | Typical edge:node ratio ≤ 5:1 |
-| Identifiers per node | 50 | Practical upper bound; most entities have < 10 |
-| String field length | 10,000 UTF-8 bytes | Prevents unbounded memory allocation |
-| `file_salt` length | Exactly 64 hex characters | MUST match `^[0-9a-f]{64}$` |
-| Labels per node/edge | 100 | Prevents unbounded classification growth |
+| Limit | Recommended Maximum |
+|-------|-------------------|
+| Nodes per file | 1,000,000 |
+| Edges per file | 5,000,000 |
+| Identifiers per node | 50 |
+| String field length | 10,000 UTF-8 bytes |
+| `file_salt` length | Exactly 64 hex characters (MUST match `^[0-9a-f]{64}$`) |
+| Labels per node/edge | 100 |
 
-These are not hard limits. Producers MAY exceed them, but consumers SHOULD reject files that exceed these limits by more than 10x when processing untrusted input.
+These are advisory limits, not hard constraints. Producers MAY exceed them.
 
 ### 9.5 Graph Type Constraints
 
@@ -769,15 +750,9 @@ A conformant validator SHOULD implement L2 rules and MAY implement L3 rules.
 
 ## Appendix A: N-ary Relationship Reification Pattern (Informative)
 
-Binary edges are sufficient for most supply chain relationships. However, some real-world arrangements involve three or more parties simultaneously (e.g., three-party tolling, multi-party joint ventures, consortium-based supply agreements). This appendix describes the recommended pattern for representing such relationships.
-
-### A.1 Pattern: Intermediate Arrangement Node
-
-To model an n-ary relationship, create an intermediate `organization` node (or extension node type) representing the arrangement itself, then connect each participant via binary edges.
+To model an n-ary relationship (three or more parties bound by a single arrangement), create an intermediate node representing the arrangement and connect each participant via binary edges. This preserves the binary edge model while capturing multi-party structures.
 
 **Example: Three-Party Tolling Arrangement**
-
-Company A provides raw materials to Processor B, which sends semi-finished goods to Finisher C, who returns the finished product to Company A. All three parties are bound by a single tolling agreement.
 
 ```json
 {
@@ -820,15 +795,6 @@ Company A provides raw materials to Processor B, which sends semi-finished goods
   ]
 }
 ```
-
-This pattern preserves the binary edge model while explicitly capturing multi-party arrangements. The intermediate node carries metadata about the arrangement (agreement reference, validity dates), and each `participates_in` edge carries the participant's role. The underlying binary `tolls` edges remain for graph traversal and merge compatibility.
-
-### A.2 When to Use Reification
-
-Use the reification pattern when:
-- Three or more parties are bound by a single agreement or arrangement.
-- The arrangement itself has properties (reference numbers, validity dates) that do not belong to any single binary relationship.
-- Role disambiguation is needed (e.g., in a joint venture, distinguishing the operating partner from passive investors).
 
 For simple binary relationships, standard edge types are sufficient and preferred.
 

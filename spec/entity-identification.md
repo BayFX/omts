@@ -19,17 +19,9 @@
 
 ## 1. Problem Statement
 
-Entity identification is the load-bearing foundation of the OMTSF architecture. Without a defined identifier strategy, the merge-by-concatenation model described in the vision is theoretical: if two parties export files using different identifiers for the same legal entity, merge produces duplicates instead of a unified graph.
+No single global business identifier exists. LEI, DUNS, GLN, national registry numbers, and tax IDs each have limited coverage, incompatible formats, or privacy constraints. Any specification that mandates a single scheme excludes the majority of supply chain participants.
 
-No single global business identifier exists:
-
-- **LEI** (Legal Entity Identifier) is open and free to query, but has limited coverage outside financial institutions and costs money to obtain. Does not cover facilities or unregistered entities.
-- **DUNS** (Dun & Bradstreet) has the broadest single-system coverage, but is proprietary. Hierarchy data is a premium product. Redistribution is restricted by license.
-- **GLN** (GS1 Global Location Number) covers locations and parties within the GS1 membership base. Requires GS1 membership. No comprehensive public registry.
-- **National company registry numbers** are authoritative within their jurisdiction but use incompatible formats. The US has no federal registry; Germany fragments by court. A number is only meaningful paired with its jurisdiction.
-- **Tax IDs** (VAT, EIN, TIN) have high coverage but are legally confidential in most jurisdictions. Using them as primary keys in exchanged files raises GDPR and privacy concerns.
-
-The consequence: any specification that mandates a single identifier scheme excludes the majority of supply chain participants. The solution is a composite identifier model that treats all schemes as peers.
+OMTSF uses a composite identifier model that treats all schemes as peers. Cross-file merge depends on this: if two parties export files using different identifiers for the same legal entity, merge produces duplicates instead of a unified graph.
 
 ---
 
@@ -65,8 +57,6 @@ Each node (defined in OMTSF-SPEC-001) carries an optional `identifiers` array. E
 | `sensitivity` | No | enum | One of `public`, `restricted`, `confidential`. Default: `public`. See OMTSF-SPEC-004. |
 | `verification_status` | No | enum | One of `verified`, `reported`, `inferred`, `unverified`. Default: `reported`. |
 | `verification_date` | No | string (ISO 8601 date) | Date the identifier was last verified against an authoritative source. |
-
-**Rationale for `authority` as conditional:** Some schemes are globally unambiguous (LEI is always issued by a GLEIF-accredited LOU; DUNS is always issued by D&B). Others require disambiguation: a national registry number is meaningless without its jurisdiction, a VAT number needs its country, and an internal ID needs its issuing system.
 
 **Authority naming convention.** For `internal` scheme identifiers, the `authority` field SHOULD follow the naming convention defined in OMTSF-SPEC-005, Section 1.1: `{system_type}-{instance_id}[-{client}]` (e.g., `sap-prod-100`, `oracle-scm-us`). Consistent authority naming enables downstream tooling to group identifiers by source system and supports deduplication across multi-system landscapes.
 
@@ -113,21 +103,16 @@ Conformant OMTSF validators MUST recognize the following schemes and enforce the
 - **Format:** 20-character alphanumeric string. Characters 1--18 are the entity-specific part (alphanumeric). Characters 19--20 are check digits (numeric).
 - **Validation:** MUST match `^[A-Z0-9]{18}[0-9]{2}$`. MUST pass MOD 97-10 check digit verification (ISO 7064).
 - **`authority` field:** Not required. The issuing LOU can be derived from the LEI itself via the GLEIF API.
-- **Data availability:** Fully open. Full database downloadable from GLEIF at no cost. Includes Level 1 (entity data) and Level 2 (corporate hierarchy).
 
-**LEI Registration Status and Lifecycle:**
-
-LEIs have a registration status maintained by GLEIF. The following statuses affect OMTSF processing:
+**LEI Registration Status:**
 
 | LEI Status | Meaning | OMTSF Merge Behavior | Validation |
 |------------|---------|---------------------|------------|
 | `ISSUED` | Active, annually renewed | Normal merge candidate | -- |
-| `LAPSED` | Failed to renew; entity still exists | Still valid for merge. The entity is unchanged; only the registration fee is unpaid. | L2 warning |
-| `RETIRED` | Voluntarily retired by the entity | Still valid for merge for historical data. Producers SHOULD set `valid_to` on the identifier. | L2 warning |
-| `MERGED` | Entity merged into another; successor LEI exists | Still valid for merge. Producers SHOULD create a `former_identity` edge (OMTSF-SPEC-001, Section 5.4) linking the retired-LEI node to the successor-LEI node, with `event_type: "merger"`. | L2 warning |
+| `LAPSED` | Failed to renew; entity still exists | Still valid for merge | L2 warning |
+| `RETIRED` | Voluntarily retired by the entity | Still valid for merge. Producers SHOULD set `valid_to` on the identifier. | L2 warning |
+| `MERGED` | Entity merged into another; successor LEI exists | Still valid for merge. Producers SHOULD create a `former_identity` edge (OMTSF-SPEC-001, Section 5.4). | L2 warning |
 | `ANNULLED` | Issued in error or fraudulently | MUST NOT be used for merge. Treat as invalid. | L2 error |
-
-The GLEIF database provides explicit successor relationships for MERGED LEIs via the `SuccessorEntity` field. Tooling that performs Level 3 enrichment SHOULD retrieve successor LEI data and generate `former_identity` edges automatically.
 
 #### `duns` -- DUNS Number
 
@@ -135,7 +120,6 @@ The GLEIF database provides explicit successor relationships for MERGED LEIs via
 - **Format:** 9-digit numeric string.
 - **Validation:** MUST match `^[0-9]{9}$`.
 - **`authority` field:** Not required.
-- **Data availability:** Proprietary. Free to obtain a number; expensive to query data or hierarchy. OMTSF files MAY contain DUNS numbers (they are just strings), but enrichment/validation requires D&B data access.
 - **Note:** D&B assigns separate DUNS numbers to HQ and branch levels. The HQ DUNS identifies the legal entity; branch DUNS numbers identify locations and SHOULD be assigned to `facility` nodes. When it is unclear whether a DUNS is HQ or branch, producers SHOULD assign it to an `organization` node.
 
 #### `gln` -- Global Location Number
@@ -152,23 +136,9 @@ The GLEIF database provides explicit successor relationships for MERGED LEIs via
 - **Authority:** Government company registries (e.g., UK Companies House, German Handelsregister, French RCS)
 - **Format:** Varies by jurisdiction.
 - **Validation:** `authority` field is REQUIRED and MUST contain a valid GLEIF Registration Authority (RA) code from the OMTSF-maintained RA list snapshot (see Section 5.3). `value` format validation is authority-specific and MAY be deferred to Level 2 validation.
-- **`authority` field:** Required. Contains the GLEIF RA code (e.g., `RA000585` for UK Companies House, `RA000548` for German Handelsregister).
-**Common authority codes:**
+- **`authority` field:** Required. Contains the GLEIF RA code (e.g., `RA000585` for UK Companies House, `RA000548` for German Handelsregister). The full GLEIF RA list (700+ registration authorities) is available at `https://www.gleif.org/en/about-lei/code-lists/gleif-registration-authorities-list`.
 
-| RA Code | Registry | Jurisdiction |
-|---------|----------|-------------|
-| `RA000585` | Companies House | United Kingdom |
-| `RA000548` | Handelsregister | Germany |
-| `RA000525` | Registre du Commerce (SIREN) | France |
-| `RA000665` | Kamer van Koophandel | Netherlands |
-| `RA000476` | National Tax Board (houjin bangou) | Japan |
-| `RA000553` | Ministry of Corporate Affairs (CIN) | India |
-| `RA000602` | Division of Corporations | Delaware, US |
-| `RA000631` | Secretary of State | California, US |
-
-The full GLEIF RA list contains 700+ registration authorities and is available at `https://www.gleif.org/en/about-lei/code-lists/gleif-registration-authorities-list`.
-
-**Sensitivity:** Default sensitivity for `nat-reg` identifiers is `restricted`. In many EU jurisdictions, sole proprietorships (Einzelunternehmen, entreprise individuelle) are registered under the owner's personal name. A `nat-reg` identifier for such an entity may constitute personal data under GDPR (CJEU C-434/16, Nowak). The `restricted` default protects these cases. Producers who know an entity is a large corporation MAY explicitly override to `public`.
+**Sensitivity:** Default sensitivity for `nat-reg` identifiers is `restricted` because they may contain personal data in some jurisdictions. Producers who know an entity is a large corporation MAY explicitly override to `public`.
 
 #### `vat` -- VAT / Tax Identification Number
 
@@ -178,7 +148,7 @@ The full GLEIF RA list contains 700+ registration authorities and is available a
 - **`authority` field:** Required. ISO 3166-1 alpha-2 country code (e.g., `DE`, `GB`, `US`).
 - **Sensitivity:** Default sensitivity for `vat` identifiers is `restricted`. Producers SHOULD explicitly set sensitivity. Validators MUST NOT reject a file for omitting `vat` identifiers.
 
-**Privacy note:** Tax IDs are legally protected data in most jurisdictions. OMTSF files containing `vat` identifiers with `sensitivity: "confidential"` are subject to the selective disclosure rules in OMTSF-SPEC-004.
+**Privacy note:** Tax IDs may be protected in some jurisdictions. OMTSF files containing `vat` identifiers with `sensitivity: "confidential"` are subject to the selective disclosure rules in OMTSF-SPEC-004.
 
 #### `internal` -- System-Local Identifier
 

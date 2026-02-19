@@ -28,7 +28,7 @@ This guide provides reference mappings for how entity identifiers and relationsh
 
 ### 1.1 Authority Naming Convention
 
-For `internal` scheme identifiers, the `authority` field identifies the source system. Producers SHOULD follow this convention:
+For `internal` scheme identifiers, the `authority` field identifies the source system. Producers should follow this convention:
 
 ```
 {system_type}-{instance_id}[-{client}]
@@ -71,7 +71,7 @@ This convention enables downstream tooling to group and deduplicate identifiers 
 
 ### 2.3 Deduplication Note
 
-In multi-client SAP landscapes, the same legal entity may appear as different `LIFNR` values across clients. The `authority` field on `internal` identifiers SHOULD include the client number (e.g., `sap-prod-100`, `sap-prod-200`) to distinguish these. See OMTSF-SPEC-003, Section 8 for intra-file deduplication guidance.
+In multi-client SAP landscapes, the same legal entity may appear as different `LIFNR` values across clients. The `authority` field on `internal` identifiers should include the client number (e.g., `sap-prod-100`, `sap-prod-200`) to distinguish these. See OMTSF-SPEC-003, Section 8 for intra-file deduplication guidance.
 
 ### 2.4 SAP Business Partner Model (S/4HANA)
 
@@ -101,16 +101,7 @@ SAP S/4HANA's Business Partner model (`BUT000`/`BUT0ID`) replaces the legacy ven
 
 ### 2.5 Tax Number Field Disambiguation
 
-SAP's `STCD1` and `STCD2` fields in `LFA1` store different types of tax identifiers depending on the vendor's country:
-
-| Country | `STCD1` Typically Contains | `STCD2` Typically Contains | `STCD3` | `STCD4` | OMTSF Scheme |
-|---------|---------------------------|---------------------------|---------|---------|-------------|
-| DE | Steuernummer (tax number) | USt-IdNr (VAT ID) | — | — | `STCD1` → `nat-reg` or `internal`; `STCD2` → `vat` |
-| US | EIN (Employer ID Number) | SSN (Social Security Number) | — | — | `STCD1` → `nat-reg`; `STCD2` → `confidential`, do not export |
-| BR | CNPJ (company) or CPF (person) | Inscrição Estadual | — | — | `STCD1` → `nat-reg`; `STCD2` → `internal` |
-| GB | Company Registration Number | VAT Number | — | — | `STCD1` → `nat-reg`; `STCD2` → `vat` |
-
-**Guidance:** Do not blindly map `STCD1`/`STCD2` to `vat`. Inspect the `LAND1` (country key) field and apply country-specific logic. When in doubt, map to `internal` with a descriptive authority (e.g., `sap-stcd1-{country}`).
+SAP's `STCD1` and `STCD2` fields in `LFA1` store different types of tax identifiers depending on the vendor's country. Do not blindly map `STCD1`/`STCD2` to `vat`. Inspect the `LAND1` (country key) field and apply country-specific logic. When in doubt, map to `internal` with a descriptive authority (e.g., `sap-stcd1-{country}`).
 
 ---
 
@@ -131,12 +122,6 @@ Oracle SCM Cloud exposes supplier data via the Fusion REST API. The base URL pat
 | `GET /suppliers/{id}/child/sites` | `PrcPozSupplierSitesVO` | `AddressLine1`--`AddressLine4`, `City`, `State`, `PostalCode` | `facility` node `address` property |
 | `GET /suppliers/{id}/child/sites` | `PrcPozSupplierSitesVO` | `Country` | `facility` node `jurisdiction` property |
 
-**Identifier extraction query** (Oracle REST with `fields` parameter):
-```
-GET /suppliers?fields=SupplierId,SupplierNumber,Supplier,TaxRegistrationNumber,
-    TaxRegistrationCountry,DUNSNumber&limit=500&offset=0
-```
-
 ### 3.2 Procurement Data
 
 | Oracle REST Endpoint | OData Entity | Field | OMTSF Mapping |
@@ -146,12 +131,6 @@ GET /suppliers?fields=SupplierId,SupplierNumber,Supplier,TaxRegistrationNumber,
 | `GET /purchaseOrders/{id}/child/lines` | `PurchaseOrderLineVO` | `Quantity`, `UOMCode` | `supplies` edge `volume` and `volume_unit` properties |
 | `GET /purchaseOrders` | `PurchaseOrdersAllVO` | `ProcurementBUId` | Identifies the buying organization for the `supplies` edge target |
 | `GET /receipts` | `ReceiptHeadersVO` | Receipt lines | Confirms `supplies` edge; provides actual receipt volume data |
-
-**Supply edge derivation query:**
-```
-GET /purchaseOrders?q=SupplierName IS NOT NULL&fields=OrderNumber,SupplierId,
-    SupplierName,ProcurementBUId,OrderedDate&orderBy=OrderedDate:desc&limit=1000
-```
 
 ---
 
@@ -171,13 +150,6 @@ Dynamics 365 Finance and Supply Chain Management expose data via OData v4 endpoi
 | `TaxRegistrationId` | `GET /data/TaxRegistrationIds` | `RegistrationNumber` | `scheme: "vat"`, `authority` from `CountryRegionId` |
 | `LogisticsPostalAddress` | `GET /data/LogisticsPostalAddresses` | `Street`, `City`, `State`, `ZipCode`, `CountryRegionId` | `facility` node `address` and `jurisdiction` properties |
 
-**Identifier extraction query** (OData):
-```
-GET /data/VendorsV2?$select=VendorAccountNumber,VendorOrganizationName
-    &$expand=DirPartyTable($select=Name,DunsNumber)
-    &$top=1000&$skip=0
-```
-
 ### 4.2 Procurement Data
 
 | D365 OData Entity | OData Path | Field | OMTSF Mapping |
@@ -188,19 +160,11 @@ GET /data/VendorsV2?$select=VendorAccountNumber,VendorOrganizationName
 | `PurchaseOrderLinesV2` | `GET /data/PurchaseOrderLinesV2` | `OrderedPurchaseQuantity`, `PurchaseUnitSymbol` | `supplies` edge `volume` and `volume_unit` properties |
 | `VendInvoiceJour` | `GET /data/VendorInvoiceJournalLines` | Invoice journal lines | Confirms supply relationship; provides value data for `annual_value` |
 
-**Supply edge derivation query:**
-```
-GET /data/PurchaseOrderHeadersV2?$select=PurchaseOrderNumber,
-    OrderVendorAccountNumber,RequestedDeliveryDate
-    &$filter=RequestedDeliveryDate ge 2025-01-01
-    &$top=5000&$orderby=RequestedDeliveryDate desc
-```
-
 ---
 
 ## 5. Label Mapping
 
-This section provides reference mappings for how ERP classification fields map to the OMTSF `labels` array (OMTSF-SPEC-001, Section 8.4). The recommended label keys defined in OMTSF-SPEC-001, Appendix B SHOULD be used where the semantics match. ERP-specific classifications that do not map to a recommended key SHOULD use reverse-domain notation.
+This section provides reference mappings for how ERP classification fields map to the OMTSF `labels` array (OMTSF-SPEC-001, Section 8.4). The recommended label keys defined in OMTSF-SPEC-001, Appendix B should be used where the semantics match. ERP-specific classifications that do not map to a recommended key should use reverse-domain notation.
 
 ### 5.1 SAP S/4HANA
 
@@ -289,9 +253,9 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 3. **Augment:** The enrichment tool adds external identifiers to the nodes, preserving the original `internal` identifiers.
 4. **Re-export:** The enriched file is written. It now passes Level 2 completeness checks (OMTSF-SPEC-002, L2-EID-01).
 
-**Merge interaction:** Enrichment is not purely additive with respect to the merge graph. Adding an external identifier to a node may create new merge candidates with nodes in other files (or even within the same file). Enrichment tooling SHOULD re-evaluate merge groups after adding identifiers. See OMTSF-SPEC-003, Section 9 for detailed guidance on enrichment-merge interaction.
+**Merge interaction:** See OMTSF-SPEC-003, Section 9 for guidance on how enrichment affects merge groups.
 
-**Important:** Enrichment MUST NOT remove or modify existing identifiers. It is an additive process. The original `internal` identifiers are preserved for reconciliation with the source system.
+**Important:** Enrichment should not remove or modify existing identifiers. It is an additive process. The original `internal` identifiers are preserved for reconciliation with the source system.
 
 ### 6.3 Validation Level Alignment
 
@@ -310,4 +274,4 @@ In a typical deployment:
 - OMTSF captures the structural supply chain graph derived from aggregated EDI transaction data, ERP master data, and external enrichment.
 - An OMTSF export tool reads ERP master data (informed by EDI-updated fields like vendor status, last PO date) and produces `.omts` files.
 
-OMTSF files MAY reference EDI identifiers. For example, a PEPPOL Participant Identifier can be stored as an extension scheme identifier: `scheme: "org.peppol.participant"`, `value: "0088:5790000436057"`, where `0088` is the ISO 6523 ICD for EAN.UCC (GS1).
+OMTSF files may reference EDI identifiers. For example, a PEPPOL Participant Identifier can be stored as an extension scheme identifier: `scheme: "org.peppol.participant"`, `value: "0088:5790000436057"`, where `0088` is the ISO 6523 ICD for EAN.UCC (GS1).

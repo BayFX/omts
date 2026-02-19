@@ -45,16 +45,16 @@
 
 ## 3. Regulatory Alignment
 
-| Regulation | Entity Identification Requirement | OMTSF Coverage |
+| Regulation | Entity Identification Requirement | Relevant OMTSF Concepts |
 |-----------|----------------------------------|---------------|
 | EU CSDDD | Identify business partners, value chain entities, and beneficial owners | `organization` nodes with external identifiers; `ownership`, `legal_parentage`, and `beneficial_ownership` edges; `person` nodes for UBOs |
 | EUDR | Identify operators, traders, and geolocated production plots; due diligence statements | `organization` nodes (operators/traders) + `facility` nodes with `geo` coordinates; `attestation` nodes for DDS |
 | German LkSG | Identify direct and indirect suppliers; documented risk analysis | Full graph with `supplies` and `subcontracts` edge types; `attestation` nodes for risk analysis documentation |
 | US UFLPA | Map supply chains to identify entities in Xinjiang region | `organization` and `facility` nodes with `jurisdiction` and `geo` properties |
 
-### 3.1 EUDR Geolocation Precision Requirements
+### 3.1 EUDR Geolocation
 
-For OMTSF files supporting EUDR compliance, `facility` node `geo` coordinates SHOULD use at least **6 decimal digits** of precision, and production plots exceeding **4 hectares** SHOULD use GeoJSON polygon geometry rather than point coordinates.
+For OMTSF files supporting EUDR compliance, `facility` node `geo` coordinates should follow EUDR precision requirements. Large production plots should use GeoJSON polygon geometry rather than point coordinates.
 
 | EU CBAM | Identify installations and operators for carbon reporting | `facility` nodes (installations) linked to `organization` nodes (operators) via `operates` edges |
 | EU AMLD 5/6 | Identify ultimate beneficial owners (natural persons) | `person` nodes linked to `organization` nodes via `beneficial_ownership` edges |
@@ -76,7 +76,7 @@ ISO 6523 defines International Code Designators (ICDs) that identify organizatio
 
 **Conversion formula:** An OMTSF identifier can be converted to ISO 6523 format: `{ICD}:{value}`. For example, `lei:5493006MHB84DD0ZWV18` becomes `0199:5493006MHB84DD0ZWV18` in ISO 6523 notation.
 
-**Note:** The full ISO 6523 ICD list is maintained by the ISO 6523 Maintenance Agency. The mapping above covers the most common schemes; producers encountering schemes not listed here SHOULD consult the current ICD list.
+**Note:** The full ISO 6523 ICD list is maintained by the ISO 6523 Maintenance Agency. The mapping above covers the most common schemes; producers encountering schemes not listed here should consult the current ICD list.
 
 UNTDID code list 3055 ("Code list responsible agency code") provides a parallel scheme identification mechanism used in UN/EDIFACT messages. OMTSF does not directly use UNTDID 3055 codes but the `scheme` + `authority` pattern serves an equivalent purpose. Organizations bridging OMTSF with EDIFACT can map between OMTSF schemes and UNTDID 3055 agency codes via the ISO 6523 ICD table above.
 
@@ -93,21 +93,10 @@ GS1 EPCIS 2.0 (Electronic Product Code Information Services) captures event-leve
 | **Identifiers** | GS1 keys (GTIN, GLN, SSCC, GRAI) | Multi-scheme composite (LEI, DUNS, GLN, nat-reg, etc.) |
 | **Primary use** | Track-and-trace, serialization, provenance | Supply chain due diligence, risk analysis, regulatory reporting |
 
-**Interoperability path:** EPCIS `bizLocation` (GLN) maps to OMTSF `facility` nodes. EPCIS `TransformationEvent` captures input/output relationships that correspond to OMTSF `composed_of` edges at an aggregated level. Organizations using both EPCIS and OMTSF can link event-level data to the structural graph via shared GLN identifiers on `facility` nodes.
+**Interoperability path:** Shared GLN identifiers on `facility` nodes link EPCIS event-level data to the OMTSF structural graph.
 
 ---
 
 ## 6. W3C Verifiable Credentials
 
-The OMTSF `attestation` node type (OMTSF-SPEC-001, Section 4.5) captures certification and audit data in a format designed for graph integration. The W3C Verifiable Credentials (VC) Data Model provides a complementary approach focused on cryptographic verifiability.
-
-| OMTSF Attestation Property | W3C VC Equivalent | Notes |
-|---------------------------|-------------------|-------|
-| `issuer` | `vc.issuer` | Entity that issued the credential |
-| `valid_from` | `vc.validFrom` | Issuance / effective date |
-| `valid_to` | `vc.validUntil` | Expiration date |
-| `outcome` | Credential subject claims | VC encodes outcomes as claims within the credential subject |
-| `reference` | `vc.id` | Unique identifier for the credential |
-| `status` | `vc.credentialStatus` | VC supports status lists for revocation checking |
-
-OMTSF attestation nodes MAY carry a `reference` value that is a Verifiable Credential URI. Tooling that supports VCs can retrieve the full credential for cryptographic verification.
+The OMTSF `attestation` node type (OMTSF-SPEC-001, Section 4.5) captures certification and audit data in a format designed for graph integration. The W3C Verifiable Credentials (VC) Data Model provides a complementary approach focused on cryptographic verifiability. OMTSF attestation nodes may carry a `reference` value that is a Verifiable Credential URI, linking the graph-embedded attestation to a cryptographically verifiable credential.
