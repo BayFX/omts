@@ -473,6 +473,8 @@ All nodes and edges MAY carry an optional `labels` array for general-purpose cla
 
 **Labels do NOT participate in identity predicates.** They are not considered during merge candidate detection (OMTSF-SPEC-003, Section 2). During merge, labels are combined by set union of `{key, value}` pairs (OMTSF-SPEC-003, Section 4).
 
+> **Recommended vocabularies.** Appendix B defines recommended label keys for common supply chain, procurement, and regulatory classifications using OMTSF-reserved (dotless) keys. Producers SHOULD prefer these standard keys over custom equivalents to maximize cross-organization interoperability.
+
 **Examples:**
 
 A node with labels:
@@ -506,6 +508,19 @@ An edge with labels (inside `properties`):
   }
 }
 ```
+
+**Temporal validity.** Labels represent classifications as of the file's `snapshot_date`. Classifications change over time — regulatory risk tiers are reassessed, supplier segmentation quadrants shift with market conditions, and entity list designations are updated on a rolling basis. To determine when a label was current, consumers SHOULD use `snapshot_date` (file-level) and `data_quality.last_verified` (node/edge-level) as temporal signals. Comparing successive snapshots via `previous_snapshot_ref` enables tracking classification changes over time.
+
+**Organizational scope.** When a classification is scoped to a specific buying organization (e.g., SAP purchasing organization, Oracle procurement BU, D365 legal entity), producers SHOULD embed the organizational scope in the label key. For example, two purchasing organizations that classify the same vendor differently:
+
+```json
+"labels": [
+  { "key": "com.acme.ekorg-1000.vendor-group", "value": "strategic" },
+  { "key": "com.acme.ekorg-2000.vendor-group", "value": "standard" }
+]
+```
+
+This convention allows org-scoped classifications to coexist on the same node after merge without ambiguity.
 
 ---
 
@@ -816,3 +831,54 @@ Use the reification pattern when:
 - Role disambiguation is needed (e.g., in a joint venture, distinguishing the operating partner from passive investors).
 
 For simple binary relationships, standard edge types are sufficient and preferred.
+
+---
+
+## Appendix B: Recommended Label Keys (Informative)
+
+This appendix defines recommended label keys for common supply chain, procurement, and regulatory classifications. These keys use OMTSF-reserved (dotless) names. Producers SHOULD prefer these keys over custom equivalents when the semantics match. Producers SHOULD use lowercase kebab-case for both keys and values.
+
+### B.1 Procurement Classification
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `kraljic-quadrant` | `strategic`, `leverage`, `bottleneck`, `non-critical` | Kraljic portfolio classification based on supply risk and profit impact. |
+| `approval-status` | `approved`, `conditional`, `pending`, `blocked`, `phase-out` | Supplier approval lifecycle state. |
+| `sourcing-strategy` | `sole-source`, `single-source`, `dual-source`, `multi-source` | Sourcing strategy for the supplier or supply relationship. |
+
+### B.2 Supplier Diversity
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `diversity-classification` | `minority-owned`, `woman-owned`, `veteran-owned`, `disability-owned`, `lgbtbe`, `small-business`, `hubzone` | Supplier diversity certification category. Multiple labels with different values are permitted for suppliers with multiple certifications. |
+
+### B.3 Regulatory Scope
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `lksg-risk-priority` | `high`, `medium`, `low` | Risk priority tier under the German Supply Chain Due Diligence Act (LkSG). |
+| `lksg-in-scope` | *(boolean flag, no value)* | Entity is within scope of LkSG due diligence obligations. |
+| `csddd-in-scope` | *(boolean flag, no value)* | Entity is within scope of EU Corporate Sustainability Due Diligence Directive (CSDDD) obligations. |
+| `eudr-commodity-scope` | `cattle`, `cocoa`, `coffee`, `oil-palm`, `rubber`, `soya`, `wood` | EUDR commodity classification for the entity or supply relationship. Multiple values permitted. |
+| `eudr-country-risk` | `low`, `standard`, `high` | EUDR country risk classification per European Commission benchmarking. |
+| `uflpa-entity-list` | *(boolean flag, no value)* | Entity appears on the UFLPA Entity List maintained by DHS. |
+| `cbam-in-scope` | *(boolean flag, no value)* | Entity or facility is subject to EU Carbon Border Adjustment Mechanism reporting. |
+
+### B.4 Risk and Compliance
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `risk-tier` | `critical`, `high`, `medium`, `low` | General risk classification. Use regulatory-specific keys (e.g., `lksg-risk-priority`) when the classification is tied to a specific framework. |
+| `sanctions-screened` | *(boolean flag, no value)* | Entity has been screened against applicable sanctions lists. |
+| `conflict-minerals-smelter` | *(boolean flag, no value)* | Facility is identified as a smelter or refiner under Conflict Minerals Regulation (EU) 2017/821 or SEC Rule 13p-1. |
+
+### B.5 Commodity Classification
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `unspsc` | UNSPSC code (e.g., `31162800`) | United Nations Standard Products and Services Code for the commodity supplied. |
+| `commodity-group` | Free text | Human-readable commodity grouping for the entity or supply relationship. |
+
+### B.6 Multi-Valued Key Semantics
+
+The `{key, value}` pair is the atomic identity unit for labels. A single node or edge MAY carry multiple labels with the same key but different values — for example, a supplier with both `{key: "eudr-commodity-scope", value: "coffee"}` and `{key: "eudr-commodity-scope", value: "cocoa"}`. After merge, consumers encountering multiple values for the same key SHOULD treat them as observations from different sources rather than a conflict.

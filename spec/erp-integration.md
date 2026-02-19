@@ -17,6 +17,8 @@
 | OMTSF-SPEC-001 (Graph Data Model) | Defines the node types and edge types that ERP data maps to. |
 | OMTSF-SPEC-002 (Entity Identification) | Defines the identifier schemes (`internal`, `vat`, `duns`, etc.) used in ERP mappings. |
 | OMTSF-SPEC-003 (Merge Semantics) | Defines intra-file deduplication guidance relevant to ERP duplicate vendor records (OMTSF-SPEC-003, Section 8). |
+| OMTSF-SPEC-001, Section 8.4 (Labels) | Defines the `labels` array that ERP classification fields map to. See Section 5 of this document. |
+| OMTSF-SPEC-001, Appendix B (Recommended Label Keys) | Defines recommended label keys for common classifications. ERP-specific keys use reverse-domain notation. |
 
 ---
 
@@ -196,11 +198,83 @@ GET /data/PurchaseOrderHeadersV2?$select=PurchaseOrderNumber,
 
 ---
 
-## 5. Identifier Enrichment Lifecycle
+## 5. Label Mapping
+
+This section provides reference mappings for how ERP classification fields map to the OMTSF `labels` array (OMTSF-SPEC-001, Section 8.4). The recommended label keys defined in OMTSF-SPEC-001, Appendix B SHOULD be used where the semantics match. ERP-specific classifications that do not map to a recommended key SHOULD use reverse-domain notation.
+
+### 5.1 SAP S/4HANA
+
+| SAP Field | Table/Structure | OMTSF Label Mapping |
+|-----------|----------------|---------------------|
+| `EKGRP` (Vendor Group) | `LFM1` | `{ "key": "com.sap.vendor-group", "value": "{EKGRP}" }` |
+| Purchasing block indicator | `LFM1` (`SPERM`) | `{ "key": "com.sap.purchasing-blocked" }` (boolean flag) |
+| Vendor classification (scope item 19E) | `BUT000` classification tab | Use recommended keys where applicable (e.g., `kraljic-quadrant`, `risk-tier`). Map other classifications to `com.sap.{classification-type}`. |
+| `EKORG` (Purchasing Organization) | `LFM1` | Embed in label key when classifications vary by purchasing org (see organizational scope guidance in OMTSF-SPEC-001, Section 8.4). |
+
+**Example: SAP vendor with group and org-scoped classification:**
+
+```json
+"labels": [
+  { "key": "com.sap.vendor-group", "value": "ZSTR" },
+  { "key": "kraljic-quadrant", "value": "strategic" },
+  { "key": "com.acme.ekorg-1000.vendor-group", "value": "strategic" },
+  { "key": "com.acme.ekorg-2000.vendor-group", "value": "standard" }
+]
+```
+
+### 5.2 Oracle SCM Cloud
+
+| Oracle Field | Source | OMTSF Label Mapping |
+|-------------|--------|---------------------|
+| `ClassificationCode` | `POZ_SUPPLIER_BUSINESS_CLASSIFICATIONS` | `{ "key": "com.oracle.business-classification", "value": "{ClassificationCode}" }` |
+| `SupplierType` | `PrcPozSuppliersVO` | `{ "key": "com.oracle.supplier-type", "value": "{SupplierType}" }` |
+| Supplier diversity certification | `POZ_SUPPLIER_BUSINESS_CLASSIFICATIONS` | Use `diversity-classification` recommended key. |
+| `ProcurementBUId` | `PurchaseOrdersAllVO` | Embed in label key for BU-scoped classifications. |
+
+**Example: Oracle supplier with business classification and diversity:**
+
+```json
+"labels": [
+  { "key": "com.oracle.supplier-type", "value": "preferred" },
+  { "key": "diversity-classification", "value": "minority-owned" },
+  { "key": "com.oracle.bu-us-proc.supplier-tier", "value": "strategic" }
+]
+```
+
+### 5.3 Microsoft Dynamics 365
+
+| D365 Field | Source | OMTSF Label Mapping |
+|-----------|--------|---------------------|
+| `VendorGroupId` | `VendorsV2` | `{ "key": "com.microsoft.d365.vendor-group", "value": "{VendorGroupId}" }` |
+| `VendorOnHoldStatus` | `VendorsV2` | `{ "key": "com.microsoft.d365.on-hold" }` (boolean flag when on hold) |
+| Procurement category | `ProcurementCategoryName` | Use `commodity-group` recommended key when semantics match. |
+
+**Example: D365 vendor with group and hold status:**
+
+```json
+"labels": [
+  { "key": "com.microsoft.d365.vendor-group", "value": "30" },
+  { "key": "com.microsoft.d365.on-hold" },
+  { "key": "approval-status", "value": "blocked" }
+]
+```
+
+### 5.4 Cross-ERP Mapping Summary
+
+| Classification Concept | SAP | Oracle | D365 | Recommended OMTSF Key |
+|----------------------|-----|--------|------|-----------------------|
+| Vendor grouping | `EKGRP` | `SupplierType` | `VendorGroupId` | ERP-specific (`com.sap.*`, `com.oracle.*`, `com.microsoft.d365.*`) |
+| Purchasing block | `SPERM` | `SupplierEnabledFlag` | `VendorOnHoldStatus` | `approval-status` with value `blocked` |
+| Supplier diversity | Custom classification | `POZ_SUPPLIER_BUSINESS_CLASSIFICATIONS` | Custom | `diversity-classification` |
+| Risk classification | Custom classification | Custom | Custom | `risk-tier` or `kraljic-quadrant` |
+
+---
+
+## 6. Identifier Enrichment Lifecycle
 
 Files typically begin with minimal identifiers (internal ERP codes only) and are enriched over time as external identifiers are obtained.
 
-### 5.1 Enrichment Levels
+### 6.1 Enrichment Levels
 
 | Level | Description | Typical Identifiers | Merge Capability |
 |-------|-------------|--------------------|--------------------|
@@ -208,7 +282,7 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 | **Partially enriched** | Some external IDs obtained | `internal` + one of (`duns`, `nat-reg`, `vat`) | Cross-file merge possible where identifiers overlap |
 | **Fully enriched** | Multiple external IDs verified | `internal` + `lei` + `nat-reg` + `vat` (+ `duns` where available) | High-confidence cross-file merge |
 
-### 5.2 Enrichment Workflow
+### 6.2 Enrichment Workflow
 
 1. **Export:** Producer generates an `.omts` file from ERP data. Nodes carry `internal` identifiers and whatever external identifiers the ERP already holds (typically `vat` and sometimes `duns`).
 2. **Match:** An enrichment tool takes the internal-only nodes and attempts to resolve them to external identifiers using available data sources (GLEIF, OpenCorporates, D&B, national registries).
@@ -219,7 +293,7 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 
 **Important:** Enrichment MUST NOT remove or modify existing identifiers. It is an additive process. The original `internal` identifiers are preserved for reconciliation with the source system.
 
-### 5.3 Validation Level Alignment
+### 6.3 Validation Level Alignment
 
 - A file with only `internal` identifiers is valid at Level 1 (structural integrity).
 - A file where most `organization` nodes have at least one external identifier satisfies Level 2 (completeness).
@@ -227,7 +301,7 @@ Files typically begin with minimal identifiers (internal ERP codes only) and are
 
 ---
 
-## 6. EDI Coexistence
+## 7. EDI Coexistence
 
 OMTSF is not a replacement for EDI (EDIFACT, ANSI X12) or B2B messaging standards (PEPPOL BIS, cXML). EDI handles transactional document exchange (purchase orders, invoices, advance ship notices); OMTSF handles supply chain graph representation (who supplies whom, ownership, attestation).
 
