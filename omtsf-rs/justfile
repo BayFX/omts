@@ -45,3 +45,27 @@ ci: fmt-check lint test doc wasm-check deny
 
 # Fast pre-commit checks
 pre-commit: fmt-check lint test
+
+# Run all criterion benchmarks
+bench:
+    cargo bench -p omtsf-bench
+
+# Run a specific benchmark group
+bench-group group:
+    cargo bench -p omtsf-bench --bench {{group}}
+
+# Run benchmarks in quick mode (fewer samples)
+bench-quick:
+    cargo bench -p omtsf-bench --bench parse_serialize -- --quick
+    cargo bench -p omtsf-bench --bench graph_construction -- --quick
+    cargo bench -p omtsf-bench --bench graph_queries -- --quick
+    cargo bench -p omtsf-bench --bench subgraph_extraction -- --quick
+    cargo bench -p omtsf-bench --bench cycle_detection -- --quick
+    cargo bench -p omtsf-bench --bench validation -- --quick
+    cargo bench -p omtsf-bench --bench merge_pipeline -- --quick
+    cargo bench -p omtsf-bench --bench redaction -- --quick
+    cargo bench -p omtsf-bench --bench diff -- --quick
+
+# Generate fixture files to disk for manual inspection
+generate-fixtures:
+    cargo test -p omtsf-bench -- generate_fixtures --ignored --nocapture

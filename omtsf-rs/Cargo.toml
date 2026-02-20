@@ -3,6 +3,7 @@ members = [
     "crates/omtsf-core",
     "crates/omtsf-cli",
     "crates/omtsf-wasm",
+    "crates/omtsf-bench",
 ]
 resolver = "3"
 
