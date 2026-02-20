@@ -1,7 +1,7 @@
 # omtsf-cli Technical Specification: CLI Interface
 
 **Status:** Draft
-**Date:** 2026-02-19
+**Date:** 2026-02-20
 
 ---
 
@@ -27,7 +27,7 @@ These flags apply to every subcommand and are defined on the root `Cli` struct.
 | `--help` | `-h` | | | Print help for the command or subcommand. |
 | `--version` | `-V` | | | Print `omtsf <version>` and exit. |
 
-### clap Derive Structure (Illustrative)
+### clap Derive Structure
 
 ```rust
 #[derive(Parser)]
@@ -36,7 +36,8 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    #[arg(long, short = 'f', default_value = "human", global = true)]
+    #[arg(long, short = 'f', default_value = "human", global = true,
+          value_parser = clap::builder::PossibleValuesParser::new(["human", "json"]))]
     format: OutputFormat,
 
     #[arg(long, short = 'q', global = true, conflicts_with = "verbose")]
@@ -52,7 +53,15 @@ struct Cli {
     #[arg(long, global = true, env = "NO_COLOR")]
     no_color: bool,
 }
+
+#[derive(Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    Human,
+    Json,
+}
 ```
+
+`--quiet` and `--verbose` are declared with `conflicts_with` to produce a clap error at parse time when both are supplied. `--no-color` is a boolean flag that also reads `NO_COLOR` from the environment. When either source sets the value, ANSI escape sequences are suppressed. The CLI additionally checks `std::io::IsTerminal` on stderr; color is disabled when stderr is not a TTY, unless the user explicitly opts in via a future `--color=always` extension.
 
 ---
 
@@ -90,7 +99,7 @@ Merges two or more `.omts` files into a single graph per SPEC-003.
 **Flags:**
 - `--strategy <s>` -- Merge strategy: `union` (default) or `intersect`. Controls how non-overlapping nodes are handled.
 
-**Behavior:** Reads all input files, runs L1 validation on each (rejecting any that fail), executes the merge engine, and writes the merged `.omts` to stdout. Diagnostics (merge decisions, identity matches) go to stderr.
+**Behavior:** Reads all input files, runs L1 validation on each (rejecting any that fail), executes the merge engine, and writes the merged `.omts` to stdout. Diagnostics (merge decisions, identity matches, conflict reports) go to stderr.
 
 **Exit codes:** 0 = success, 1 = merge conflict (unresolvable property collision), 2 = parse/validation failure on any input file.
 
@@ -149,7 +158,7 @@ Computes a structural diff between two `.omts` files.
 **Flags:**
 - `--ids-only` -- Only report added/removed/changed node and edge IDs, not property-level detail.
 
-**Behavior:** Parses both files, matches nodes and edges by ID, and reports additions, removals, and property changes to stdout. In human mode, output uses `+`/`-` prefix lines (similar to unified diff). In JSON mode, emits a structured diff object.
+**Behavior:** Parses both files, matches nodes and edges by identity predicate (reusing SPEC-003 matching rules), and reports additions, removals, and property changes to stdout. In human mode, output uses `+`/`-`/`~` prefix lines. In JSON mode, emits a structured diff object with `nodes` and `edges` sections.
 
 **Exit codes:** 0 = files are identical, 1 = differences found, 2 = parse failure on either file.
 
@@ -218,7 +227,7 @@ Finds paths between two nodes.
 - `--max-paths <n>` -- Maximum number of paths to report (default: 10).
 - `--max-depth <n>` -- Maximum path length in edges (default: 20).
 
-**Behavior:** Builds the directed graph and finds paths from `<from>` to `<to>`. Reports paths to stdout: in human mode, each path is printed as a chain of node IDs separated by ` -> `; in JSON mode, emits an array of path arrays. Paths are ordered shortest-first.
+**Behavior:** Builds the directed graph and finds simple paths from `<from>` to `<to>` using iterative-deepening DFS. Reports paths to stdout: in human mode, each path is printed as a chain of node IDs separated by ` -> `; in JSON mode, emits an array of path arrays. Paths are ordered shortest-first.
 
 **Exit codes:** 0 = at least one path found, 1 = no path exists or a node ID is not found, 2 = parse failure.
 
@@ -239,7 +248,7 @@ Extracts the induced subgraph for a set of nodes.
 **Flags:**
 - `--expand <n>` -- Include neighbors up to `n` hops from the specified nodes (default: 0, meaning only the listed nodes and edges between them).
 
-**Behavior:** Builds the graph, selects the specified nodes (plus neighbors within `--expand` distance), collects all edges where both endpoints are in the selected set, and writes a valid `.omts` file to stdout. The output header is copied from the input with an updated `snapshot_date`.
+**Behavior:** Builds the graph, selects the specified nodes (plus neighbors within `--expand` distance via BFS), collects all edges where both endpoints are in the selected set, and writes a valid `.omts` file to stdout. The output header is copied from the input with an updated `snapshot_date`. The `reporting_entity` is retained only if the referenced node is in the subgraph.
 
 **Exit codes:** 0 = success, 1 = one or more node IDs not found, 2 = parse failure.
 
@@ -258,7 +267,7 @@ Scaffolds a new `.omts` file.
 **Flags:**
 - `--example` -- Generate a realistic example file instead of a minimal skeleton.
 
-**Behavior:** Writes a valid `.omts` file to stdout. Without `--example`, the output is a minimal file: header with a freshly generated `file_salt`, today's date as `snapshot_date`, empty `nodes` and `edges` arrays. With `--example`, the output includes sample organization, facility, and product nodes with realistic identifiers and edges.
+**Behavior:** Writes a valid `.omts` file to stdout. Without `--example`, the output is a minimal file: header with a freshly generated `file_salt` (32 bytes from CSPRNG, hex-encoded), today's date as `snapshot_date`, empty `nodes` and `edges` arrays. With `--example`, the output includes sample organization, facility, and product nodes with realistic identifiers and edges.
 
 **Exit codes:** 0 = success (always succeeds unless stdout write fails).
 
@@ -273,11 +282,50 @@ omtsf init --example | omtsf validate -
 
 ## 4. File I/O Module
 
-File I/O is exclusively the CLI's concern. `omtsf-core` never touches the filesystem.
+File I/O is exclusively the CLI's concern. `omtsf-core` never touches the filesystem; it operates on `&str` and `&[u8]` inputs.
 
 ### 4.1 Path Resolution
 
-All `<file>` arguments accept either an absolute path, a relative path (resolved against the current working directory), or the literal string `-` for stdin. When a command accepts multiple file arguments, at most one may be `-`.
+All `<file>` arguments accept either an absolute path, a relative path (resolved against the current working directory), or the literal string `-` for stdin. When a command accepts multiple file arguments, at most one may be `-`. Attempting to pass `-` twice produces a clap validation error.
+
+The `PathOrStdin` type encapsulates this:
+
+```rust
+#[derive(Clone)]
+enum PathOrStdin {
+    Path(PathBuf),
+    Stdin,
+}
+
+impl PathOrStdin {
+    fn is_stdin(&self) -> bool {
+        matches!(self, Self::Stdin)
+    }
+}
+
+impl FromStr for PathOrStdin {
+    type Err = Infallible;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "-" {
+            Ok(PathOrStdin::Stdin)
+        } else {
+            Ok(PathOrStdin::Path(PathBuf::from(s)))
+        }
+    }
+}
+```
+
+For multi-file commands (`merge`), a custom validator runs after parsing to reject multiple stdin arguments:
+
+```rust
+fn validate_at_most_one_stdin(files: &[PathOrStdin]) -> Result<(), String> {
+    let stdin_count = files.iter().filter(|f| f.is_stdin()).count();
+    if stdin_count > 1 {
+        return Err("at most one file argument may be \"-\" (stdin)".into());
+    }
+    Ok(())
+}
+```
 
 ### 4.2 Stdin Support
 
@@ -286,8 +334,9 @@ When `-` is provided, the CLI reads the entire stdin stream into a byte buffer b
 ### 4.3 File Size Enforcement
 
 Before reading any file (or stdin), the CLI checks the size against `--max-file-size`:
+
 - **Disk files:** `std::fs::metadata` provides the file length before reading. Reject immediately if it exceeds the limit.
-- **Stdin:** Read into a buffer with a capped allocation. If the buffer reaches the limit before EOF, abort with an error. Use `Read::take` to bound the allocation.
+- **Stdin:** Read into a buffer with a capped allocation. Use `Read::take(max_file_size + 1)` to bound the read. If exactly `max_file_size + 1` bytes are consumed, the input exceeds the limit; abort with an error. This avoids allocating an unbounded buffer from untrusted input.
 
 The limit applies per file. For multi-file commands like `merge`, each file is checked independently.
 
@@ -295,18 +344,38 @@ The limit applies per file. For multi-file commands like `merge`, each file is c
 
 All `.omts` files are UTF-8 JSON. The CLI validates UTF-8 encoding when converting from bytes to string (`std::str::from_utf8`). Invalid UTF-8 produces exit code 2 with a message identifying the byte offset of the first invalid sequence.
 
-### 4.5 I/O Error Handling
+### 4.5 Read Pipeline
+
+The complete read pipeline for a single file argument:
+
+1. Resolve `PathOrStdin` to a byte source.
+2. Check file size (metadata for disk, `Read::take` for stdin).
+3. Read bytes into `Vec<u8>`.
+4. Validate UTF-8 via `std::str::from_utf8`.
+5. Pass `&str` to `omtsf-core` for deserialization.
+
+Any failure at steps 2-4 produces exit code 2 and a diagnostic to stderr.
+
+### 4.6 I/O Error Handling
 
 | Condition | Behavior |
 |-----------|----------|
-| File not found | stderr message, exit 2 |
-| Permission denied | stderr message, exit 2 |
+| File not found | stderr message with path, exit 2 |
+| Permission denied | stderr message with path, exit 2 |
 | File exceeds size limit | stderr message with limit and actual size, exit 2 |
 | Invalid UTF-8 | stderr message with byte offset, exit 2 |
 | Stdout write failure (broken pipe) | Silently exit 0 (standard Unix behavior for piped output) |
 | Stdin read error | stderr message, exit 2 |
 
-Broken pipe handling: the CLI installs a handler for `SIGPIPE` (or equivalent) so that piping output through `head` or similar tools does not produce an error.
+Broken pipe handling: the CLI installs a handler for `SIGPIPE` (or equivalent) so that piping output through `head` or similar tools does not produce an error. On Linux, this is accomplished by resetting `SIGPIPE` to `SIG_DFL` before any I/O:
+
+```rust
+fn reset_sigpipe() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+```
 
 ---
 
@@ -321,13 +390,13 @@ Broken pipe handling: the CLI installs a handler for `SIGPIPE` (or equivalent) s
 [I] L3-EID-02  node "org-001": LEI status is LAPSED
 ```
 
-Colors: `[E]` red, `[W]` yellow, `[I]` cyan. Disabled when `--no-color` is set or `NO_COLOR` env var is present, or when stderr is not a TTY.
+Colors: `[E]` red, `[W]` yellow, `[I]` cyan. Disabled when `--no-color` is set, `NO_COLOR` env var is present, or stderr is not a TTY.
 
-**Data (stdout):** Command-specific. `inspect` uses aligned columns. `reach` and `path` use plain text, one entry per line. `diff` uses `+`/`-` prefixed lines.
+**Data (stdout):** Command-specific. `inspect` uses aligned columns. `reach` and `path` use plain text, one entry per line. `diff` uses `+`/`-`/`~` prefixed lines. Commands that emit `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`) write JSON directly regardless of `--format`.
 
-**Quiet mode (`--quiet`):** Suppresses all stderr output except parse errors and I/O errors. Useful in scripts that only check exit codes.
+**Quiet mode (`--quiet`):** Suppresses all stderr output except parse errors and I/O errors. Data output to stdout is unaffected. Useful in scripts that only check exit codes.
 
-**Verbose mode (`--verbose`):** Adds timing information (`parsed in 42ms, validated in 18ms`), rule execution counts, and file metadata to stderr.
+**Verbose mode (`--verbose`):** Adds timing information (`parsed in 42ms, validated in 18ms`), rule execution counts, file metadata (size, node count, edge count), and traversal statistics to stderr.
 
 ### 5.2 JSON Mode (`--format json`)
 
@@ -336,16 +405,25 @@ Colors: `[E]` red, `[W]` yellow, `[I]` cyan. Disabled when `--no-color` is set o
 {"rule_id":"L1-GDM-03","severity":"error","location":{"type":"edge","id":"e-042","field":"target"},"message":"target \"node-999\" not found"}
 ```
 
-**Data:** Single JSON document to stdout. For commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`), the output is the JSON file itself regardless of `--format`. For `inspect`, `reach`, `path`, and `diff`, the output is a structured JSON object.
+**Data:** Single JSON document to stdout. For commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`), the output is the JSON file itself regardless of `--format`. For `inspect`, `reach`, `path`, and `diff`, the output is a structured JSON object specific to the command.
 
 ### 5.3 Summary Counts
 
-The `validate` command, in human mode, ends with a summary line:
+The `validate` command, in human mode, ends with a summary line on stderr:
 ```
 3 errors, 1 warning, 0 info (checked 142 nodes, 87 edges)
 ```
 
-In quiet mode, the summary is suppressed. In JSON mode, the summary is a final JSON object with key `"summary"`.
+In quiet mode, the summary is suppressed. In JSON mode, the summary is a final JSON object on stderr with key `"summary"`.
+
+### 5.4 Color Detection Logic
+
+Color output is enabled when all of the following are true:
+1. `--no-color` flag is not set
+2. `NO_COLOR` environment variable is not set
+3. stderr is a TTY (checked via `std::io::IsTerminal`)
+
+The CLI never emits ANSI codes to stdout. Color is used exclusively for stderr diagnostics.
 
 ---
 
@@ -357,11 +435,33 @@ In quiet mode, the summary is suppressed. In JSON mode, the summary is a final J
 | 1 | Logical failure: validation errors (L1), merge conflicts, no path found, node ID not found, diff found differences, redaction scope error. | `validate`, `merge`, `redact`, `reach`, `path`, `subgraph`, `diff` |
 | 2 | Input failure: file not found, permission denied, size limit exceeded, invalid UTF-8, JSON parse error, missing required fields. | All commands |
 
-Design rationale: two non-zero codes distinguish between "the tool worked correctly but the input has problems" (1) and "the tool could not process the input at all" (2). This is consistent with `grep` (0 = match, 1 = no match, 2 = error) and `diff` (0 = same, 1 = different, 2 = error). Scripts can branch on `$?` without parsing stderr.
+### Detailed Exit Code Mapping
+
+| Condition | Code | Commands |
+|-----------|------|----------|
+| Operation completed, no issues | 0 | All |
+| Validation passed (no L1 errors), L2/L3 findings present | 0 | `validate` |
+| Diff computed, files identical | 0 | `diff` |
+| Path found between nodes | 0 | `path` |
+| Reachable set computed | 0 | `reach` |
+| L1 validation errors found | 1 | `validate` |
+| Unresolvable merge conflict | 1 | `merge` |
+| Scope less restrictive than existing disclosure_scope | 1 | `redact` |
+| Source or target node ID not found in graph | 1 | `reach`, `path`, `subgraph` |
+| No path exists between nodes | 1 | `path` |
+| Diff computed, differences found | 1 | `diff` |
+| File not found | 2 | All |
+| Permission denied | 2 | All |
+| File exceeds size limit | 2 | All |
+| Invalid UTF-8 encoding | 2 | All |
+| JSON parse error | 2 | All |
+| Missing required JSON fields | 2 | All |
+
+Design rationale: two non-zero codes distinguish "the tool worked correctly but the input has problems" (1) from "the tool could not process the input at all" (2). This is consistent with `grep` (0 = match, 1 = no match, 2 = error) and `diff` (0 = same, 1 = different, 2 = error). Scripts can branch on `$?` without parsing stderr.
 
 ---
 
-## 7. clap Subcommand Dispatch (Illustrative)
+## 7. clap Subcommand Dispatch
 
 ```rust
 #[derive(Subcommand)]
@@ -370,21 +470,22 @@ enum Command {
     Validate {
         #[arg(value_name = "FILE")]
         file: PathOrStdin,
-        #[arg(long, default_value = "2", value_parser = clap::value_parser!(u8).range(1..=3))]
+        #[arg(long, default_value = "2",
+              value_parser = clap::value_parser!(u8).range(1..=3))]
         level: u8,
     },
     /// Merge two or more .omts files.
     Merge {
         #[arg(value_name = "FILE", num_args = 2..)]
         files: Vec<PathOrStdin>,
-        #[arg(long, default_value = "union")]
+        #[arg(long, default_value = "union", value_enum)]
         strategy: MergeStrategy,
     },
     /// Redact a file for a target disclosure scope.
     Redact {
         #[arg(value_name = "FILE")]
         file: PathOrStdin,
-        #[arg(long)]
+        #[arg(long, value_enum)]
         scope: DisclosureScope,
     },
     /// Print summary statistics.
@@ -418,7 +519,7 @@ enum Command {
         node_id: String,
         #[arg(long)]
         depth: Option<u32>,
-        #[arg(long, default_value = "outgoing")]
+        #[arg(long, default_value = "outgoing", value_enum)]
         direction: Direction,
     },
     /// Find paths between two nodes.
@@ -449,9 +550,36 @@ enum Command {
         example: bool,
     },
 }
+
+#[derive(Clone, Copy, ValueEnum)]
+enum MergeStrategy {
+    Union,
+    Intersect,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum DisclosureScope {
+    Public,
+    Partner,
+    Internal,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum Direction {
+    Outgoing,
+    Incoming,
+    Both,
+}
 ```
 
-`PathOrStdin` is a small wrapper type implementing `clap::ValueParserFactory`. It parses `"-"` as a `Stdin` variant and anything else as a `PathBuf` via `Path(PathBuf)`. This avoids stringly-typed handling of the stdin sentinel throughout the codebase.
+### Argument Validation Beyond clap
+
+clap handles type parsing, range checks, and `conflicts_with` constraints. The following validations run after clap parsing in the command dispatch layer:
+
+1. **Multiple stdin rejection.** For `merge`, check that at most one element of `files` is `PathOrStdin::Stdin`.
+2. **Dual stdin in diff.** For `diff`, check that `a` and `b` are not both `Stdin`.
+3. **File existence.** For `PathOrStdin::Path` variants, check that the file exists before attempting to read. This produces a clearer error message than the OS-level I/O error.
+4. **Merge minimum files.** clap's `num_args = 2..` enforces the minimum of 2 files for `merge`.
 
 ---
 
@@ -463,3 +591,40 @@ enum Command {
 | `NO_COLOR` | Disable ANSI color output | `--no-color` flag |
 
 No other environment variables are read. In particular, no configuration files, no home-directory dotfiles, and no XDG paths. The CLI is stateless and fully driven by its arguments and these two env vars.
+
+---
+
+## 9. Command Dispatch and Error Flow
+
+The `main` function follows a structured error-handling pattern:
+
+```rust
+fn main() {
+    reset_sigpipe();
+    let cli = Cli::parse();
+    let exit_code = match run(&cli) {
+        Ok(code) => code,
+        Err(e) => {
+            if !is_broken_pipe(&e) {
+                eprintln!("omtsf: {e}");
+            }
+            2
+        }
+    };
+    std::process::exit(exit_code);
+}
+```
+
+The `run` function returns `Result<i32, CliError>` where the `i32` is the intended exit code (0 or 1) and `CliError` covers I/O and parse failures (which map to exit code 2). This ensures that exit code 1 is always an intentional signal from the command logic, never an unhandled error.
+
+`CliError` wraps the following sources:
+
+| Variant | Source | Exit Code |
+|---------|--------|-----------|
+| `Io(std::io::Error)` | File read/write failure | 2 |
+| `FileTooLarge { path, limit, actual }` | Size check failure | 2 |
+| `InvalidUtf8 { path, offset }` | UTF-8 validation failure | 2 |
+| `Parse(serde_json::Error)` | JSON deserialization failure | 2 |
+| `MultipleStdin` | Two `-` arguments | 2 |
+
+Commands that produce exit code 1 return `Ok(1)` from the `run` function, not `Err(...)`. This is deliberate: exit code 1 means the tool operated correctly and the result is a logical finding (validation failure, differences detected, node not found), not an operational error.

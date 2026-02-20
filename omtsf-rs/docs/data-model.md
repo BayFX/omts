@@ -1,7 +1,7 @@
 # omtsf-core Technical Specification: Data Model
 
 **Status:** Draft
-**Date:** 2026-02-19
+**Date:** 2026-02-20
 
 ---
 
@@ -129,7 +129,7 @@ pub enum EdgeType {
 
 ### 4.4 Other Enums
 
-Each property-level enum follows the same `#[serde(rename_all = "snake_case")]` convention. Representative examples:
+Each property-level enum follows the same `#[serde(rename_all = "snake_case")]` convention.
 
 ```rust
 pub enum AttestationType {
@@ -150,6 +150,10 @@ pub enum VerificationStatus {
 
 pub enum OrganizationStatus {
     Active, Dissolved, Merged, Suspended,
+}
+
+pub enum GovernanceStructure {
+    SoleSubsidiary, JointVenture, Consortium, Cooperative,
 }
 
 pub enum AttestationOutcome {
@@ -175,7 +179,25 @@ pub enum EmissionFactorSource {
 pub enum ControlType {
     Franchise, Management, Tolling, LicensedManufacturing, Other,
 }
+
+pub enum ConsolidationBasis {
+    Ifrs10, UsGaapAsc810, Other, Unknown,
+}
+
+pub enum EventType {
+    Merger, Acquisition, Rename, Demerger, SpinOff,
+}
+
+pub enum ServiceType {
+    Warehousing, Transport, Fulfillment, Other,
+}
 ```
+
+### 4.5 The `control_type` Disambiguation
+
+SPEC-001 defines two edge types that carry a `control_type` property with different variant sets: `operational_control` (Section 5.2: `franchise`, `management`, `tolling`, `licensed_manufacturing`, `other`) and `beneficial_ownership` (Section 5.5: `voting_rights`, `capital`, `other_means`, `senior_management`). These are semantically distinct and share no variants.
+
+We type the `control_type` field on `EdgeProperties` as `serde_json::Value` rather than a single enum. This avoids forcing a union enum that would accept invalid values for both edge types. The validation engine enforces that the correct variant set is used for the edge's type. An alternative was two separate `Option` fields (`operational_control_type` and `beneficial_ownership_control_type`), but this breaks JSON fidelity since both appear as `"control_type"` in the wire format.
 
 ---
 
@@ -228,6 +250,7 @@ pub struct Node {
     pub valid_from: Option<CalendarDate>,
     pub valid_to: Option<Option<CalendarDate>>,
     pub outcome: Option<AttestationOutcome>,
+    #[serde(rename = "status")]
     pub attestation_status: Option<AttestationStatus>,
     pub reference: Option<String>,
     pub risk_severity: Option<RiskSeverity>,
@@ -262,7 +285,15 @@ pub enum NodeTypeTag {
 
 A custom `Deserialize` impl attempts to match against `NodeType` variants first. If no variant matches and the string contains a dot (extension convention), it deserializes as `Extension`. If the string contains no dot and is not a known type, it still deserializes as `Extension` -- rejection is a validation concern, not a deserialization concern.
 
-### 5.3 The `valid_to` Null vs. Absent Distinction
+### 5.3 The `status` / `attestation_status` Name Collision
+
+Both `organization` and `attestation` node types use a JSON field named `"status"`, but with different enum variant sets (`OrganizationStatus` vs `AttestationStatus`). On the flat `Node` struct, these cannot coexist as two fields both named `status` in Rust nor both mapping to `"status"` in JSON.
+
+Resolution: the `status` field maps to `OrganizationStatus` and the `attestation_status` field uses `#[serde(rename = "status")]`. Because these are on the same struct, serde cannot naively map both. We use a custom deserializer that reads the `"status"` string and, based on the node's `type` tag, routes it to the correct field. On serialization, the active field (whichever is `Some`) emits as `"status"`. The validation engine ensures only the appropriate field is populated for each node type.
+
+An alternative design would store `status` as `Option<serde_json::Value>` and provide typed accessor methods, but this pushes deserialization cost to every call site. The custom deserializer pays the cost once.
+
+### 5.4 The `valid_to` Null vs. Absent Distinction
 
 The spec assigns distinct meaning to `"valid_to": null` (no expiration, explicitly stated) versus the field being absent (not provided). The Rust type `Option<Option<CalendarDate>>` captures this:
 
@@ -458,6 +489,7 @@ Custom `Deserialize` implementations are required for:
 - `NodeTypeTag` / `EdgeTypeTag`: attempt known enum match, fall back to extension string.
 - `SemVer`, `CalendarDate`, `FileSalt`, `CountryCode`: shape validation on deserialize.
 - `Option<Option<T>>` fields: distinguish null from absent.
+- `Node` struct: route the `"status"` JSON field to the correct Rust field based on node type.
 
 ### 8.5 Serialization Order
 
@@ -486,7 +518,7 @@ All types use owned data (`String`, `Vec<T>`, `serde_json::Map`). No lifetime pa
 
 This is a conscious trade-off. Zero-copy deserialization (`&'de str` fields with `#[serde(borrow)]`) would reduce allocation pressure on large files but introduces lifetime constraints that make the types unusable across async boundaries and difficult to store in long-lived data structures like the graph engine's `petgraph` instance. It also prevents modification of the deserialized tree, which merge and redaction require.
 
-If profiling reveals that allocation during deserialization is a bottleneck for multi-million-node files, the mitigation path is arena allocation (e.g., `bumpalo` with `serde`'s `borrow` feature), not lifetime-infected public types. The public API surface remains owned.
+If profiling reveals that allocation during deserialization is a bottleneck for multi-million-node files, the mitigation path is arena allocation (e.g., `bumpalo` with serde's `borrow` feature), not lifetime-infected public types. The public API surface remains owned.
 
 ---
 
@@ -508,7 +540,7 @@ The `OmtsFile` struct and its children are not directly `#[wasm_bindgen]`-annota
 
 ### 11.3 Serialization to/from JS
 
-For WASM consumers that need the full parsed tree on the JS side, `serde-wasm-bindgen` can convert `OmtsFile` to a `JsValue` without an intermediate JSON string. This is a `omtsf-wasm` crate concern and does not affect the type definitions here.
+For WASM consumers that need the full parsed tree on the JS side, `serde-wasm-bindgen` can convert `OmtsFile` to a `JsValue` without an intermediate JSON string. This is an `omtsf-wasm` crate concern and does not affect the type definitions here.
 
 ---
 
@@ -524,3 +556,5 @@ For WASM consumers that need the full parsed tree on the JS side, `serde-wasm-bi
 | Owned data, no lifetimes | Merge/redaction require mutation; async/graph-engine storage requires `'static` |
 | `NodeId` string references, not indices | Direct 1:1 mapping to JSON; index structures are a graph-engine concern |
 | No `#[serde(deny_unknown_fields)]` anywhere | Spec requires forward-compatible consumers (SPEC-001 Section 11.2) |
+| Custom `Node` deserializer for `"status"` routing | Two node types share the JSON key with different enum variant sets |
+| `control_type` as `Value`, not a union enum | Two edge types define disjoint variant sets under the same JSON key |

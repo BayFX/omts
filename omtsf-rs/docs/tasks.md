@@ -1,560 +1,680 @@
-# omtsf-rs Implementation Task List
+# omtsf-rs Implementation Task Plan
 
-**Date:** 2026-02-19
-**Status:** Draft
-
-This document contains the ordered, dependency-aware task breakdown for implementing the `omtsf-rs` workspace (`omtsf-core` library and `omtsf-cli` binary) from the technical specification suite.
+**Date:** 2026-02-20
+**Status:** Approved
 
 ---
 
 ## Phase 1: Workspace Setup
 
-### T-001 — Initialize Cargo workspace, crate scaffolding, and CI
+### T-001 -- Initialize Cargo workspace and crate scaffolding
 
-- **Spec Reference:** overview.md Sections 2, 3
+- **Spec Reference:** overview.md Section 3
 - **Dependencies:** None
 - **Complexity:** S
 - **Crate:** Both
 - **Acceptance Criteria:**
-  - Cargo workspace root at `omtsf-rs/Cargo.toml` with members `crates/omtsf-core` and `crates/omtsf-cli`
-  - `omtsf-core` compiles as a library crate with `serde`, `serde_json`, and `petgraph` in `[dependencies]`
-  - `omtsf-cli` compiles as a binary crate with `clap` and a dependency on `omtsf-core`
-  - Placeholder `omtsf-wasm` crate exists with an empty `lib.rs`
-  - Workspace lints configured (`warnings` denied, common clippy lints enabled), `rust-toolchain.toml` pins stable edition (2024)
-  - `tests/` directory exists at workspace root; `cargo build` and `cargo test` succeed
+  - Workspace `Cargo.toml` at `omtsf-rs/` with members `crates/omtsf-core` and `crates/omtsf-cli`
+  - `omtsf-core` compiles as a library crate (`lib.rs`) with `serde`, `serde_json`, and `petgraph` dependencies declared
+  - `omtsf-cli` compiles as a binary crate (`main.rs`) with `clap` dependency declared and a dependency on `omtsf-core`
+  - Stub `omtsf-wasm` crate exists with an empty `lib.rs`
+  - `cargo build --workspace` succeeds with no errors
+
+### T-002 -- Configure CI and WASM compile-check
+
+- **Spec Reference:** overview.md Sections 4, 11
+- **Dependencies:** T-001
+- **Complexity:** S
+- **Crate:** Both
+- **Acceptance Criteria:**
+  - GitHub Actions workflow runs `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, and `cargo fmt -- --check` on push
+  - CI includes a `cargo check --target wasm32-unknown-unknown -p omtsf-core` step that verifies the core crate compiles to WASM
+  - CI matrix covers stable and MSRV Rust toolchains
 
 ---
 
 ## Phase 2: Data Model
 
-### T-002 — Define newtype wrappers with validation
+### T-003 -- Define newtype wrappers with validation-on-construct
 
-- **Spec Reference:** data-model.md Section 3 (SemVer, CalendarDate, FileSalt, NodeId, CountryCode)
+- **Spec Reference:** data-model.md Section 3
 - **Dependencies:** T-001
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - Each newtype (`SemVer`, `CalendarDate`, `FileSalt`, `NodeId`, `CountryCode`) implements `TryFrom<&str>` with regex-based shape validation
-  - Each newtype implements `Deref<Target = str>`, `Display`, `Serialize`, and `Deserialize` (with validation in the `Deserialize` impl); none implement `DerefMut`
-  - Unit tests cover valid inputs, boundary cases, and rejection of malformed inputs for each type
+  - `SemVer`, `CalendarDate`, `FileSalt`, `NodeId`, `CountryCode` newtypes are defined with `TryFrom<&str>` constructors
+  - Each newtype validates its regex shape on construction and rejects invalid inputs
+  - All newtypes implement `Deref<Target = str>`, `Display`, `Serialize`, and `Deserialize` (with validation in the `Deserialize` impl)
+  - Unit tests cover valid inputs, boundary cases, and rejected inputs for each newtype
 
-### T-003 — Define enums for node types, edge types, and property-level enums
+### T-004 -- Define enums for node types, edge types, and property-level enums
 
-- **Spec Reference:** data-model.md Sections 4.1 through 4.4
+- **Spec Reference:** data-model.md Sections 4.1 -- 4.5
 - **Dependencies:** T-001
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - All enums from the spec defined with `#[serde(rename_all = "snake_case")]`: `NodeType`, `EdgeType`, `DisclosureScope`, `AttestationType`, `Confidence`, `Sensitivity`, `VerificationStatus`, `OrganizationStatus`, `AttestationOutcome`, `AttestationStatus`, `RiskSeverity`, `RiskLikelihood`, `EmissionFactorSource`, `ControlType`, `ConsolidationBasis`, `EventType`, `ServiceType`
-  - `NodeTypeTag` and `EdgeTypeTag` wrapper enums with `Known(T)` and `Extension(String)` variants with custom `Deserialize` implementations
-  - Round-trip serde tests confirm known variants serialize correctly and extension strings survive deserialization
+  - `NodeType`, `EdgeType`, `DisclosureScope`, `AttestationType`, `Confidence`, `Sensitivity`, `VerificationStatus`, `OrganizationStatus`, and all other property-level enums from data-model.md Section 4.4 are defined
+  - All enums use `#[serde(rename_all = "snake_case")]` and round-trip correctly through JSON
+  - `NodeTypeTag` and `EdgeTypeTag` two-variant enums (`Known` / `Extension`) are defined with custom `Deserialize` impls that fall back to `Extension` for unrecognized strings
+  - Unit tests confirm serialization of each variant and correct fallback for extension strings
 
-### T-004 — Define shared types: Identifier, DataQuality, Label, Geo
+### T-005 -- Define Node struct with flat optional fields and custom deserializer
 
-- **Spec Reference:** data-model.md Sections 7.1 through 7.4
-- **Dependencies:** T-002, T-003
-- **Complexity:** S
-- **Crate:** `omtsf-core`
-- **Acceptance Criteria:**
-  - `Identifier`, `DataQuality`, `Label` structs with all fields per spec, each carrying `#[serde(flatten)]` extras
-  - `Geo` enum with `Point { lat, lon }` and `GeoJson(Value)` variants
-  - `Node::geo_parsed()` helper method returns `Option<Result<Geo, GeoParseError>>`
-  - Unit tests for each shared type's serialization and deserialization
-
-### T-005 — Define Node, Edge, and EdgeProperties structs
-
-- **Spec Reference:** data-model.md Sections 5.1 through 5.3, 6.1 through 6.3
-- **Dependencies:** T-002, T-003, T-004
+- **Spec Reference:** data-model.md Sections 5.1 -- 5.4
+- **Dependencies:** T-003, T-004
 - **Complexity:** L
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `Node` struct with all fields from data-model.md Section 5.1 as `Option<T>` (except `id` and `node_type`), with `#[serde(flatten)]` for unknown field preservation
-  - `valid_to` uses `Option<Option<CalendarDate>>` with a custom deserializer distinguishing null from absent
-  - `Edge` struct with `id`, `edge_type`, `source`, `target`, `identifiers`, `properties`, and `extra` fields
-  - `EdgeProperties` struct with all optional property fields from data-model.md Section 6.2 and `#[serde(flatten)]` catch-all
-  - Serde round-trip tests for nodes and edges with known types, extension types, and null-vs-absent `valid_to`
+  - `Node` struct defined with all fields from data-model.md Section 5.1, including `#[serde(flatten)] pub extra`
+  - Custom `Deserialize` impl routes the JSON `"status"` field to `status` (OrganizationStatus) or `attestation_status` (AttestationStatus) based on the node's `type` tag
+  - `Option<Option<CalendarDate>>` for `valid_to` correctly distinguishes absent, `null`, and present values
+  - Round-trip tests: deserialize a Node JSON, re-serialize, and confirm byte-identical output for each node type (organization, facility, good, person, attestation, consignment, boundary_ref)
 
-### T-006 — Define OmtsFile top-level struct and end-to-end serde round-trip
+### T-006 -- Define Edge and EdgeProperties structs
 
-- **Spec Reference:** data-model.md Sections 2, 8.1 through 8.5, 9, 10
-- **Dependencies:** T-005
+- **Spec Reference:** data-model.md Sections 6.1 -- 6.3
+- **Dependencies:** T-003, T-004
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `OmtsFile` struct with fields in declaration order matching spec (field order is load-bearing for serialization)
-  - `#[serde(rename_all = "snake_case")]` applied; `#[serde(skip_serializing_if = "Option::is_none")]` on optional fields
-  - `#[serde(flatten)]` catch-all for unknown top-level fields
-  - End-to-end test: parse a complete JSON fixture into `OmtsFile`, re-serialize, verify structural equality
-  - Round-trip preserves unknown fields added to the fixture
+  - `Edge` struct with `id`, `edge_type`, `source`, `target`, `properties`, `identifiers`, and `extra` fields
+  - `EdgeProperties` struct with all fields from data-model.md Section 6.2, including `control_type` as `Option<serde_json::Value>`
+  - `EdgeTypeTag` custom deserializer works identically to `NodeTypeTag`
+  - Round-trip serde tests for at least five edge types with varying property sets
 
-### T-007 — Create initial .omts test fixtures
+### T-007 -- Define shared types: Identifier, DataQuality, Label, Geo
 
-- **Spec Reference:** data-model.md (all sections), overview.md Section 4.3
-- **Dependencies:** T-006
-- **Complexity:** S
-- **Crate:** Both (fixtures live in workspace `tests/fixtures/`)
+- **Spec Reference:** data-model.md Sections 7.1 -- 7.4
+- **Dependencies:** T-003, T-004
+- **Complexity:** M
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - At least three fixture files: minimal valid, realistic example, and one with extension types and unknown fields
-  - All fixtures parse successfully with `serde_json::from_str::<OmtsFile>()` in unit tests
-  - Fixtures committed under `tests/fixtures/`
+  - `Identifier`, `DataQuality`, `Label` structs defined with `#[serde(flatten)] pub extra` on each
+  - `Geo` enum with `Point { lat, lon }` and `GeoJson(Value)` variants, accessible via `Node::geo_parsed()` method
+  - `Identifier.scheme` is a plain `String`; scheme-specific validation deferred to the validation engine
+  - Serde round-trip tests for each shared type, including unknown-field preservation via the `extra` map
+
+### T-008 -- Define OmtsFile top-level struct and serde strategy
+
+- **Spec Reference:** data-model.md Sections 2, 8.1 -- 8.5
+- **Dependencies:** T-005, T-006, T-007
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `OmtsFile` struct with all fields from data-model.md Section 2, field declaration order matches required JSON key order
+  - `#[serde(rename_all = "snake_case")]` applied; `type` fields use `#[serde(rename = "type")]`
+  - `#[serde(skip_serializing_if = "Option::is_none")]` on all optional fields except `valid_to` (uses custom serializer)
+  - End-to-end test: parse a fixture JSON string into `OmtsFile`, re-serialize, and confirm the output is semantically equivalent (key order, null handling, unknown field preservation)
+
+### T-009 -- Create .omts fixture files for testing
+
+- **Spec Reference:** overview.md Section 3 (tests/ directory)
+- **Dependencies:** T-008
+- **Complexity:** M
+- **Crate:** Both (tests/)
+- **Acceptance Criteria:**
+  - At least 5 fixture files: minimal valid file, realistic supply chain graph, file with extension types, file with boundary_ref nodes, file with deliberate L1 violations
+  - All fixtures deserialize cleanly into `OmtsFile` (except the invalid fixture)
+  - Fixtures are committed under `omtsf-rs/tests/fixtures/` and are reusable by all subsequent test tasks
 
 ---
 
 ## Phase 3: Validation Engine
 
-### T-008 — Define Diagnostic, Severity, RuleId, Location, and ValidationResult types
+### T-010 -- Define Diagnostic, RuleId, Severity, Location types
 
 - **Spec Reference:** validation.md Sections 2, 2.1, 2.2
-- **Dependencies:** T-002
+- **Dependencies:** T-003
 - **Complexity:** S
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `Diagnostic` struct with `rule_id`, `severity`, `location`, `message` fields
-  - `Severity` enum (`Error`, `Warning`, `Info`); `RuleId` enum with one variant per L1/L2/L3 rule plus `Extension(String)` and `Internal`; `RuleId::code()` returns `&'static str` in hyphenated form (e.g., `"L1-GDM-03"`)
-  - `Location` enum with `Header`, `Node`, `Edge`, `Identifier`, `Global` variants
-  - `ValidationResult` with `has_errors()`, `is_conformant()`, filtering iterators
-  - `ValidateOutput` enum distinguishing `ParseFailed` from `Validated`
+  - `Diagnostic`, `Severity`, `Location`, `RuleId` types defined as specified
+  - `RuleId` is `#[non_exhaustive]` and includes all L1/L2/L3 variants plus `Internal` and `Extension(String)`
+  - `RuleId::code()` returns the correct hyphenated string for every variant
+  - `ValidationResult` with `has_errors()`, `errors()`, `warnings()`, `infos()`, `is_conformant()` methods
+  - Unit tests for `RuleId::code()` mapping and `ValidationResult` filtering
 
-### T-009 — Implement ValidationRule trait, registry, and dispatch
+### T-011 -- Build ValidationRule trait, registry, and ValidationContext
 
-- **Spec Reference:** validation.md Sections 3.1, 3.2, 3.3
-- **Dependencies:** T-008, T-006
+- **Spec Reference:** validation.md Sections 3.1 -- 3.4
+- **Dependencies:** T-008, T-010
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `ValidationRule` trait with `id()`, `level()`, `severity()`, and `check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>)` methods
-  - `ValidationConfig` struct with `run_l1`, `run_l2`, `run_l3` booleans
-  - `build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>>` factory function
-  - `validate(file: &OmtsFile, config: &ValidationConfig) -> ValidationResult` top-level dispatch
-  - Test that an empty registry produces zero diagnostics
+  - `ValidationRule` trait with `id()`, `level()`, `severity()`, and `check()` methods
+  - `ValidationConfig` struct with `run_l1`, `run_l2`, `run_l3`, and `external_data` fields
+  - `build_registry(config)` returns a `Vec<Box<dyn ValidationRule>>` with rules gated by level
+  - `ValidationContext` constructed from `&OmtsFile` with `node_by_id`, `edge_by_id`, `node_ids`, `edge_ids` maps
+  - `ValidateOutput` enum with `ParseFailed` and `Validated` variants
+  - Test: an empty registry produces zero diagnostics; a single stub rule pushes exactly one diagnostic
 
-### T-010 — Implement L1-GDM rules (graph data model structural checks)
+### T-012 -- Implement check-digit functions (MOD 97-10, GS1 mod-10)
+
+- **Spec Reference:** validation.md Sections 5.1, 5.2
+- **Dependencies:** T-001
+- **Complexity:** S
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `mod97_10_check(lei: &str) -> bool` passes all test vectors from validation.md Section 5.1
+  - `gs1_mod10_check(gln: &str) -> bool` passes all test vectors from validation.md Section 5.2
+  - Both functions operate on `&str`, return `bool`, and do not allocate
+  - Edge case tests: all-zeros GLN, max-value inputs, wrong-length inputs return false
+
+### T-013 -- Implement L1 validation rules (SPEC-001 GDM rules)
 
 - **Spec Reference:** validation.md Section 4.1 (L1-GDM-01 through L1-GDM-06)
-- **Dependencies:** T-009
+- **Dependencies:** T-011, T-009
 - **Complexity:** L
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - L1-GDM-01: duplicate node ID detection; L1-GDM-02: duplicate edge ID detection
-  - L1-GDM-03: dangling edge source/target references
-  - L1-GDM-04: edge type validation (core type, `same_as`, or reverse-domain extension)
-  - L1-GDM-05: `reporting_entity` references a valid organization node
-  - L1-GDM-06: edge source/target node type compatibility per SPEC-001 Section 9.5
-  - Each rule has dedicated unit tests with fixtures triggering exactly that rule; all rules collect all violations (no early exit)
+  - Six rule structs implementing `ValidationRule`, one per L1-GDM rule
+  - L1-GDM-01: duplicate node IDs detected and reported; first occurrence wins in context map
+  - L1-GDM-03: dangling edge source/target references produce diagnostics with edge ID and field name
+  - L1-GDM-06: source/target node type constraints enforced per SPEC-001 Section 9.5 table; extension edge types exempt
+  - Test each rule individually against fixture files; confirm correct `RuleId`, `Severity::Error`, and `Location`
 
-### T-011 — Implement check digit functions and L1-EID rules
+### T-014 -- Implement L1 validation rules (SPEC-002 EID rules)
 
-- **Spec Reference:** validation.md Sections 4.1 (L1-EID-01 through L1-EID-11), 5.1, 5.2
-- **Dependencies:** T-009
+- **Spec Reference:** validation.md Section 4.1 (L1-EID-01 through L1-EID-11)
+- **Dependencies:** T-011, T-012, T-009
 - **Complexity:** L
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `mod97_10(lei: &str) -> bool` and `gs1_mod10(gln: &str) -> bool` pure functions, zero allocations, with known-valid test vectors and corrupted variants
-  - L1-EID-01 through L1-EID-11 rules implemented: non-empty scheme/value, authority when required, scheme validation, LEI/DUNS/GLN format+checksum, date validity and ordering, sensitivity enum, duplicate identifier tuple detection
-  - Each rule has at least two tests (one passing, one failing)
+  - Eleven rule structs implementing `ValidationRule`, one per L1-EID rule
+  - L1-EID-05: regex + MOD 97-10 check for LEI identifiers
+  - L1-EID-07: regex + GS1 mod-10 check for GLN identifiers
+  - L1-EID-09: `valid_from <= valid_to` enforcement with correct null handling
+  - L1-EID-11: duplicate `{scheme, value, authority}` tuple detection within a single node
+  - Tests: valid and invalid identifiers per scheme, temporal range violations, duplicate tuples
 
-### T-012 — Implement L1-SDI rules (selective disclosure structural checks)
+### T-015 -- Implement L1 validation rules (SPEC-004 SDI rules)
 
 - **Spec Reference:** validation.md Section 4.1 (L1-SDI-01, L1-SDI-02)
-- **Dependencies:** T-009
+- **Dependencies:** T-011, T-009
 - **Complexity:** S
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - L1-SDI-01: `boundary_ref` nodes have exactly one identifier with scheme `opaque`
-  - L1-SDI-02: if `disclosure_scope` is declared, sensitivity constraints are satisfied
-  - Unit tests with boundary_ref nodes that violate and satisfy each constraint
+  - L1-SDI-01: boundary_ref nodes verified to have exactly one identifier with scheme `opaque`
+  - L1-SDI-02: disclosure_scope constraints enforced (public scope forbids restricted/confidential identifiers and person nodes; partner scope forbids confidential identifiers)
+  - Tests with fixture files covering each constraint violation
 
-### T-013 — Implement L2 rules (semantic warnings)
+### T-016 -- Implement L2 validation rules
 
-- **Spec Reference:** validation.md Section 4.2
-- **Dependencies:** T-009
+- **Spec Reference:** validation.md Section 4.2 (L2-GDM-01 through L2-GDM-04, L2-EID-01 through L2-EID-08)
+- **Dependencies:** T-011, T-009
+- **Complexity:** L
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - Twelve rule structs, one per L2 rule
+  - All produce `Severity::Warning` diagnostics
+  - L2-GDM-01: facility-to-organization connectivity check
+  - L2-EID-01: organization with no external identifiers flagged
+  - L2-EID-08: verified identifiers without verification_date flagged
+  - Tests confirm each rule fires on appropriate fixture input and does NOT fire on conformant input
+
+### T-017 -- Implement L3 validation stubs and ExternalDataSource trait
+
+- **Spec Reference:** validation.md Sections 4.3, 3.2
+- **Dependencies:** T-011
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - At least six L2 rules implemented: facility with no organization edge (L2-GDM-01), ownership edge missing `valid_from` (L2-GDM-02), organization with no external identifiers (L2-EID-01), invalid ISO 3166-1 alpha-2 country code (L2-EID-04), and two additional L2 rules derived from SPEC-001/SPEC-002 SHOULD constraints
-  - Each rule has passing/failing test cases; all produce `Severity::Warning`
-
-### T-014 — Define L3 ExternalDataSource trait and stub rules
-
-- **Spec Reference:** validation.md Sections 4.3, 3.3
-- **Dependencies:** T-009
-- **Complexity:** S
-- **Crate:** `omtsf-core`
-- **Acceptance Criteria:**
-  - `ExternalDataSource` trait with `lei_status()` and `nat_reg_lookup()` methods
-  - At least two L3 rule structs (L3-EID-01, L3-MRG-01) registered when `run_l3` is true
-  - L3 rules accept `Option<&dyn ExternalDataSource>` and skip gracefully when `None`
-  - Test with a mock `ExternalDataSource` producing expected diagnostics
+  - `ExternalDataSource` trait defined with `lei_status()` and `nat_reg_lookup()` methods
+  - Seven L3 rule structs registered when `config.run_l3` is true
+  - L3-MRG-01 and L3-MRG-02 implemented with real logic (ownership percentage sum check and legal_parentage cycle detection)
+  - L3-EID-01 through L3-EID-05 implemented as stubs that delegate to `ExternalDataSource` and produce `Severity::Info` diagnostics
+  - Tests with mock `ExternalDataSource` confirm rules fire correctly
 
 ---
 
 ## Phase 4: Graph Engine
 
-### T-015 — Implement graph construction from OmtsFile (petgraph integration)
+### T-018 -- Implement OmtsGraph construction from OmtsFile (petgraph wrapper)
 
-- **Spec Reference:** graph-engine.md Sections 2.1 through 2.4
-- **Dependencies:** T-006
+- **Spec Reference:** graph-engine.md Sections 2.1 -- 2.4
+- **Dependencies:** T-008
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
   - `OmtsGraph` struct wrapping `StableDiGraph<NodeWeight, EdgeWeight>` and `HashMap<String, NodeIndex>`
-  - `build_graph(file: &OmtsFile) -> Result<OmtsGraph, GraphBuildError>` two-pass construction with pre-allocated capacity
+  - `build_graph(&OmtsFile) -> Result<OmtsGraph, GraphBuildError>` constructs graph in O(N+E)
   - `GraphBuildError::DuplicateNodeId` and `GraphBuildError::DanglingEdgeRef` error variants
-  - Test: construct graph from a fixture, verify node count, edge count, and ID lookups
+  - Accessor methods: `node_count()`, `edge_count()`, `node_index()`, `node_weight()`, `edge_weight()`
+  - Tests: build from fixture file, verify node/edge counts, verify ID lookup correctness
 
-### T-016 — Implement BFS reachability and path-finding queries
+### T-019 -- Implement BFS reachability query
 
-- **Spec Reference:** graph-engine.md Sections 3, 4.1, 4.2, 4.3
-- **Dependencies:** T-015
-- **Complexity:** L
-- **Crate:** `omtsf-core`
-- **Acceptance Criteria:**
-  - `reachable_from(graph, start, direction, edge_filter)` supporting `Forward`, `Backward`, `Both` directions with optional edge-type filter; start node excluded from result
-  - `shortest_path(graph, from, to, direction)` returning `Option<Vec<NodeIndex>>`
-  - `all_paths(graph, from, to, max_depth, direction)` with iterative-deepening DFS and default max_depth of 20
-  - All three accept optional `edge_filter`
-  - Tests: linear chain, branching tree, cycle handling, edge-type filtering, no-path case, depth limit enforcement, node-not-found error
-
-### T-017 — Implement subgraph extraction and ego-graph
-
-- **Spec Reference:** graph-engine.md Sections 5.1, 5.2, 5.3
-- **Dependencies:** T-015, T-016
+- **Spec Reference:** graph-engine.md Section 3
+- **Dependencies:** T-018
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `induced_subgraph(graph, node_ids) -> Result<OmtsFile, QueryError>` function
-  - `ego_graph(graph, center, radius, direction) -> Result<OmtsFile, QueryError>` function
-  - Output is a valid `OmtsFile` with preserved header fields (except `reporting_entity` omitted if not in subgraph)
-  - Tests: extract known subset, verify edges only between included nodes, ego-graph radius limiting
+  - `reachable_from(graph, start, direction, edge_filter)` returns `HashSet<NodeIndex>` of all reachable nodes
+  - Supports `Forward`, `Backward`, and `Both` directions
+  - Optional `edge_filter` restricts traversal to specified edge types
+  - Start node excluded from result set
+  - Tests: reachability on a known graph fixture with forward/backward/both directions; edge-type filtering; disconnected components
 
-### T-018 — Implement cycle detection (Kahn's algorithm)
+### T-020 -- Implement shortest path and all-paths queries
 
-- **Spec Reference:** graph-engine.md Sections 6.1, 6.2, 6.3
-- **Dependencies:** T-015
+- **Spec Reference:** graph-engine.md Sections 4.1 -- 4.3
+- **Dependencies:** T-018
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `detect_cycles(graph, edge_types) -> Vec<Vec<NodeIndex>>` using Kahn's algorithm (BFS-based topological sort)
-  - Returns empty vec for acyclic subgraphs, cycle node sequences for cyclic ones
-  - Edge-type filtering isolates `legal_parentage` subgraph for L3-MRG-02
-  - Tests: DAG (no cycles), simple cycle, multiple disjoint cycles, mixed acyclic/cyclic graph
+  - `shortest_path(graph, from, to, direction, edge_filter)` returns `Option<Vec<NodeIndex>>` via BFS with predecessor map
+  - `all_paths(graph, from, to, max_depth, direction, edge_filter)` returns `Vec<Vec<NodeIndex>>` via iterative-deepening DFS
+  - `DEFAULT_MAX_DEPTH = 20`; all_paths enforces simple paths (no node revisited within a single path)
+  - Tests: shortest path on linear chain, diamond graph, no-path case; all_paths with depth limit; from == to case
+
+### T-021 -- Implement induced subgraph extraction and ego-graph
+
+- **Spec Reference:** graph-engine.md Sections 5.1 -- 5.3
+- **Dependencies:** T-018, T-019
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `induced_subgraph(graph, file, node_ids)` returns a valid `OmtsFile` with only specified nodes and edges between them
+  - `ego_graph(graph, file, center, radius, direction)` returns subgraph of nodes within `radius` hops
+  - `reporting_entity` set to `None` if referenced node absent from subgraph
+  - Output round-trips through serde; L1 validation passes on output
+  - Tests: subgraph of known fixture, ego_graph with radius 0 and radius 1, reporting_entity preservation/clearing
+
+### T-022 -- Implement cycle detection (Kahn's topological sort)
+
+- **Spec Reference:** graph-engine.md Sections 6.1 -- 6.4
+- **Dependencies:** T-018
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `detect_cycles(graph, edge_types)` returns `Vec<Vec<NodeIndex>>` -- empty if acyclic
+  - Uses Kahn's algorithm with in-degree map; cyclic nodes identified when queue drains prematurely
+  - Individual cycle extraction via DFS on remaining nodes
+  - Cycles represented as closed sequences (first == last element)
+  - Tests: acyclic graph returns empty vec; single cycle; multiple disjoint cycles; graph mixing acyclic and cyclic subgraphs
 
 ---
 
 ## Phase 5: Merge Engine
 
-### T-019 — Implement CanonicalId type and identifier indexing
+### T-023 -- Implement UnionFind data structure
 
-- **Spec Reference:** merge.md Sections 2.2, 3.3; redaction.md Section 4.1
-- **Dependencies:** T-004
-- **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Spec Reference:** merge.md Section 2.1
+- **Dependencies:** T-001
+- **Complexity:** S
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `CanonicalId` newtype with percent-encoding of `:`, `%`, `\n`, `\r`
-  - Canonical form `{scheme}:{value}` or `{scheme}:{authority}:{value}` for authority-required schemes
-  - `build_identifier_index(nodes: &[Node]) -> HashMap<CanonicalId, Vec<usize>>` excluding `internal` scheme
-  - Tests: encoding edge cases (colons in values, percent signs), index construction from overlapping identifiers
+  - `UnionFind::new(n)`, `find(&mut self, x) -> usize`, `union(&mut self, a, b)`
+  - Path halving compression in `find`; union-by-rank with lower-ordinal-wins tie-breaking
+  - Deterministic: `find` returns the same representative regardless of union call order
+  - Unit tests: basic union/find, transitive closure, deterministic representative selection, idempotent union
 
-### T-020 — Implement Union-Find and node identity predicates
+### T-024 -- Implement CanonicalId and identifier index construction
 
-- **Spec Reference:** merge.md Sections 2.1, 3.1
-- **Dependencies:** T-019
+- **Spec Reference:** merge.md Sections 2.2, 3.3
+- **Dependencies:** T-007, T-023
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `UnionFind` struct with `find` (path-halving) and `union` (union-by-rank, lower ordinal wins on tie)
-  - `identifiers_match(a, b) -> bool` pure function: excludes `internal`, case-insensitive authority, whitespace-trimmed values
-  - `temporal_compatible()` helper: interval overlap check, missing fields treated as open-ended
-  - ANNULLED LEI exclusion from index construction
-  - Tests: basic union/find, transitive closure, deterministic representative, scheme matching, authority mismatch, temporal incompatibility
+  - `CanonicalId` newtype with percent-encoding of colons, percent signs, newlines, and carriage returns
+  - Canonical form: `{scheme}:{value}` for most schemes; `{scheme}:{authority}:{value}` for `nat-reg` and `vat`
+  - `build_identifier_index(nodes) -> HashMap<CanonicalId, Vec<usize>>` excludes `internal` scheme and ANNULLED LEIs
+  - Tests: canonical form for each scheme type; percent-encoding edge cases; index construction with overlapping identifiers
 
-### T-021 — Implement edge identity predicates
+### T-025 -- Implement node identity predicate and pairwise matching
 
-- **Spec Reference:** merge.md Section 3.2; diff.md Section 2.2
-- **Dependencies:** T-020
+- **Spec Reference:** merge.md Sections 3.1, 2.2
+- **Dependencies:** T-024, T-023
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - Edge candidate detection using composite key `(find(source), find(target), type)`
-  - Per-edge-type identity property table implemented (ownership: percentage+direct; supplies: commodity+contract_ref; etc.)
-  - `same_as` edges excluded from matching
-  - Tests: edges matched by resolved endpoints and shared identifier, matched by type-specific properties, non-matching edges
+  - `identifiers_match(a, b) -> bool` implements the five rules from merge.md Section 3.1
+  - `internal` scheme always returns false; authority comparison is case-insensitive; temporal compatibility checked
+  - Index-driven candidate detection: for each key with 2+ nodes, evaluate pairwise predicate and union matches
+  - Tests: matching by LEI, DUNS, nat-reg with authority; rejection for scheme mismatch, temporal incompatibility, internal scheme
 
-### T-022 — Implement property merge, conflict recording, and same_as handling
+### T-026 -- Implement edge identity predicate and composite key index
 
-- **Spec Reference:** merge.md Sections 4.1 through 4.3, 7.1 through 7.3
-- **Dependencies:** T-019, T-020
+- **Spec Reference:** merge.md Sections 3.2, 3.3
+- **Dependencies:** T-025
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `EdgeCompositeKey` struct with `source_rep`, `target_rep`, `edge_type`
+  - `edge_identity_properties_match(a, b, edge_type)` encodes the SPEC-003 S3.1 table
+  - Floating-point properties compared via `to_bits()`; `same_as` edges excluded from matching
+  - `build_edge_candidate_index(edges, uf) -> HashMap<EdgeCompositeKey, Vec<usize>>` constructs the index
+  - Tests: edge matching per type; floating-point edge cases (NaN, -0.0); same_as exclusion
+
+### T-027 -- Implement property merge, conflict recording, and deterministic output
+
+- **Spec Reference:** merge.md Sections 4.1 -- 4.3, 5
+- **Dependencies:** T-024
 - **Complexity:** L
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - Scalar property merge: equal values retained, differing values produce `_conflicts` array
-  - Identifier set-union deduplicated by canonical string, sorted; label set-union sorted by `(key, value)`
-  - `Conflict`, `ConflictEntry`, `MergeMetadata` structs with deterministic ordering
-  - `same_as` edges processed after identifier-based pass with configurable confidence threshold (`definite`/`probable`/`possible`)
-  - `same_as` edges retained in output with rewritten source/target
-  - Tests: identical properties, conflicting properties, identifier dedup, label merge, same_as at each threshold
+  - `merge_scalars` compares N `(Option<T>, source_file)` pairs and returns `Agreed(value)` or `Conflict(entries)`
+  - `merge_identifiers` deduplicates by `CanonicalId`, sorts by canonical string in UTF-8 byte order
+  - `merge_labels` deduplicates by `{key, value}` pair, sorts by key then value (None before Some)
+  - Conflict entries sorted by `(source_file, json_value_as_string)`
+  - `MergeMetadata` struct populated with source_files, reporting_entities, timestamp, counts
+  - Tests: scalar agree and conflict cases; identifier deduplication and ordering; label merging; conflict serialization
 
-### T-023 — Implement full merge pipeline with deterministic output
+### T-028 -- Implement same_as edge handling
 
-- **Spec Reference:** merge.md Sections 5, 8
-- **Dependencies:** T-021, T-022
-- **Complexity:** L
-- **Crate:** `omtsf-core`
+- **Spec Reference:** merge.md Section 7
+- **Dependencies:** T-023, T-025
+- **Complexity:** M
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `merge(files: &[OmtsFile]) -> Result<OmtsFile, MergeError>` top-level function
-  - Deterministic ordering: nodes by lowest canonical identifier, edges by `(source canonical, target canonical, type, edge canonical)`
-  - Merge-group safety limit (default 50) emits warnings for oversized groups
-  - Post-merge L1 validation runs; output always passes L1
-  - Tests: disjoint merge, full overlap, partial overlap with conflicts, three-file merge
+  - `SameAsThreshold` enum with `Definite`, `Probable`, `Possible` variants and `honours(confidence_str)` method
+  - `apply_same_as_edges(edges, uf, threshold)` unions source/target for edges that pass the threshold
+  - Absent confidence treated as `"possible"`; unrecognized confidence strings treated as `"possible"`
+  - Honoured same_as edges collected and returned for provenance reporting
+  - Tests: threshold filtering at each level; absent confidence handling; transitive closure via same_as
 
-### T-024 — Implement merge algebraic property tests
+### T-029 -- Implement eight-step merge pipeline with post-merge validation
+
+- **Spec Reference:** merge.md Sections 8, 9
+- **Dependencies:** T-025, T-026, T-027, T-028, T-013
+- **Complexity:** XL
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `merge_with_config(files, config) -> Result<MergeOutput, MergeError>` orchestrates all eight steps from merge.md Section 8
+  - Colliding graph-local IDs across files handled correctly (per-file ID maps)
+  - Merged node IDs assigned deterministically (`n-0`, `n-1`, ...)
+  - Nodes sorted by lowest canonical identifier; edges sorted by `(source_canonical, target_canonical, type, edge_canonical, representative_ordinal)`
+  - Post-merge L1 validation runs; `MergeError::PostMergeValidationFailed` returned on failure
+  - Merge-group safety limits: warning emitted for groups exceeding `group_size_limit` (default 50)
+  - Tests: disjoint merge, full-overlap merge, partial-overlap merge, conflicting properties, transitive chains
+
+### T-030 -- Implement merge algebraic property tests
 
 - **Spec Reference:** merge.md Section 6
-- **Dependencies:** T-023
-- **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Dependencies:** T-029
+- **Complexity:** L
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `proptest` added to `[dev-dependencies]`
-  - `arb_omts_file()` strategy generating small graphs (1-30 nodes, 0-50 edges) with controlled identifier overlap
-  - Commutativity: `sha256(merge(A,B)) == sha256(merge(B,A))`
-  - Associativity: `sha256(merge(merge(A,B),C)) == sha256(merge(A,merge(B,C)))`
-  - Idempotency: `assert_structurally_equal(A, merge(A,A))`
+  - `proptest` dependency added; strategy `arb_omts_file()` generates small graphs with DUNS identifiers from a shared pool
+  - Commutativity test: `stable_hash(merge(A,B)) == stable_hash(merge(B,A))`
+  - Associativity test: `stable_hash(merge(merge(A,B),C)) == stable_hash(merge(A,merge(B,C)))`
+  - Idempotency test: `assert_structurally_equal(A, merge(A,A))` comparing node partition and edge connectivity
+  - `stable_hash` zeros `file_salt` and `timestamp` before hashing
+  - All three properties pass on 256+ generated cases without failure
 
 ---
 
 ## Phase 6: Redaction Engine
 
-### T-025 — Implement sensitivity classification with scheme and property defaults
+### T-031 -- Implement sensitivity classification and effective_sensitivity
 
-- **Spec Reference:** redaction.md Sections 2.1, 2.2, 2.3
-- **Dependencies:** T-004, T-003
-- **Complexity:** S
-- **Crate:** `omtsf-core`
-- **Acceptance Criteria:**
-  - `effective_sensitivity(identifier, node_type) -> Sensitivity` applying scheme defaults and person-node overrides
-  - `effective_property_sensitivity(edge, property_name) -> Sensitivity` applying property defaults and `_property_sensitivity` overrides
-  - Tests: default for each scheme, explicit override, person-node confidential default, edge property defaults by type
-
-### T-026 — Implement boundary reference hashing
-
-- **Spec Reference:** redaction.md Sections 4.1 through 4.4
-- **Dependencies:** T-019, T-002
+- **Spec Reference:** redaction.md Sections 2.1 -- 2.3
+- **Dependencies:** T-007, T-004
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `boundary_ref_value(public_ids, salt) -> String` using `sha2` for SHA-256 and `getrandom` for CSPRNG
+  - `effective_sensitivity(identifier, node_type) -> Sensitivity` implements the cascade: explicit override > person-node rule > scheme default
+  - Scheme-default table implemented: LEI/DUNS/GLN = public, nat-reg/vat/internal = restricted, unrecognized = public
+  - Edge property sensitivity defaults table implemented, dispatching `percentage` on edge type
+  - `_property_sensitivity` override map consulted first for edge properties
+  - Tests: each scheme default; person-node override to confidential; explicit override wins; edge property defaults per edge type
+
+### T-032 -- Implement boundary reference hashing
+
+- **Spec Reference:** redaction.md Sections 4.1 -- 4.4
+- **Dependencies:** T-024, T-003
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `boundary_ref_value(public_ids, salt) -> Result<String, BoundaryHashError>` implemented
   - Deterministic path: sort canonical strings, join with newline, concatenate with decoded salt, SHA-256, hex-encode
-  - Random path: 32 CSPRNG bytes hex-encoded for nodes with zero public identifiers
-  - All four test vectors from redaction.md Section 4.3 pass (TV1-TV3 exact match; TV4 format-only)
+  - Random path: 32 CSPRNG bytes via `getrandom`, hex-encoded
+  - `sha2` and `getrandom` dependencies added (no `ring` or `openssl`)
+  - All four test vectors from redaction.md Section 4.3 pass (TV1--TV3 deterministic, TV4 format-only)
 
-### T-027 — Implement node classification, scope filtering, and edge handling
+### T-033 -- Implement node classification and edge filtering logic
 
-- **Spec Reference:** redaction.md Sections 3.1, 3.2, 3.3, 5, 6
-- **Dependencies:** T-025, T-026
-- **Complexity:** L
-- **Crate:** `omtsf-core`
-- **Acceptance Criteria:**
-  - Node classification into Retain/Replace/Omit based on node type and target scope
-  - `partner` scope: remove confidential identifiers, retain person nodes (filtered), retain beneficial_ownership (filtered)
-  - `public` scope: remove confidential+restricted identifiers, omit person nodes, omit beneficial_ownership
-  - Edge handling: boundary-crossing preserved, both-endpoints-replaced omitted, edges to omitted nodes omitted
-  - Tests: classification per node type in both scopes, identifier filtering, person node omission
-
-### T-028 — Implement full redaction pipeline with output validation
-
-- **Spec Reference:** redaction.md Sections 7, 8
-- **Dependencies:** T-027, T-010
+- **Spec Reference:** redaction.md Sections 3, 5, 6
+- **Dependencies:** T-031
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `redact(file: &OmtsFile, scope: DisclosureScope, retain_ids: &HashSet<NodeId>) -> Result<OmtsFile, RedactError>`
-  - Edge property stripping per scope threshold; `internal` scope is no-op
-  - Post-redaction validation: no dangling edges, boundary_ref structure valid (L1-SDI-01), output sets `disclosure_scope`, salt preserved
-  - One boundary_ref per replaced node (deduplication)
-  - Tests: full redaction to partner, full redaction to public, verify L1 validity of output
+  - `classify_node(node, target_scope) -> NodeAction` returns Retain/Replace/Omit per the classification table
+  - Producer retain-set promotion: nodes not in retain set and not boundary_ref promoted from Retain to Replace
+  - `classify_edge(edge, source_action, target_action, target_scope) -> EdgeAction` implements priority-ordered rules: beneficial_ownership in public scope omitted; either endpoint omitted -> omit; both endpoints replaced -> omit; otherwise retain
+  - Tests for each combination of node type, scope, and edge disposition
+
+### T-034 -- Implement full redaction pipeline with post-redaction validation
+
+- **Spec Reference:** redaction.md Sections 5 -- 7
+- **Dependencies:** T-031, T-032, T-033, T-013
+- **Complexity:** L
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `redact(file, target_scope, retain_ids) -> Result<OmtsFile, RedactError>` orchestrates full redaction
+  - Identifier filtering per scope: partner removes confidential; public removes confidential and restricted
+  - Edge property stripping per scope's sensitivity threshold
+  - Boundary ref nodes created with original node ID, type `boundary_ref`, single `opaque` identifier
+  - `boundary_ref_values` HashMap ensures one hash per replaced node
+  - Output `disclosure_scope` set to target scope; `file_salt` preserved
+  - Post-redaction L1 validation runs; `RedactError::InvalidOutput` on failure
+  - Tests: partner scope redaction, public scope redaction, boundary ref determinism, person-node omission in public scope, beneficial_ownership edge omission
 
 ---
 
 ## Phase 7: Diff Engine
 
-### T-029 — Implement node and edge matching for diff
+### T-035 -- Implement node and edge matching for diff
 
-- **Spec Reference:** diff.md Sections 2.1, 2.2
-- **Dependencies:** T-019, T-020, T-021
+- **Spec Reference:** diff.md Sections 2.1 -- 2.2
+- **Dependencies:** T-024, T-023
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - Node matching reuses merge identity predicates (canonical identifier index, transitive closure)
-  - Ambiguity detection: warning when a match group contains multiple nodes from the same file
-  - Edge matching using resolved endpoints + type + per-type identity properties table
-  - Unmatched nodes classified as additions (in B) or deletions (in A); same for edges
-  - Tests: exact match, no match (addition/deletion), ambiguous match warning
+  - Node matching reuses the SPEC-003 identity predicate via identifier index and union-find
+  - Ambiguous match groups (multiple nodes from same file in one group) produce warnings
+  - Edge matching applies endpoint-group + type + identifier/property matching per the SPEC-003 S3.1 table
+  - `same_as` edges never matched; excess edges reported as additions or deletions
+  - Tests: exact match, partial overlap, disjoint files, ambiguous match groups
 
-### T-030 — Implement property comparison and DiffResult assembly
+### T-036 -- Implement property comparison and DiffResult construction
 
-- **Spec Reference:** diff.md Sections 3, 4, 5
-- **Dependencies:** T-029
+- **Spec Reference:** diff.md Sections 3, 4.1 -- 4.3
+- **Dependencies:** T-035
 - **Complexity:** M
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
-  - `diff(a: &OmtsFile, b: &OmtsFile) -> DiffResult` and `diff_filtered(a, b, filter) -> DiffResult`
-  - Scalar comparison with date normalization and numeric epsilon (1e-9)
-  - Identifier set diff (added/removed/modified by canonical key); label set diff (added/removed by `{key, value}`)
-  - `DiffSummary` statistics; `DiffFilter` restricts by node type, edge type, and ignored fields
-  - Tests: identical files (empty diff), property changes, identifier/label add/remove, filtering
+  - `diff(a, b) -> DiffResult` and `diff_filtered(a, b, filter) -> DiffResult` entry points implemented
+  - Scalar properties compared by value; dates normalized before comparison; floating-point epsilon `1e-9`
+  - Identifier arrays compared as sets by canonical key; per-identifier field diffs reported
+  - Labels compared as `{key, value}` set: changed value = removal + addition
+  - `DiffSummary` with accurate counts including `nodes_unchanged` and `edges_unchanged`
+  - `DiffResult::is_empty()` returns true when files are identical
+  - Tests: identical files produce empty diff; added/removed/modified nodes and edges; date normalization; float epsilon
 
 ---
 
 ## Phase 8: CLI Shell
 
-### T-031 — Implement clap root struct, global flags, and PathOrStdin type
+### T-037 -- Implement clap argument parsing, global flags, and main dispatch
 
-- **Spec Reference:** cli-interface.md Sections 2, 7, 8
+- **Spec Reference:** cli-interface.md Sections 2, 7, 9
 - **Dependencies:** T-001
 - **Complexity:** M
-- **Crate:** `omtsf-cli`
+- **Crate:** omtsf-cli
 - **Acceptance Criteria:**
-  - Root `Cli` struct with `--format`, `--quiet`, `--verbose`, `--max-file-size`, `--no-color`, `--help`, `--version`
-  - All subcommands defined in `Command` enum with correct argument types per cli-interface.md Section 7
-  - `PathOrStdin` type parsing `"-"` as stdin variant; `--quiet`/`--verbose` conflicting; `--max-file-size` reads env var fallback
-  - Test: help output structure for root and each subcommand
+  - `Cli` struct with `#[derive(Parser)]` and all global flags: `--format`, `--quiet`, `--verbose`, `--max-file-size`, `--no-color`, `--help`, `--version`
+  - `Command` enum with all 10 subcommands from cli-interface.md Section 7
+  - `PathOrStdin` type with `FromStr` impl; multi-stdin validator for merge and diff
+  - `main()` calls `reset_sigpipe()`, parses args, dispatches to `run()`, maps exit codes
+  - `CliError` enum with `Io`, `FileTooLarge`, `InvalidUtf8`, `Parse`, `MultipleStdin` variants
+  - Tests: clap rejects conflicting `--quiet` and `--verbose`; `--version` prints version; parse of each subcommand
 
-### T-032 — Implement file I/O and output formatting modules
+### T-038 -- Implement file I/O module (read pipeline, size enforcement, stdin)
 
-- **Spec Reference:** cli-interface.md Sections 4, 5
-- **Dependencies:** T-031, T-008
-- **Complexity:** L
-- **Crate:** `omtsf-cli`
+- **Spec Reference:** cli-interface.md Sections 4.1 -- 4.6
+- **Dependencies:** T-037
+- **Complexity:** M
+- **Crate:** omtsf-cli
 - **Acceptance Criteria:**
-  - File reading with size check via `std::fs::metadata`; stdin reading capped with `Read::take`
-  - UTF-8 validation with byte offset on failure; broken pipe handling (SIGPIPE)
-  - Error messages for file not found, permission denied, size exceeded, invalid UTF-8; all produce exit code 2
-  - Human-mode diagnostic formatter: `[E]`/`[W]`/`[I]` color-coded, respects `--no-color`/`NO_COLOR`/TTY detection
-  - JSON-mode diagnostic formatter: NDJSON to stderr
-  - Quiet mode suppresses non-error stderr; verbose mode adds timing and metadata
+  - `read_file(path_or_stdin, max_size) -> Result<String, CliError>` implements the five-step read pipeline
+  - Disk files: metadata size check before reading
+  - Stdin: `Read::take(max_size + 1)` to bound allocation; excess detected and rejected
+  - UTF-8 validation with byte-offset error reporting
+  - File-not-found and permission-denied produce descriptive stderr messages and exit code 2
+  - Tests: file too large rejection, invalid UTF-8 rejection, stdin read (via piped test)
 
-### T-033 — Wire validate command
+### T-039 -- Implement output formatting (human and JSON modes)
 
-- **Spec Reference:** cli-interface.md Section 3.1; validation.md Section 7
-- **Dependencies:** T-032, T-009, T-010, T-011, T-012, T-013
-- **Complexity:** S
-- **Crate:** `omtsf-cli`
+- **Spec Reference:** cli-interface.md Sections 5.1 -- 5.4
+- **Dependencies:** T-037, T-010
+- **Complexity:** M
+- **Crate:** omtsf-cli
 - **Acceptance Criteria:**
-  - `omtsf validate <file>` reads file, parses, runs validation at `--level` (default 2), emits diagnostics to stderr
-  - Exit code 0 for valid, 1 for L1 errors, 2 for parse failure; `--level` flag controls depth
-  - Stdin support via `-`; summary line in human mode
-  - Integration test: validate known-good fixture (exit 0), validate known-bad fixture (exit 1)
+  - Human-mode diagnostic formatter: `[E]` / `[W]` / `[I]` prefixes with ANSI color codes (red/yellow/cyan)
+  - JSON-mode diagnostic formatter: NDJSON to stderr, one JSON object per finding
+  - Color detection logic: disabled when `--no-color`, `NO_COLOR` env, or non-TTY stderr
+  - Summary line for validate command: `"N errors, N warnings, N info (checked N nodes, N edges)"`
+  - Human-mode diff formatter: `+` / `-` / `~` prefix lines per diff.md Section 5.1
+  - Tests: formatter output matches expected strings for sample diagnostics in both modes
 
-### T-034 — Wire merge and redact commands
+### T-040 -- Wire validate, inspect, convert, and init commands
+
+- **Spec Reference:** cli-interface.md Sections 3.1, 3.4, 3.6, 3.10
+- **Dependencies:** T-038, T-039, T-011, T-018
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Acceptance Criteria:**
+  - `validate`: reads file, calls validation engine at requested `--level`, formats diagnostics to stderr, returns correct exit code (0/1/2)
+  - `inspect`: reads file, builds graph, prints summary (node/edge counts by type, identifier counts by scheme, header fields) to stdout
+  - `convert`: reads file, re-serializes with `--pretty` (default) or `--compact`, writes to stdout
+  - `init`: generates minimal valid `.omts` (fresh salt, today's date, empty arrays) or `--example` with sample data
+  - Integration tests for each command using fixture files; verify exit codes
+
+### T-041 -- Wire merge and redact commands
 
 - **Spec Reference:** cli-interface.md Sections 3.2, 3.3
-- **Dependencies:** T-032, T-023, T-028
+- **Dependencies:** T-038, T-039, T-029, T-034
 - **Complexity:** M
-- **Crate:** `omtsf-cli`
+- **Crate:** omtsf-cli
 - **Acceptance Criteria:**
-  - `omtsf merge <file>...` reads 2+ files, validates, merges, writes to stdout; diagnostics to stderr
-  - Exit code 0 success, 1 merge conflict, 2 parse/validation failure
-  - `omtsf redact <file> --scope <scope>` reads file, redacts, writes to stdout; statistics to stderr
-  - Exit code 0 success, 1 scope error, 2 parse failure
-  - Integration tests: merge two fixtures and validate output; redact to public and validate output
+  - `merge`: reads 2+ files, validates each (reject on L1 failure), runs merge engine, writes merged `.omts` to stdout, diagnostics to stderr
+  - `redact`: reads file, applies redaction for `--scope`, writes redacted `.omts` to stdout, statistics to stderr
+  - Exit codes match cli-interface.md Section 6 table
+  - Integration tests: merge two fixture files and validate output; redact to public scope and verify no person nodes
 
-### T-035 — Wire inspect, convert, and init commands
-
-- **Spec Reference:** cli-interface.md Sections 3.4, 3.6, 3.10
-- **Dependencies:** T-032, T-006
-- **Complexity:** M
-- **Crate:** `omtsf-cli`
-- **Acceptance Criteria:**
-  - `omtsf inspect <file>` prints node/edge/identifier counts, version, date, scope; human and JSON modes
-  - `omtsf convert <file>` round-trips through data model; `--pretty` (default) and `--compact` flags; unknown fields preserved
-  - `omtsf init` generates minimal valid file with CSPRNG salt and today's date; `--example` adds realistic sample content
-  - `omtsf init | omtsf validate -` exits 0
-  - Integration tests for each command
-
-### T-036 — Wire diff command with output formatters
-
-- **Spec Reference:** cli-interface.md Section 3.5; diff.md Sections 5, 6
-- **Dependencies:** T-032, T-030
-- **Complexity:** M
-- **Crate:** `omtsf-cli`
-- **Acceptance Criteria:**
-  - `omtsf diff <a> <b>` computes diff, writes to stdout
-  - Human mode: unified-diff-style `+`/`-`/`~` output with summary; JSON mode: structured diff object
-  - `--ids-only` and `--summary-only` flags; `--node-type`, `--edge-type`, `--ignore-field` filter flags
-  - Exit code 0 identical, 1 differences, 2 parse failure
-  - Integration test: diff identical files (exit 0), diff modified files (exit 1)
-
-### T-037 — Wire graph query commands (reach, path, subgraph)
+### T-042 -- Wire reach, path, and subgraph commands
 
 - **Spec Reference:** cli-interface.md Sections 3.7, 3.8, 3.9
-- **Dependencies:** T-032, T-016, T-017
+- **Dependencies:** T-038, T-039, T-019, T-020, T-021
 - **Complexity:** M
-- **Crate:** `omtsf-cli`
+- **Crate:** omtsf-cli
 - **Acceptance Criteria:**
-  - `omtsf reach <file> <node-id>` outputs reachable nodes with `--depth` and `--direction` flags
-  - `omtsf path <file> <from> <to>` outputs paths with `--max-paths` and `--max-depth` flags
-  - `omtsf subgraph <file> <node-id>...` outputs valid `.omts` file with `--expand` flag
-  - Human and JSON output modes for each; exit codes per spec
-  - Integration test for each command with a fixture
+  - `reach`: builds graph, runs BFS reachability with `--direction` and optional `--depth`, prints node IDs to stdout
+  - `path`: builds graph, runs shortest_path or all_paths with `--max-paths` and `--max-depth`, prints paths to stdout
+  - `subgraph`: builds graph, extracts induced subgraph with optional `--expand`, writes `.omts` to stdout
+  - Human and JSON output modes for each command
+  - Exit codes: 0 on success, 1 on node-not-found or no-path, 2 on parse failure
+  - Integration tests for each command
+
+### T-043 -- Wire diff command
+
+- **Spec Reference:** cli-interface.md Section 3.5
+- **Dependencies:** T-038, T-039, T-036
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Acceptance Criteria:**
+  - `diff`: reads two files, calls `diff()` or `diff_filtered()`, formats output to stdout
+  - `--ids-only` flag suppresses property-level detail
+  - `--format json` serializes `DiffResult` as a single JSON object
+  - Exit code 0 when identical, 1 when differences found, 2 on parse failure
+  - Integration tests: identical files -> exit 0; modified fixture -> exit 1 with expected output
 
 ---
 
 ## Phase 9: Integration & Polish
 
-### T-038 — Build end-to-end integration test suite
+### T-044 -- End-to-end pipeline tests
 
-- **Spec Reference:** merge.md Section 6.3; all spec documents
-- **Dependencies:** T-033, T-034, T-035, T-036, T-037
+- **Spec Reference:** All specs
+- **Dependencies:** T-040, T-041, T-042, T-043
 - **Complexity:** L
-- **Crate:** Both (workspace-level `tests/`)
-- **Acceptance Criteria:**
-  - At least 15 integration tests covering cross-command workflows: `init | validate`, `merge A B | validate`, `redact --scope public | validate`, `merge | redact | diff` pipeline, `subgraph | inspect`
-  - Merge regression fixtures (disjoint, full overlap, partial overlap, transitive chain, temporal incompatibility, ANNULLED LEI)
-  - Redaction fixtures with person nodes, boundary refs, and scope transitions
-  - All tests run under `cargo test` from workspace root
-
-### T-039 — Review error messages and eliminate unwrap/expect in user paths
-
-- **Spec Reference:** cli-interface.md Section 4.5; validation.md Section 6
-- **Dependencies:** T-038
-- **Complexity:** M
 - **Crate:** Both
 - **Acceptance Criteria:**
-  - Every user-facing error message includes: what went wrong, which file/node/edge is affected, and guidance
-  - No raw `unwrap()` or `expect()` in CLI code paths handling user input
-  - Parse errors include line/column from `serde_json::Error`
-  - Internal errors (bugs) produce a message requesting the user file a report per validation.md Section 6.3
+  - Test: `omtsf init --example | omtsf validate -` exits 0
+  - Test: `omtsf init --example | omtsf redact --scope public - | omtsf validate -` exits 0
+  - Test: merge two fixture files, validate output, inspect output, diff output against expected
+  - Test: `omtsf subgraph` output passes validation
+  - Test: stdin piping works for all commands that accept `-`
+  - All tests pass in CI
 
-### T-040 — Verify WASM compatibility of omtsf-core
+### T-045 -- Error message review and UX polish
 
-- **Spec Reference:** overview.md Section 2; data-model.md Sections 11.1 through 11.3
-- **Dependencies:** T-023, T-028, T-030, T-018
+- **Spec Reference:** cli-interface.md Sections 4.6, 5, 6
+- **Dependencies:** T-044
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Acceptance Criteria:**
+  - Every error path produces a human-readable message identifying the file, field, and issue
+  - Broken pipe handling verified: `omtsf inspect file.omts | head -1` exits 0, no error output
+  - `--quiet` verified to suppress all stderr except fatal errors
+  - `--verbose` verified to produce timing and count information
+  - Exit codes verified against the complete table in cli-interface.md Section 6
+
+### T-046 -- Write comprehensive test fixtures for merge edge cases
+
+- **Spec Reference:** merge.md Section 6.3
+- **Dependencies:** T-029, T-009
+- **Complexity:** M
+- **Crate:** Both (tests/)
+- **Acceptance Criteria:**
+  - Fixture pairs for all regression scenarios listed in merge.md Section 6.3: disjoint graphs, full overlap, partial overlap with conflicts, transitive chains, same_as at each confidence level, temporal incompatibility, ANNULLED LEI exclusion, oversized merge groups, colliding node IDs
+  - Each fixture pair has a corresponding expected-output file or assertion
+  - All fixture-based merge tests pass
+
+### T-047 -- Verify WASM compatibility of omtsf-core
+
+- **Spec Reference:** overview.md Section 4; data-model.md Section 11
+- **Dependencies:** T-029, T-034, T-036, T-022
 - **Complexity:** S
-- **Crate:** `omtsf-core`
+- **Crate:** omtsf-core
 - **Acceptance Criteria:**
   - `cargo build --target wasm32-unknown-unknown -p omtsf-core` succeeds
   - No `std::fs`, `std::net`, `std::process` imports in `omtsf-core`
-  - `sha2` and `getrandom` compile for wasm32 target
-  - CI check added for WASM build (build only, not test)
+  - `sha2` and `getrandom` compile for wasm32 target with appropriate feature flags
+  - Grep confirms no OS-level I/O anywhere in `omtsf-core` source
+
+### T-048 -- Documentation: crate-level docs and public API rustdoc
+
+- **Spec Reference:** overview.md
+- **Dependencies:** T-044
+- **Complexity:** M
+- **Crate:** Both
+- **Acceptance Criteria:**
+  - `omtsf-core` has a crate-level doc comment explaining purpose, WASM constraint, and module organization
+  - Every public type, trait, function, and method has a `///` doc comment
+  - `cargo doc --workspace --no-deps` produces clean documentation with no warnings
+  - `omtsf-cli/README.md` has build instructions and usage examples for all 10 commands
 
 ---
 
-## Spec Ambiguities and Notes
+## Notes: Spec Ambiguities Discovered During Planning
 
-The following ambiguities or underspecified areas were identified during task planning. They may require clarification before or during implementation.
+1. **`control_type` disambiguation (data-model.md Section 4.5).** The spec reuses the JSON key `"control_type"` across two edge types with disjoint variant sets (`operational_control` vs `beneficial_ownership`). The data model stores this as `serde_json::Value`. Implementors should verify that the validation engine enforces the correct variant set per edge type, and that the diff engine compares `control_type` values structurally without assuming a single enum.
 
-1. **L2 rule enumeration.** validation.md Section 4.2 provides examples of L2 rules (L2-GDM-01 through L2-GDM-04, L2-EID-01 through L2-EID-08) but does not exhaustively list them with check descriptions as it does for L1. The implementor will need to derive the full L2 rule set from the SHOULD constraints in SPEC-001 and SPEC-002.
+2. **`status` field routing on Node (data-model.md Section 5.3).** The custom deserializer that routes the JSON `"status"` field to either `OrganizationStatus` or `AttestationStatus` based on the node `type` tag is complex and error-prone. If a file contains an extension node type that also uses `"status"`, the routing logic must fall through gracefully (likely storing the value in `extra`). The spec does not address this case.
 
-2. **Edge source/target type compatibility table.** L1-GDM-06 references a "permitted types table (Section 9.5)" in SPEC-001, but the full table is not reproduced in the implementation spec. The implementor must consult SPEC-001 Section 9.5 directly.
+3. **Merge `--strategy intersect` (cli-interface.md Section 3.2).** The CLI spec mentions an `intersect` merge strategy but the merge engine spec (merge.md) does not define intersect semantics. This strategy may need to be deferred or specced separately. Task T-029 implements `union` only; `intersect` should be tracked as a follow-up.
 
-3. **`merge --strategy intersect`.** cli-interface.md Section 3.2 mentions an `intersect` strategy, but merge.md does not describe its semantics. The implementor must decide: does intersect retain only nodes present in all input files, or only nodes with identity matches? This needs spec clarification.
+4. **`same_as` confidence default (merge.md Section 7.1).** The spec states the default for absent confidence is `"probable"` (SPEC-003 S7.1) but the implementation spec says absent confidence is treated as `"possible"` (weakest). Implementors should confirm which default is authoritative.
 
-4. **Redact node selection mechanism.** redaction.md Section 5 states the producer chooses which nodes to retain vs. replace, and cli-interface.md Section 3.3 mentions `--scope` but does not describe how the user specifies which nodes to retain (e.g., `--retain <node-id>...`, a separate config file, or retaining all nodes by default). The CLI flag set for `redact` needs further specification.
+5. **Edge property stripping and required properties (redaction.md Section 6.5).** The spec states "If stripping removes a property that would normally be required, the edge remains valid." This implies the validation engine must relax required-property checks on redacted files, or that no edge property is truly required at L1. This relaxation is not explicitly stated in validation.md.
 
-5. **`convert --pretty` vs `--compact` mutual exclusivity.** cli-interface.md Section 3.6 models `--pretty` as default-true with `--compact` conflicting. Cleaner UX would be just `--compact` as opt-in with pretty as the unmarked default. Minor, but worth aligning before implementation.
+6. **`omtsf diff` header comparison (diff.md Section 7).** The diff engine compares graph elements only, not header fields. The CLI "MAY report header differences as a separate informational section." The implementation should decide whether to implement header diff or defer it. Task T-036 does not include header comparison.
 
-6. **Additional enums not fully listed.** data-model.md Section 6.2 references `ConsolidationBasis`, `EventType`, and `ServiceType` enums for edge properties, but their variants are not enumerated in the implementation spec. These must be derived from SPEC-001.
+7. **`reporting_entity` on merge output (merge.md Section 4.3).** When source files have conflicting `reporting_entity` values, the merged header omits it and records all values in `merge_metadata`. But SPEC-001 does not define `merge_metadata` as a recognized field -- it will end up in `extra`. This is presumably intentional (future-compatible), but should be documented.
 
-7. **`name` field scope on Node.** data-model.md Section 5.1 lists `name: Option<String>` under "organization" fields, but SPEC-001 may allow `name` on other node types. The flat struct handles this naturally, but validation rules checking required fields per type need to consult the normative spec.
+8. **Redact node selection mechanism (cli-interface.md Section 3.3).** The CLI defines `--scope` but does not describe how the user specifies which non-person nodes to retain vs. replace (e.g., `--retain <node-id>...`, a config file, or retaining all nodes by default). This flag set needs further specification before T-034 and T-041 can be fully implemented.
 
-8. **Diff header comparison.** diff.md Section 7 notes header field comparison is "outside the scope of the structural diff" but the CLI "MAY report header differences as a separate informational section." Whether to implement this is left to implementor judgment.
+9. **L2 rule L2-EID-03 (validation.md Section 4.2).** The rule references "valid GLEIF RA codes per snapshot" but no list of valid RA codes is provided in the spec or in the implementation documents. The implementor must source this data or stub the rule.

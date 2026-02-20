@@ -1,17 +1,17 @@
-# omtsf-cli Technical Specification: Diff Engine
+# omtsf-core Technical Specification: Diff Engine
 
 **Status:** Draft
-**Date:** 2026-02-19
+**Date:** 2026-02-20
 
 ---
 
 ## 1. Purpose
 
-This document specifies the structural diff engine in `omtsf-core`. The engine compares two parsed `.omts` files and produces a description of what changed: which nodes and edges were added, removed, or modified, and which properties within matched elements differ.
+This document specifies the structural diff engine in `omtsf-core`. The engine compares two parsed `.omts` files and produces a typed description of what changed: which nodes and edges were added, removed, or modified, and which properties within matched elements differ.
 
-The diff engine reuses the merge identity predicates from SPEC-003 to determine correspondence between elements across files. Two nodes that would be merge candidates are treated as "the same entity observed differently." Everything else is an addition or deletion.
+The diff engine reuses the merge identity predicates defined in SPEC-003 to determine correspondence between elements across files. Two nodes that would be merge candidates are treated as "the same entity observed differently." Everything that fails to match is an addition or deletion.
 
-The engine lives in `omtsf-core` and operates on parsed `&Graph` values. It has no filesystem dependency. The CLI's `omtsf diff <a> <b>` command handles file I/O, calls the library, and formats the output.
+The engine lives in `omtsf-core` and operates on deserialized `&OmtsFile` values. It has no filesystem dependency. The CLI's `omtsf diff <a> <b>` command handles file I/O, calls the library, and formats the output.
 
 ---
 
@@ -30,7 +30,7 @@ The algorithm proceeds as follows:
 
 1. Build an index from canonical identifier strings (`{scheme}:{value}` or `{scheme}:{authority}:{value}`) to node references, one index per file. Exclude identifiers with `scheme: "internal"`.
 2. For each identifier key present in both indices, record the pair `(node_a, node_b)` as a candidate match.
-3. Compute the transitive closure of candidate matches. If node A1 matches B1 via one identifier and A1 matches B2 via another, then A1 is matched to both B1 and B2. This mirrors merge behavior.
+3. Compute the transitive closure of candidate matches. If node A1 matches B1 via one identifier and A1 matches B2 via another, then A1 is matched to both B1 and B2. This mirrors merge behavior and uses the same union-find approach described in `merge.md` Section 2.
 4. If a transitive closure group contains more than one node from the same file, emit a warning. This indicates ambiguity (two nodes in file A map to the same entity in file B). The diff engine reports the group but does not attempt to resolve it. Each node in the group is reported as matched, with a diagnostic noting the ambiguity.
 5. Unmatched nodes in A are **deletions**. Unmatched nodes in B are **additions**.
 
@@ -62,7 +62,7 @@ The merge-identity property table from SPEC-003 is reused directly:
 | `composed_of` | *(type + endpoints suffice)* |
 | `sells_to` | `commodity`, `contract_ref` |
 | `attested_by` | `scope` |
-| `same_as` | *(never matched — always unique)* |
+| `same_as` | *(never matched -- always unique)* |
 
 When multiple edges in one file match a single edge in the other (e.g., two `supplies` edges with the same commodity and endpoints), the engine pairs them by order of appearance and reports excess edges as additions or deletions.
 
@@ -78,7 +78,7 @@ For each matched pair of nodes or edges, the engine compares properties field by
 
 Scalar fields (`name`, `jurisdiction`, `status`, `percentage`, `direct`, etc.) are compared by value equality. A change is recorded when the value in A differs from the value in B, or when a field is present in one but absent in the other.
 
-**Semantic equivalence for dates.** Date fields are compared as calendar dates, not as strings. `"2026-02-19"` and `"2026-2-19"` are semantically equivalent (though the latter is technically non-conformant per SPEC-001 Section 2.1, the diff engine normalizes before comparison to avoid false positives on whitespace or formatting variation).
+**Semantic equivalence for dates.** Date fields are compared as calendar dates, not as strings. `"2026-02-19"` and `"2026-2-19"` are semantically equivalent (though the latter is technically non-conformant per SPEC-001 Section 2.1, the diff engine normalizes before comparison to avoid false positives on formatting variation).
 
 **Numeric comparison.** Numeric fields are compared by value, not by string representation. `51.0` and `51` are equal. Floating-point comparison uses an epsilon of `1e-9` for fields like `percentage`, `quantity`, and `volume`.
 
@@ -103,77 +103,77 @@ The edge `properties` wrapper is transparent to the diff engine. The engine comp
 ### 4.1 Core Types
 
 ```rust
-struct DiffResult {
-    nodes: NodesDiff,
-    edges: EdgesDiff,
-    warnings: Vec<String>,
+pub struct DiffResult {
+    pub nodes: NodesDiff,
+    pub edges: EdgesDiff,
+    pub warnings: Vec<String>,
 }
 
-struct NodesDiff {
-    added: Vec<NodeRef>,
-    removed: Vec<NodeRef>,
-    modified: Vec<NodeDiff>,
+pub struct NodesDiff {
+    pub added: Vec<NodeRef>,
+    pub removed: Vec<NodeRef>,
+    pub modified: Vec<NodeDiff>,
 }
 
-struct EdgesDiff {
-    added: Vec<EdgeRef>,
-    removed: Vec<EdgeRef>,
-    modified: Vec<EdgeDiff>,
+pub struct EdgesDiff {
+    pub added: Vec<EdgeRef>,
+    pub removed: Vec<EdgeRef>,
+    pub modified: Vec<EdgeDiff>,
 }
 
-struct NodeDiff {
-    id_a: String,
-    id_b: String,
-    node_type: String,
-    matched_by: Vec<String>,    // canonical identifier strings that caused the match
-    property_changes: Vec<PropertyChange>,
-    identifier_changes: IdentifierSetDiff,
-    label_changes: LabelSetDiff,
+pub struct NodeDiff {
+    pub id_a: String,
+    pub id_b: String,
+    pub node_type: String,
+    pub matched_by: Vec<String>,    // canonical identifier strings that caused the match
+    pub property_changes: Vec<PropertyChange>,
+    pub identifier_changes: IdentifierSetDiff,
+    pub label_changes: LabelSetDiff,
 }
 
-struct EdgeDiff {
-    id_a: String,
-    id_b: String,
-    edge_type: String,
-    property_changes: Vec<PropertyChange>,
-    identifier_changes: IdentifierSetDiff,
-    label_changes: LabelSetDiff,
+pub struct EdgeDiff {
+    pub id_a: String,
+    pub id_b: String,
+    pub edge_type: String,
+    pub property_changes: Vec<PropertyChange>,
+    pub identifier_changes: IdentifierSetDiff,
+    pub label_changes: LabelSetDiff,
 }
 
-struct PropertyChange {
-    field: String,
-    old_value: Option<Value>,
-    new_value: Option<Value>,
+pub struct PropertyChange {
+    pub field: String,
+    pub old_value: Option<Value>,
+    pub new_value: Option<Value>,
 }
 
-struct IdentifierSetDiff {
-    added: Vec<CanonicalId>,
-    removed: Vec<CanonicalId>,
-    modified: Vec<IdentifierFieldDiff>,
+pub struct IdentifierSetDiff {
+    pub added: Vec<CanonicalId>,
+    pub removed: Vec<CanonicalId>,
+    pub modified: Vec<IdentifierFieldDiff>,
 }
 
-struct LabelSetDiff {
-    added: Vec<Label>,
-    removed: Vec<Label>,
+pub struct LabelSetDiff {
+    pub added: Vec<Label>,
+    pub removed: Vec<Label>,
 }
 ```
 
-`NodeRef` and `EdgeRef` are lightweight references carrying the element's graph-local `id`, `type`, and `name` (for nodes) to support readable output without cloning entire elements. `Value` is `serde_json::Value` — the engine does not interpret property values beyond the comparison rules in Section 3.
+`NodeRef` and `EdgeRef` are lightweight references carrying the element's graph-local `id`, `type`, and `name` (for nodes) to support readable output without cloning entire elements. `Value` is `serde_json::Value` -- the engine does not interpret property values beyond the comparison rules in Section 3.
 
 ### 4.2 Library Entry Point
 
 ```rust
-fn diff(a: &Graph, b: &Graph) -> DiffResult;
-fn diff_filtered(a: &Graph, b: &Graph, filter: &DiffFilter) -> DiffResult;
+pub fn diff(a: &OmtsFile, b: &OmtsFile) -> DiffResult;
+pub fn diff_filtered(a: &OmtsFile, b: &OmtsFile, filter: &DiffFilter) -> DiffResult;
 ```
 
 `diff` compares all nodes and edges. `diff_filtered` accepts a filter to restrict the comparison:
 
 ```rust
-struct DiffFilter {
-    node_types: Option<HashSet<String>>,   // only diff these node types; None = all
-    edge_types: Option<HashSet<String>>,   // only diff these edge types; None = all
-    ignore_fields: HashSet<String>,        // skip these property names during comparison
+pub struct DiffFilter {
+    pub node_types: Option<HashSet<String>>,   // only diff these node types; None = all
+    pub edge_types: Option<HashSet<String>>,   // only diff these edge types; None = all
+    pub ignore_fields: HashSet<String>,        // skip these property names during comparison
 }
 ```
 
@@ -182,22 +182,25 @@ Filtering by node type also filters edges: when node types are restricted, edges
 ### 4.3 Summary Statistics
 
 ```rust
-struct DiffSummary {
-    nodes_added: usize,
-    nodes_removed: usize,
-    nodes_modified: usize,
-    nodes_unchanged: usize,
-    edges_added: usize,
-    edges_removed: usize,
-    edges_modified: usize,
-    edges_unchanged: usize,
+pub struct DiffSummary {
+    pub nodes_added: usize,
+    pub nodes_removed: usize,
+    pub nodes_modified: usize,
+    pub nodes_unchanged: usize,
+    pub edges_added: usize,
+    pub edges_removed: usize,
+    pub edges_modified: usize,
+    pub edges_unchanged: usize,
 }
 
 impl DiffResult {
-    fn summary(&self) -> DiffSummary;
-    fn is_empty(&self) -> bool; // true iff no additions, removals, or modifications
+    pub fn summary(&self, total_nodes_a: usize, total_edges_a: usize,
+                   total_nodes_b: usize, total_edges_b: usize) -> DiffSummary;
+    pub fn is_empty(&self) -> bool; // true iff no additions, removals, or modifications
 }
 ```
+
+The `summary` method accepts total counts from both input files so it can compute `nodes_unchanged` and `edges_unchanged` (matched pairs with zero property changes). `is_empty` is the predicate the CLI uses to choose between exit code 0 (identical) and exit code 1 (differences found).
 
 ---
 
@@ -243,9 +246,11 @@ With `--format json`, the CLI serializes the `DiffResult` directly as JSON to st
     "nodes_added": 1,
     "nodes_removed": 0,
     "nodes_modified": 1,
+    "nodes_unchanged": 3,
     "edges_added": 0,
     "edges_removed": 1,
-    "edges_modified": 1
+    "edges_modified": 1,
+    "edges_unchanged": 2
   },
   "nodes": {
     "added": [...],
@@ -256,7 +261,8 @@ With `--format json`, the CLI serializes the `DiffResult` directly as JSON to st
     "added": [...],
     "removed": [...],
     "modified": [...]
-  }
+  },
+  "warnings": []
 }
 ```
 
@@ -264,7 +270,7 @@ With `--format json`, the CLI serializes the `DiffResult` directly as JSON to st
 
 ## 6. CLI Integration
 
-The `omtsf diff <a> <b>` command reads two `.omts` files, parses both into `Graph` values, calls `diff` (or `diff_filtered` if filters are provided), and writes the result to stdout.
+The `omtsf diff <a> <b>` command reads two `.omts` files, parses both into `OmtsFile` values, calls `diff` (or `diff_filtered` if filters are provided), and writes the result to stdout.
 
 | Flag | Effect |
 |------|--------|
@@ -291,7 +297,7 @@ This follows the `diff(1)` convention: exit code 1 means "differences found," no
 
 ## 7. Edge Cases
 
-**Version mismatch.** If the two files declare different `omtsf_version` values, the engine emits a warning but proceeds. Property comparison still works — unknown fields in either file are captured as `Value` and compared structurally.
+**Version mismatch.** If the two files declare different `omtsf_version` values, the engine emits a warning but proceeds. Property comparison still works -- unknown fields in either file are captured as `Value` and compared structurally.
 
 **Empty files.** A file with zero nodes and zero edges is valid. Diffing it against a populated file produces all nodes and edges as additions (or deletions, depending on argument order).
 
@@ -300,3 +306,5 @@ This follows the `diff(1)` convention: exit code 1 means "differences found," no
 **`same_as` edges.** Per the merge-identity table, `same_as` edges are never matched across files. Every `same_as` edge in A appears as a deletion, and every `same_as` edge in B appears as an addition. This is intentional: `same_as` edges are intra-file assertions with no cross-file identity.
 
 **Header fields.** The diff engine compares graph elements (nodes and edges), not file header fields. Changes to `snapshot_date`, `file_salt`, `reporting_entity`, or other header fields are outside the scope of the structural diff. The CLI MAY report header differences as a separate informational section in the human-readable output, but this is a formatting concern, not an engine concern.
+
+**Extension types.** Nodes and edges with extension types (reverse-domain notation) participate in matching and comparison like any core type. Extension edge types have no entry in the merge-identity property table, so they fall back to identifier-only matching. When two extension edges share endpoints, type, and no identifiers, they are treated as unmatched (one deletion, one addition) rather than silently paired.
