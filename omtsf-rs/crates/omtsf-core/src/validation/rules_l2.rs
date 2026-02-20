@@ -153,7 +153,12 @@ impl ValidationRule for L2Gdm01 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let connected = facility_ids_with_org_connection(file);
 
         for node in &file.nodes {
@@ -200,7 +205,12 @@ impl ValidationRule for L2Gdm02 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         for edge in &file.edges {
             if edge.edge_type != EdgeTypeTag::Known(EdgeType::Ownership) {
                 continue;
@@ -245,7 +255,12 @@ impl ValidationRule for L2Gdm03 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         // Check organization and facility nodes.
         for node in &file.nodes {
             let should_check = matches!(
@@ -353,7 +368,12 @@ impl ValidationRule for L2Gdm04 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         // If reporting_entity is present, all tier values are well-anchored.
         if file.reporting_entity.is_some() {
             return;
@@ -402,7 +422,12 @@ impl ValidationRule for L2Eid01 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             if node.node_type != NodeTypeTag::Known(NodeType::Organization) {
                 continue;
@@ -455,7 +480,12 @@ impl ValidationRule for L2Eid04 {
         Level::L2
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let node_id: &str = &node.id;
             let Some(ref identifiers) = node.identifiers else {
@@ -638,7 +668,7 @@ mod tests {
 
     fn run_rule(rule: &dyn ValidationRule, file: &OmtsFile) -> Vec<Diagnostic> {
         let mut diags = Vec::new();
-        rule.check(file, &mut diags);
+        rule.check(file, &mut diags, None);
         diags
     }
 
@@ -1202,7 +1232,7 @@ mod tests {
 
         for rule in &rules {
             let mut diags = Vec::new();
-            rule.check(&file, &mut diags);
+            rule.check(&file, &mut diags, None);
             for d in &diags {
                 assert_eq!(
                     d.severity,
@@ -1224,7 +1254,7 @@ mod tests {
             vec![],
         );
         let mut diags = Vec::new();
-        L2Eid04.check(&file_eid04, &mut diags);
+        L2Eid04.check(&file_eid04, &mut diags, None);
         for d in &diags {
             assert_eq!(d.severity, Severity::Warning);
         }

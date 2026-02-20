@@ -92,7 +92,12 @@ impl ValidationRule for L1Eid01 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -128,7 +133,12 @@ impl ValidationRule for L1Eid02 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -165,7 +175,12 @@ impl ValidationRule for L1Eid03 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -214,7 +229,12 @@ impl ValidationRule for L1Eid04 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -258,7 +278,12 @@ impl ValidationRule for L1Eid05 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -311,7 +336,12 @@ impl ValidationRule for L1Eid06 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -351,7 +381,12 @@ impl ValidationRule for L1Eid07 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -455,7 +490,12 @@ impl ValidationRule for L1Eid08 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -511,7 +551,12 @@ impl ValidationRule for L1Eid09 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -565,7 +610,12 @@ impl ValidationRule for L1Eid10 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         // The `Sensitivity` enum is exhaustively validated by serde at
         // deserialization; any parsed `Identifier` with a non-None sensitivity
         // field already holds a valid variant.  No additional runtime check is
@@ -596,7 +646,12 @@ impl ValidationRule for L1Eid11 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             let Some(identifiers) = &node.identifiers else {
                 continue;
@@ -740,7 +795,7 @@ mod tests {
 
     fn check_rule(rule: &dyn ValidationRule, file: &OmtsFile) -> Vec<Diagnostic> {
         let mut diags = Vec::new();
-        rule.check(file, &mut diags);
+        rule.check(file, &mut diags, None);
         diags
     }
 
@@ -1345,7 +1400,7 @@ mod tests {
         ]);
         file.nodes.push(node);
         let cfg = ValidationConfig::default();
-        let result = validate(&file, &cfg);
+        let result = validate(&file, &cfg, None);
         let eid_errors: Vec<_> = result
             .errors()
             .filter(|d| {
@@ -1382,7 +1437,7 @@ mod tests {
         ]);
         file.nodes.push(node);
         let cfg = ValidationConfig::default();
-        let result = validate(&file, &cfg);
+        let result = validate(&file, &cfg, None);
         assert!(result.has_errors());
         let ids: Vec<&RuleId> = result.errors().map(|d| &d.rule_id).collect();
         assert!(ids.contains(&&RuleId::L1Eid01));

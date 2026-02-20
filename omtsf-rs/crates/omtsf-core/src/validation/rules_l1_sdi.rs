@@ -34,7 +34,12 @@ impl ValidationRule for L1Sdi01 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         for node in &file.nodes {
             // Only applies to boundary_ref nodes.
             if node.node_type != NodeTypeTag::Known(NodeType::BoundaryRef) {
@@ -164,7 +169,12 @@ impl ValidationRule for L1Sdi02 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let scope = match &file.disclosure_scope {
             None => return, // No scope declared — rule does not apply.
             Some(s) => s,
@@ -341,7 +351,7 @@ mod tests {
 
     fn run_rule(rule: &dyn ValidationRule, file: &OmtsFile) -> Vec<Diagnostic> {
         let mut diags = Vec::new();
-        rule.check(file, &mut diags);
+        rule.check(file, &mut diags, None);
         diags
     }
 
