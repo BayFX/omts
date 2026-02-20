@@ -76,7 +76,7 @@
       "valid_from": "2025-06-01",
       "valid_to": "2028-05-31",
       "outcome": "pass",
-      "status": "active",
+      "attestation_status": "active",
       "risk_severity": "low"
     },
     {
