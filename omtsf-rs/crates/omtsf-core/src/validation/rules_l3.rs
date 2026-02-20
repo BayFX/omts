@@ -1,0 +1,578 @@
+/// L3-EID-01 and L3-MRG-01: Enrichment rules that cross-reference external data sources.
+///
+/// L3 rules are off by default and require a concrete [`ExternalDataSource`] to produce
+/// any findings. When `external_data` is `None`, each rule skips its checks entirely.
+/// When `external_data` is `Some`, the rule queries the data source and emits
+/// [`Severity::Info`] diagnostics for findings that cannot be determined from the
+/// file alone.
+///
+/// Rules are registered in [`crate::validation::build_registry`] when
+/// [`crate::validation::ValidationConfig::run_l3`] is `true`.
+use crate::enums::{EdgeType, EdgeTypeTag};
+use crate::file::OmtsFile;
+
+use super::external::ExternalDataSource;
+use super::{Diagnostic, Level, Location, RuleId, Severity, ValidationRule};
+
+// ---------------------------------------------------------------------------
+// L3-EID-01: LEI registration status verification
+// ---------------------------------------------------------------------------
+
+/// L3-EID-01 — Every `lei` identifier on an organisation node SHOULD resolve
+/// to an active LEI registration in the GLEIF database.
+///
+/// For each node that carries one or more `lei` scheme identifiers, this rule
+/// queries [`ExternalDataSource::lei_status`]. If the status record is found
+/// and `is_active` is `false`, an Info diagnostic is emitted. If the data
+/// source returns `None` for a given LEI, the check is silently skipped for
+/// that identifier.
+///
+/// When `external_data` is `None` the rule produces no diagnostics.
+pub struct L3Eid01;
+
+impl ValidationRule for L3Eid01 {
+    fn id(&self) -> RuleId {
+        RuleId::L3Eid01
+    }
+
+    fn level(&self) -> Level {
+        Level::L3
+    }
+
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        external_data: Option<&dyn ExternalDataSource>,
+    ) {
+        let Some(source) = external_data else {
+            return;
+        };
+
+        for node in &file.nodes {
+            let Some(ref identifiers) = node.identifiers else {
+                continue;
+            };
+
+            for (index, ident) in identifiers.iter().enumerate() {
+                if ident.scheme != "lei" {
+                    continue;
+                }
+
+                let Some(record) = source.lei_status(&ident.value) else {
+                    // Data source has no entry for this LEI; skip silently.
+                    continue;
+                };
+
+                if !record.is_active {
+                    let node_id: &str = &node.id;
+                    diags.push(Diagnostic::new(
+                        RuleId::L3Eid01,
+                        Severity::Info,
+                        Location::Identifier {
+                            node_id: node_id.to_owned(),
+                            index,
+                            field: Some("value".to_owned()),
+                        },
+                        format!(
+                            "node \"{node_id}\" identifiers[{index}]: LEI \"{}\" has \
+                             registration status \"{}\" in the GLEIF database (is_active=false)",
+                            ident.value, record.registration_status
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// L3-MRG-01: Ownership percentage sum verification
+// ---------------------------------------------------------------------------
+
+/// L3-MRG-01 — For each organisation node, the sum of `percentage` values on
+/// all inbound `ownership` edges SHOULD NOT exceed 100.0 when the external
+/// data source confirms the organisation is an active legal entity.
+///
+/// The rule queries [`ExternalDataSource::lei_status`] (if an LEI is present)
+/// to verify that the target exists in the registry before flagging percentage
+/// anomalies. If the data source returns `None`, the percentage check still runs
+/// using purely local data (the external lookup is opportunistic enrichment).
+///
+/// When `external_data` is `None` the rule produces no diagnostics.
+pub struct L3Mrg01;
+
+impl ValidationRule for L3Mrg01 {
+    fn id(&self) -> RuleId {
+        RuleId::L3Mrg01
+    }
+
+    fn level(&self) -> Level {
+        Level::L3
+    }
+
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        external_data: Option<&dyn ExternalDataSource>,
+    ) {
+        // Without an external data source there is nothing to enrich;
+        // pure structural ownership-sum checks belong at L1/L2.
+        let Some(_source) = external_data else {
+            return;
+        };
+
+        // Collect all organisation node IDs for quick lookup.
+        let org_ids: std::collections::HashSet<&str> = file
+            .nodes
+            .iter()
+            .filter(|n| {
+                n.node_type
+                    == crate::enums::NodeTypeTag::Known(crate::enums::NodeType::Organization)
+            })
+            .map(|n| n.id.as_ref() as &str)
+            .collect();
+
+        // For each organisation, sum the `percentage` values of inbound ownership edges.
+        for org_node in &file.nodes {
+            if org_node.node_type
+                != crate::enums::NodeTypeTag::Known(crate::enums::NodeType::Organization)
+            {
+                continue;
+            }
+
+            let org_id: &str = &org_node.id;
+
+            // Sum percentages from all inbound ownership edges targeting this org.
+            let mut total_pct: f64 = 0.0;
+            let mut has_any_pct = false;
+
+            for edge in &file.edges {
+                if edge.edge_type != EdgeTypeTag::Known(EdgeType::Ownership) {
+                    continue;
+                }
+                if (edge.target.as_ref() as &str) != org_id {
+                    continue;
+                }
+                // Only count edges whose source is also an organisation node.
+                if !org_ids.contains(edge.source.as_ref() as &str) {
+                    continue;
+                }
+                if let Some(pct) = edge.properties.percentage {
+                    has_any_pct = true;
+                    total_pct += pct;
+                }
+            }
+
+            if has_any_pct && total_pct > 100.0 {
+                diags.push(Diagnostic::new(
+                    RuleId::L3Mrg01,
+                    Severity::Info,
+                    Location::Node {
+                        node_id: org_id.to_owned(),
+                        field: None,
+                    },
+                    format!(
+                        "organisation \"{org_id}\" has inbound ownership percentages summing to \
+                         {total_pct:.2}%, which exceeds 100%; verify ownership structure with \
+                         external registry data"
+                    ),
+                ));
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::*;
+    use crate::enums::{EdgeType, EdgeTypeTag, NodeType, NodeTypeTag};
+    use crate::file::OmtsFile;
+    use crate::newtypes::{CalendarDate, EdgeId, FileSalt, NodeId, SemVer};
+    use crate::structures::{Edge, EdgeProperties, Node};
+    use crate::types::Identifier;
+    use crate::validation::external::{LeiRecord, NatRegRecord};
+
+    // -----------------------------------------------------------------------
+    // Mock ExternalDataSource
+    // -----------------------------------------------------------------------
+
+    /// A simple mock that returns pre-configured LEI and nat-reg records.
+    struct MockDataSource {
+        /// Map from LEI string to the record to return.
+        lei_records: std::collections::HashMap<String, LeiRecord>,
+        /// Map from (authority, value) to the record to return.
+        nat_reg_records: std::collections::HashMap<(String, String), NatRegRecord>,
+    }
+
+    impl MockDataSource {
+        fn new() -> Self {
+            Self {
+                lei_records: std::collections::HashMap::new(),
+                nat_reg_records: std::collections::HashMap::new(),
+            }
+        }
+
+        fn with_lei(mut self, lei: &str, status: &str, is_active: bool) -> Self {
+            self.lei_records.insert(
+                lei.to_owned(),
+                LeiRecord {
+                    lei: lei.to_owned(),
+                    registration_status: status.to_owned(),
+                    is_active,
+                },
+            );
+            self
+        }
+
+        fn with_nat_reg(mut self, authority: &str, value: &str, is_active: bool) -> Self {
+            self.nat_reg_records.insert(
+                (authority.to_owned(), value.to_owned()),
+                NatRegRecord {
+                    authority: authority.to_owned(),
+                    value: value.to_owned(),
+                    is_active,
+                },
+            );
+            self
+        }
+    }
+
+    impl ExternalDataSource for MockDataSource {
+        fn lei_status(&self, lei: &str) -> Option<LeiRecord> {
+            self.lei_records.get(lei).cloned()
+        }
+
+        fn nat_reg_lookup(&self, authority: &str, value: &str) -> Option<NatRegRecord> {
+            self.nat_reg_records
+                .get(&(authority.to_owned(), value.to_owned()))
+                .cloned()
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Fixture helpers
+    // -----------------------------------------------------------------------
+
+    const SALT: &str = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+    fn make_file(nodes: Vec<Node>, edges: Vec<Edge>) -> OmtsFile {
+        OmtsFile {
+            omtsf_version: SemVer::try_from("1.0.0").expect("valid"),
+            snapshot_date: CalendarDate::try_from("2026-02-19").expect("valid"),
+            file_salt: FileSalt::try_from(SALT).expect("valid"),
+            disclosure_scope: None,
+            previous_snapshot_ref: None,
+            snapshot_sequence: None,
+            reporting_entity: None,
+            nodes,
+            edges,
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    fn org_node(id: &str) -> Node {
+        Node {
+            id: NodeId::try_from(id).expect("valid id"),
+            node_type: NodeTypeTag::Known(NodeType::Organization),
+            identifiers: None,
+            data_quality: None,
+            labels: None,
+            name: None,
+            jurisdiction: None,
+            status: None,
+            governance_structure: None,
+            operator: None,
+            address: None,
+            geo: None,
+            commodity_code: None,
+            unit: None,
+            role: None,
+            attestation_type: None,
+            standard: None,
+            issuer: None,
+            valid_from: None,
+            valid_to: None,
+            outcome: None,
+            attestation_status: None,
+            reference: None,
+            risk_severity: None,
+            risk_likelihood: None,
+            lot_id: None,
+            quantity: None,
+            production_date: None,
+            origin_country: None,
+            direct_emissions_co2e: None,
+            indirect_emissions_co2e: None,
+            emission_factor_source: None,
+            installation_id: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    fn org_node_with_lei(id: &str, lei: &str) -> Node {
+        let mut n = org_node(id);
+        n.identifiers = Some(vec![Identifier {
+            scheme: "lei".to_owned(),
+            value: lei.to_owned(),
+            authority: None,
+            valid_from: None,
+            valid_to: None,
+            sensitivity: None,
+            verification_status: None,
+            verification_date: None,
+            extra: serde_json::Map::new(),
+        }]);
+        n
+    }
+
+    fn ownership_edge(id: &str, source: &str, target: &str, percentage: Option<f64>) -> Edge {
+        let mut e = Edge {
+            id: EdgeId::try_from(id).expect("valid id"),
+            edge_type: EdgeTypeTag::Known(EdgeType::Ownership),
+            source: NodeId::try_from(source).expect("valid source"),
+            target: NodeId::try_from(target).expect("valid target"),
+            identifiers: None,
+            properties: EdgeProperties::default(),
+            extra: serde_json::Map::new(),
+        };
+        e.properties.percentage = percentage;
+        e
+    }
+
+    fn run_l3(
+        rule: &dyn ValidationRule,
+        file: &OmtsFile,
+        ext: Option<&dyn ExternalDataSource>,
+    ) -> Vec<Diagnostic> {
+        let mut diags = Vec::new();
+        rule.check(file, &mut diags, ext);
+        diags
+    }
+
+    // -----------------------------------------------------------------------
+    // L3-EID-01 tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn eid01_no_external_source_produces_no_diagnostics() {
+        let file = make_file(
+            vec![org_node_with_lei("org-1", "5493006MHB84DD0ZWV18")],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, None);
+        assert!(
+            diags.is_empty(),
+            "L3-EID-01 must be silent when external_data is None"
+        );
+    }
+
+    #[test]
+    fn eid01_active_lei_produces_no_diagnostic() {
+        let source = MockDataSource::new().with_lei("5493006MHB84DD0ZWV18", "ISSUED", true);
+        let file = make_file(
+            vec![org_node_with_lei("org-1", "5493006MHB84DD0ZWV18")],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert!(
+            diags.is_empty(),
+            "active LEI must produce no diagnostic; got: {diags:?}"
+        );
+    }
+
+    #[test]
+    fn eid01_lapsed_lei_produces_info_diagnostic() {
+        let source = MockDataSource::new().with_lei("5493006MHB84DD0ZWV18", "LAPSED", false);
+        let file = make_file(
+            vec![org_node_with_lei("org-1", "5493006MHB84DD0ZWV18")],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert_eq!(
+            diags.len(),
+            1,
+            "lapsed LEI should produce one Info diagnostic"
+        );
+        assert_eq!(diags[0].rule_id, RuleId::L3Eid01);
+        assert_eq!(diags[0].severity, Severity::Info);
+        assert!(diags[0].message.contains("LAPSED"));
+        assert!(diags[0].message.contains("org-1"));
+    }
+
+    #[test]
+    fn eid01_annulled_lei_produces_info_diagnostic() {
+        let source = MockDataSource::new().with_lei("5493006MHB84DD0ZWV18", "ANNULLED", false);
+        let file = make_file(
+            vec![org_node_with_lei("org-1", "5493006MHB84DD0ZWV18")],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Info);
+        assert!(diags[0].message.contains("ANNULLED"));
+    }
+
+    #[test]
+    fn eid01_unknown_lei_in_data_source_skips_silently() {
+        // Data source knows nothing about this LEI — no diagnostic.
+        let source = MockDataSource::new();
+        let file = make_file(
+            vec![org_node_with_lei("org-1", "5493006MHB84DD0ZWV18")],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert!(
+            diags.is_empty(),
+            "unknown LEI in data source should be skipped silently"
+        );
+    }
+
+    #[test]
+    fn eid01_node_with_no_identifiers_produces_no_diagnostic() {
+        let source = MockDataSource::new();
+        let file = make_file(vec![org_node("org-1")], vec![]);
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn eid01_multiple_nodes_lapsed_all_flagged() {
+        let source = MockDataSource::new()
+            .with_lei("5493006MHB84DD0ZWV18", "LAPSED", false)
+            .with_lei("254900OPPU84GM83MG36", "LAPSED", false);
+        let file = make_file(
+            vec![
+                org_node_with_lei("org-1", "5493006MHB84DD0ZWV18"),
+                org_node_with_lei("org-2", "254900OPPU84GM83MG36"),
+            ],
+            vec![],
+        );
+        let diags = run_l3(&L3Eid01, &file, Some(&source));
+        assert_eq!(
+            diags.len(),
+            2,
+            "both lapsed LEIs should produce diagnostics"
+        );
+        assert!(diags.iter().all(|d| d.severity == Severity::Info));
+    }
+
+    // -----------------------------------------------------------------------
+    // L3-MRG-01 tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mrg01_no_external_source_produces_no_diagnostics() {
+        let file = make_file(
+            vec![org_node("org-1"), org_node("org-2")],
+            vec![ownership_edge("e-1", "org-1", "org-2", Some(60.0))],
+        );
+        let diags = run_l3(&L3Mrg01, &file, None);
+        assert!(
+            diags.is_empty(),
+            "L3-MRG-01 must be silent when external_data is None"
+        );
+    }
+
+    #[test]
+    fn mrg01_ownership_sum_within_100_produces_no_diagnostic() {
+        let source = MockDataSource::new();
+        let file = make_file(
+            vec![org_node("org-1"), org_node("org-2"), org_node("org-3")],
+            vec![
+                ownership_edge("e-1", "org-1", "org-3", Some(40.0)),
+                ownership_edge("e-2", "org-2", "org-3", Some(60.0)),
+            ],
+        );
+        let diags = run_l3(&L3Mrg01, &file, Some(&source));
+        assert!(
+            diags.is_empty(),
+            "sum = 100.0 should not produce a diagnostic; got: {diags:?}"
+        );
+    }
+
+    #[test]
+    fn mrg01_ownership_sum_exceeds_100_produces_info_diagnostic() {
+        let source = MockDataSource::new();
+        let file = make_file(
+            vec![org_node("org-1"), org_node("org-2"), org_node("org-3")],
+            vec![
+                ownership_edge("e-1", "org-1", "org-3", Some(70.0)),
+                ownership_edge("e-2", "org-2", "org-3", Some(50.0)),
+            ],
+        );
+        let diags = run_l3(&L3Mrg01, &file, Some(&source));
+        assert_eq!(
+            diags.len(),
+            1,
+            "sum = 120.0 should produce one Info diagnostic; got: {diags:?}"
+        );
+        assert_eq!(diags[0].rule_id, RuleId::L3Mrg01);
+        assert_eq!(diags[0].severity, Severity::Info);
+        assert!(diags[0].message.contains("org-3"));
+        assert!(diags[0].message.contains("120.00%"));
+    }
+
+    #[test]
+    fn mrg01_no_percentage_on_edges_produces_no_diagnostic() {
+        let source = MockDataSource::new();
+        let file = make_file(
+            vec![org_node("org-1"), org_node("org-2")],
+            vec![ownership_edge("e-1", "org-1", "org-2", None)],
+        );
+        let diags = run_l3(&L3Mrg01, &file, Some(&source));
+        assert!(
+            diags.is_empty(),
+            "edges without percentage must not trigger MRG-01"
+        );
+    }
+
+    #[test]
+    fn mrg01_empty_file_produces_no_diagnostic() {
+        let source = MockDataSource::new();
+        let file = make_file(vec![], vec![]);
+        let diags = run_l3(&L3Mrg01, &file, Some(&source));
+        assert!(diags.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // Mock data source API tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn mock_data_source_returns_configured_lei_records() {
+        let source = MockDataSource::new()
+            .with_lei("5493006MHB84DD0ZWV18", "ISSUED", true)
+            .with_lei("254900OPPU84GM83MG36", "LAPSED", false);
+
+        let active = source.lei_status("5493006MHB84DD0ZWV18");
+        assert!(active.is_some());
+        assert!(active.as_ref().map(|r| r.is_active).unwrap_or(false));
+
+        let lapsed = source.lei_status("254900OPPU84GM83MG36");
+        assert!(lapsed.is_some());
+        assert!(!lapsed.as_ref().map(|r| r.is_active).unwrap_or(true));
+
+        let unknown = source.lei_status("UNKNOWNLEI00000000000");
+        assert!(unknown.is_none());
+    }
+
+    #[test]
+    fn mock_data_source_returns_configured_nat_reg_records() {
+        let source = MockDataSource::new().with_nat_reg("RA000548", "HRB86891", true);
+
+        let found = source.nat_reg_lookup("RA000548", "HRB86891");
+        assert!(found.is_some());
+        assert!(found.as_ref().map(|r| r.is_active).unwrap_or(false));
+
+        let not_found = source.nat_reg_lookup("RA000548", "UNKNOWN");
+        assert!(not_found.is_none());
+    }
+}

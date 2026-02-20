@@ -8,13 +8,16 @@
 /// It also defines the [`ValidationRule`] trait, [`ValidationConfig`],
 /// [`build_registry`], and the top-level [`validate`] dispatch function
 /// described in Sections 3.1 and 3.2.
+pub mod external;
 pub mod rules_l1_gdm;
 pub mod rules_l1_sdi;
 pub mod rules_l2;
+pub mod rules_l3;
 
 use std::fmt;
 
 use crate::file::OmtsFile;
+use external::ExternalDataSource;
 
 // ---------------------------------------------------------------------------
 // Severity
@@ -542,6 +545,13 @@ impl fmt::Display for Level {
 /// The trait is object-safe; the registry stores rules as
 /// `Vec<Box<dyn ValidationRule>>`.
 ///
+/// # External data
+///
+/// The `external_data` parameter carries an optional reference to an
+/// [`ExternalDataSource`] implementation.  L1 and L2 rules ignore this
+/// parameter entirely.  L3 rules query the data source when `Some` and skip
+/// their checks silently when `None`.
+///
 /// # Extension rules
 ///
 /// Third-party validators implement this trait and use [`RuleId::Extension`]
@@ -568,7 +578,16 @@ pub trait ValidationRule {
     ///
     /// Called exactly once per validation pass with the fully parsed file.
     /// The rule must not mutate any state outside `diags`.
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>);
+    ///
+    /// `external_data` is `Some` only when L3 rules are active and a concrete
+    /// data source has been provided.  L1 and L2 rules MUST ignore this
+    /// parameter.  L3 rules MUST skip their checks silently when it is `None`.
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        external_data: Option<&dyn ExternalDataSource>,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -620,6 +639,7 @@ impl Default for ValidationConfig {
 /// this is not a plugin system.
 ///
 /// L1-GDM, L1-EID, and L1-SDI rules are gated by [`ValidationConfig::run_l1`].
+/// L3 rules are gated by [`ValidationConfig::run_l3`].
 pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>> {
     use crate::rules_l1_eid::{
         L1Eid01, L1Eid02, L1Eid03, L1Eid04, L1Eid05, L1Eid06, L1Eid07, L1Eid08, L1Eid09, L1Eid10,
@@ -628,6 +648,7 @@ pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>>
     use rules_l1_gdm::{GdmRule01, GdmRule02, GdmRule03, GdmRule04, GdmRule05, GdmRule06};
     use rules_l1_sdi::{L1Sdi01, L1Sdi02};
     use rules_l2::{L2Eid01, L2Eid04, L2Gdm01, L2Gdm02, L2Gdm03, L2Gdm04};
+    use rules_l3::{L3Eid01, L3Mrg01};
 
     let mut registry: Vec<Box<dyn ValidationRule>> = Vec::new();
 
@@ -662,6 +683,11 @@ pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>>
         registry.push(Box::new(L2Eid04));
     }
 
+    if config.run_l3 {
+        registry.push(Box::new(L3Eid01));
+        registry.push(Box::new(L3Mrg01));
+    }
+
     registry
 }
 
@@ -671,13 +697,22 @@ pub fn build_registry(config: &ValidationConfig) -> Vec<Box<dyn ValidationRule>>
 /// diagnostics.  The engine never fails fast — all diagnostics are collected
 /// before returning.
 ///
+/// `external_data` is passed to every rule's `check` method.  L1 and L2 rules
+/// ignore it.  L3 rules use it when `Some` and skip their checks when `None`.
+/// Callers that do not have an external data source should pass `None` even
+/// when `config.run_l3` is `true`; L3 rules will produce no diagnostics.
+///
 /// Returns a [`ValidationResult`] containing every diagnostic produced.  An
 /// empty result indicates a clean file (with respect to the active rule set).
-pub fn validate(file: &OmtsFile, config: &ValidationConfig) -> ValidationResult {
+pub fn validate(
+    file: &OmtsFile,
+    config: &ValidationConfig,
+    external_data: Option<&dyn ExternalDataSource>,
+) -> ValidationResult {
     let registry = build_registry(config);
     let mut diags: Vec<Diagnostic> = Vec::new();
     for rule in &registry {
-        rule.check(file, &mut diags);
+        rule.check(file, &mut diags, external_data);
     }
     ValidationResult::from_diagnostics(diags)
 }
@@ -1201,6 +1236,48 @@ mod tests {
         );
     }
 
+    #[test]
+    fn build_registry_l3_only_has_two_rules() {
+        let cfg = ValidationConfig {
+            run_l1: false,
+            run_l2: false,
+            run_l3: true,
+        };
+        let registry = build_registry(&cfg);
+        assert_eq!(
+            registry.len(),
+            2,
+            "L3-EID-01 + L3-MRG-01 = 2 L3 rules registered when run_l3 is true"
+        );
+        let ids: Vec<_> = registry.iter().map(|r| r.id()).collect();
+        assert!(
+            ids.contains(&RuleId::L3Eid01),
+            "L3-EID-01 must be in registry"
+        );
+        assert!(
+            ids.contains(&RuleId::L3Mrg01),
+            "L3-MRG-01 must be in registry"
+        );
+        assert!(
+            registry.iter().all(|r| r.level() == Level::L3),
+            "all rules in L3-only registry must be L3 level"
+        );
+    }
+
+    #[test]
+    fn build_registry_l3_rules_produce_info_severity() {
+        let cfg = ValidationConfig {
+            run_l1: false,
+            run_l2: false,
+            run_l3: true,
+        };
+        let registry = build_registry(&cfg);
+        assert!(
+            registry.iter().all(|r| r.severity() == Severity::Info),
+            "all L3 rules must produce Info severity"
+        );
+    }
+
     // --- validate ---
 
     /// Helper: build a minimal valid [`OmtsFile`] in-memory.
@@ -1227,7 +1304,7 @@ mod tests {
         // A minimal file with no nodes and no edges passes all L1 rules.
         let file = minimal_omts_file();
         let cfg = ValidationConfig::default();
-        let result = validate(&file, &cfg);
+        let result = validate(&file, &cfg, None);
         assert!(
             result.is_empty(),
             "clean minimal file must produce no diagnostics; got: {:?}",
@@ -1244,7 +1321,7 @@ mod tests {
             run_l2: false,
             run_l3: false,
         };
-        let result = validate(&file, &cfg);
+        let result = validate(&file, &cfg, None);
         assert_eq!(result.len(), 0);
     }
 
@@ -1263,7 +1340,12 @@ mod tests {
             self.level
         }
 
-        fn check(&self, _file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+        fn check(
+            &self,
+            _file: &OmtsFile,
+            diags: &mut Vec<Diagnostic>,
+            _external_data: Option<&dyn crate::validation::external::ExternalDataSource>,
+        ) {
             diags.push(Diagnostic::new(
                 self.rule_id.clone(),
                 self.level.severity(),
@@ -1282,7 +1364,7 @@ mod tests {
         });
 
         let mut diags: Vec<Diagnostic> = Vec::new();
-        rule.check(&file, &mut diags);
+        rule.check(&file, &mut diags, None);
 
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule_id, RuleId::L1Gdm01);

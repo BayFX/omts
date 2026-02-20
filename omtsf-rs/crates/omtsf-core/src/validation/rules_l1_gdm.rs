@@ -55,7 +55,12 @@ impl ValidationRule for GdmRule01 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let mut seen: HashSet<&str> = HashSet::new();
         for node in &file.nodes {
             let id: &str = &node.id;
@@ -95,7 +100,12 @@ impl ValidationRule for GdmRule02 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let mut seen: HashSet<&str> = HashSet::new();
         for edge in &file.edges {
             let id: &str = &edge.id;
@@ -134,7 +144,12 @@ impl ValidationRule for GdmRule03 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let node_ids: HashSet<&str> = file.nodes.iter().map(|n| n.id.as_ref() as &str).collect();
 
         for edge in &file.edges {
@@ -194,7 +209,12 @@ impl ValidationRule for GdmRule04 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         for edge in &file.edges {
             match &edge.edge_type {
                 EdgeTypeTag::Known(_) => {
@@ -244,7 +264,12 @@ impl ValidationRule for GdmRule05 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let Some(ref reporting_entity) = file.reporting_entity else {
             return;
         };
@@ -361,7 +386,12 @@ impl ValidationRule for GdmRule06 {
         Level::L1
     }
 
-    fn check(&self, file: &OmtsFile, diags: &mut Vec<Diagnostic>) {
+    fn check(
+        &self,
+        file: &OmtsFile,
+        diags: &mut Vec<Diagnostic>,
+        _external_data: Option<&dyn super::external::ExternalDataSource>,
+    ) {
         let node_map = node_id_map(file);
 
         for edge in &file.edges {
@@ -604,7 +634,7 @@ mod tests {
 
     fn run_rule(rule: &dyn ValidationRule, file: &OmtsFile) -> Vec<Diagnostic> {
         let mut diags = Vec::new();
-        rule.check(file, &mut diags);
+        rule.check(file, &mut diags, None);
         diags
     }
 

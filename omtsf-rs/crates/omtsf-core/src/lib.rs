@@ -45,6 +45,7 @@ pub use sensitivity::{effective_property_sensitivity, effective_sensitivity};
 pub use structures::{Edge, EdgeProperties, Node};
 pub use types::{DataQuality, Geo, GeoParseError, Identifier, Label, parse_geo};
 pub use union_find::UnionFind;
+pub use validation::external::{ExternalDataSource, LeiRecord, NatRegRecord};
 pub use validation::{
     Diagnostic, Level, Location, ParseError, RuleId, Severity, ValidateOutput, ValidationConfig,
     ValidationResult, ValidationRule, build_registry, validate,
