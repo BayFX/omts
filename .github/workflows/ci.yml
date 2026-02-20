@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: CI (${{ matrix.toolchain }})
@@ -41,15 +44,15 @@ jobs:
 
       - name: Lint
         working-directory: omtsf-rs
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Test
         working-directory: omtsf-rs
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       - name: WASM compile check
         working-directory: omtsf-rs
-        run: cargo build -p omtsf-core --target wasm32-unknown-unknown
+        run: cargo check --target wasm32-unknown-unknown -p omtsf-core
 
       - name: Doc build
         if: matrix.toolchain == 'stable'
