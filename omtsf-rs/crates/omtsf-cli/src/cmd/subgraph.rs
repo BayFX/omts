@@ -17,7 +17,9 @@
 use omtsf_core::OmtsFile;
 use omtsf_core::graph::queries::Direction as CoreDirection;
 use omtsf_core::graph::{QueryError, build_graph, ego_graph, induced_subgraph};
+use omtsf_core::newtypes::CalendarDate;
 
+use crate::cmd::init::today_string;
 use crate::error::CliError;
 
 // ---------------------------------------------------------------------------
@@ -48,7 +50,7 @@ pub fn run(content: &str, node_ids: &[String], expand: u32) -> Result<(), CliErr
         detail: e.to_string(),
     })?;
 
-    let subgraph_file = if expand == 0 {
+    let mut subgraph_file = if expand == 0 {
         // No expansion: plain induced subgraph.
         let id_refs: Vec<&str> = node_ids.iter().map(String::as_str).collect();
         induced_subgraph(&graph, &file, &id_refs).map_err(query_error_to_cli)?
@@ -57,6 +59,18 @@ pub fn run(content: &str, node_ids: &[String], expand: u32) -> Result<(), CliErr
         // then take the induced subgraph of that union.
         compute_expanded_subgraph(&graph, &file, node_ids, expand)?
     };
+
+    // Update the snapshot_date to today per the CLI spec: "The output header
+    // is copied from the input with an updated snapshot_date."
+    let today = today_string().map_err(|e| CliError::IoError {
+        source: "system clock".to_owned(),
+        detail: e,
+    })?;
+    subgraph_file.snapshot_date =
+        CalendarDate::try_from(today.as_str()).map_err(|e| CliError::IoError {
+            source: "system clock".to_owned(),
+            detail: format!("generated date is invalid: {e}"),
+        })?;
 
     let output = serde_json::to_string_pretty(&subgraph_file).map_err(|e| CliError::IoError {
         source: "<output>".to_owned(),

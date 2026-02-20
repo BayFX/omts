@@ -265,7 +265,7 @@ fn build_example_file(
 /// Uses `std::time::SystemTime` and Unix epoch arithmetic to avoid a dependency
 /// on `chrono` or `time`. Accurate for any date in the Gregorian calendar from
 /// 1970 onwards.
-fn today_string() -> Result<String, String> {
+pub(crate) fn today_string() -> Result<String, String> {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| format!("system clock before Unix epoch: {e}"))?
