@@ -571,11 +571,33 @@ The types depend on:
 
 No other dependencies are permitted in the data model module. The `omtsf-core` crate enforces this boundary with `#![deny(clippy::print_stdout, clippy::print_stderr)]` at the crate level.
 
-### 11.2 wasm-bindgen Surface
+### 11.2 Serialization Format Support on WASM
+
+`ciborium`, the CBOR encoding library, compiles successfully for `wasm32-unknown-unknown`. CBOR encode/decode (`encode_cbor`, `decode_cbor`) is available on all targets including WASM.
+
+`zstd` does **not** compile for `wasm32-unknown-unknown`. It uses C FFI bindings (`zstd-sys`) that require a C compiler targeting WASM, which is not available in standard WASM build environments. Attempting `cargo build --target wasm32-unknown-unknown --features compression` fails at the `zstd-sys` build script with a missing C compiler error.
+
+The `compression` feature flag gates the `zstd` dependency. WASM builds must exclude it:
+
+```
+cargo build -p omtsf-core --target wasm32-unknown-unknown --no-default-features
+```
+
+Since `compression` is in `default` features, passing `--no-default-features` is required for WASM. The conditional compilation gate `#[cfg(feature = "compression")]` ensures the `compress_zstd` and `decompress_zstd` functions are not compiled into WASM builds.
+
+**Summary of serialization support by target:**
+
+| Format | Native | WASM |
+|--------|--------|------|
+| JSON | Yes | Yes |
+| CBOR | Yes | Yes |
+| zstd compression | Yes (with `compression` feature) | No |
+
+### 11.3 wasm-bindgen Surface
 
 The `OmtsFile` struct and its children are not directly `#[wasm_bindgen]`-annotated. wasm-bindgen cannot handle complex nested Rust types. Instead, the future `omtsf-wasm` crate will expose a thin JS-facing API that accepts JSON strings, deserializes into these types internally, and returns results as JSON or simple scalar values. The types defined here are the internal representation, not the FFI boundary.
 
-### 11.3 Serialization to/from JS
+### 11.4 Serialization to/from JS
 
 For WASM consumers that need the full parsed tree on the JS side, `serde-wasm-bindgen` can convert `OmtsFile` to a `JsValue` without an intermediate JSON string. This is an `omtsf-wasm` crate concern and does not affect the type definitions here.
 
