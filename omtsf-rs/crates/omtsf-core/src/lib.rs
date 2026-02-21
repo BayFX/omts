@@ -6,6 +6,7 @@ pub mod cbor;
 pub mod check_digits;
 #[cfg(feature = "compression")]
 pub mod compression;
+pub mod convert;
 pub mod diff;
 pub mod encoding;
 pub mod enums;
@@ -29,6 +30,7 @@ pub use canonical::{CanonicalId, build_identifier_index};
 pub use cbor::{CborError, decode_cbor, encode_cbor};
 #[cfg(feature = "compression")]
 pub use compression::{CompressionError, compress_zstd, decompress_zstd};
+pub use convert::{ConvertError, convert};
 pub use diff::{
     DiffFilter, DiffResult, DiffSummary, EdgeDiff, EdgeRef, EdgesDiff, IdentifierFieldDiff,
     IdentifierSetDiff, LabelSetDiff, NodeDiff, NodeRef, NodesDiff, PropertyChange, diff,
