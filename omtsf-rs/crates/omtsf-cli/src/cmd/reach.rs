@@ -211,5 +211,8 @@ fn to_core_direction(d: &Direction) -> CoreDirection {
 fn query_error_to_cli(e: QueryError) -> CliError {
     match e {
         QueryError::NodeNotFound(id) => CliError::NodeNotFound { node_id: id },
+        QueryError::EmptyResult => CliError::NoResults {
+            detail: "no elements matched the given selectors".to_owned(),
+        },
     }
 }

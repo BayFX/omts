@@ -156,5 +156,8 @@ fn print_json<W: std::io::Write>(w: &mut W, paths: &[Vec<String>]) -> std::io::R
 fn query_error_to_cli(e: QueryError) -> CliError {
     match e {
         QueryError::NodeNotFound(id) => CliError::NodeNotFound { node_id: id },
+        QueryError::EmptyResult => CliError::NoResults {
+            detail: "no elements matched the given selectors".to_owned(),
+        },
     }
 }
