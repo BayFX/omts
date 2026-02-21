@@ -4,14 +4,17 @@ Collected on 2026-02-21 using `cargo bench` (Criterion 0.5, default sample sizes
 
 ## Test Data Profiles
 
-| Tier | Nodes | Edges | Total Elements | JSON Size |
-|------|------:|------:|---------------:|----------:|
-| S    |    50 |    91 |            141 |    38 KB  |
-| M    |   500 |   982 |          1,482 |   405 KB  |
-| L    | 2,000 | 3,948 |          5,948 | 1,666 KB  |
-| XL   | 5,000 |10,007 |         15,007 | 4,510 KB  |
+| Tier | Nodes   | Edges     | Total Elements | JSON Size |
+|------|--------:|----------:|---------------:|----------:|
+| S    |      50 |        91 |            141 |    38 KB  |
+| M    |     500 |       982 |          1,482 |   405 KB  |
+| L    |   2,000 |     3,948 |          5,948 | 1,666 KB  |
+| XL   |   5,000 |    10,007 |         15,007 | 4,510 KB  |
+| Huge | 736,550 | 1,489,886 |      2,226,436 |   500 MB  |
 
 All generation is deterministic (seed=42). XL hits the ~5 MB target.
+Huge tier is a 20-tier supply chain generated once to disk (`just gen-huge`)
+and loaded by the benchmark harness.
 
 ---
 
@@ -199,35 +202,123 @@ for interactive use.
 
 ---
 
+## Group 11: Huge Tier (737K nodes, 1.5M edges, 500 MB)
+
+Fixture pre-generated to disk via `just gen-huge`; benchmarks load from
+`target/bench-fixtures/huge.omts.json`. Run via `just bench-huge`.
+
+### Parse & Serialize
+
+| Operation        |   Time   | Throughput   |
+|------------------|--------:|--------------|
+| Deserialize      |  4.65 s  | 108 MiB/s    |
+| Serialize compact|  1.09 s  | 461 MiB/s    |
+
+Serialize/deserialize ratio holds at ~4.3x, consistent with smaller tiers.
+
+### Graph Construction
+
+| Time   | Throughput    |
+|-------:|---------------|
+| 1.71 s | 1.30 Melem/s  |
+
+Throughput drops from ~4-5 Melem/s at XL to ~1.3 Melem/s at Huge -- hash map
+resizing and cache pressure dominate at 2.2M elements.
+
+### Reachability (`reachable_from`)
+
+| Variant                |    Huge    |
+|------------------------|----------:|
+| Forward from root      |   394 ms  |
+| Filtered (supplies)    |  2.03 ms  |
+| Both from mid          |   712 ms  |
+
+Edge-type filtering yields ~194x speedup at this scale (vs ~40x at XL).
+Full bidirectional traversal from mid-graph: 712 ms.
+
+### Shortest Path
+
+| Variant        |    Huge    |
+|----------------|----------:|
+| Root to leaf   |   491 ms  |
+| Root to mid    |  63.4 ms  |
+| No path        |   156 ns  |
+
+No-path remains O(1) at 156 ns, identical to all smaller tiers.
+Root-to-leaf spans 20 tiers in 491 ms.
+
+### Selector Query
+
+#### `selector_match`
+
+| Selector     |   Huge   | Throughput      |
+|--------------|--------:|-----------------:|
+| Label key    | 79.8 ms  |  27.9 Melem/s   |
+| Node type    | 15.3 ms  | 145.3 Melem/s   |
+| Multi        | 56.8 ms  |  39.2 Melem/s   |
+
+Node-type matching sustains ~145 Melem/s, consistent with XL. Label matching
+drops to ~28 Melem/s (from ~64-145 at smaller tiers) -- cache misses on the
+larger label maps dominate.
+
+#### `selector_subgraph`
+
+| Variant                     |   Huge    |
+|----------------------------|---------:|
+| Narrow (attestation, exp 0) |  260 ms  |
+| Narrow (attestation, exp 1) |  621 ms  |
+| Narrow (attestation, exp 3) | 3.85 s   |
+| Broad (organization, exp 0) | 2.69 s   |
+| Broad (organization, exp 1) | 4.25 s   |
+
+Expand 3 on Huge takes 3.85 s. Broad exp 1 at 4.25 s is the single slowest
+Huge benchmark -- nearly the entire graph is touched.
+
+### Validation
+
+| Level      |   Huge   | Throughput     |
+|------------|--------:|----------------|
+| L1 only    |  3.40 s  | 655 Kelem/s    |
+| L1+L2+L3   |   --     |      --        |
+
+L1 validation at 3.4 s is tractable. L1+L2+L3 was estimated at ~2,150 s per
+iteration (Criterion reported needing 21,500 s for 10 samples) -- dominated
+by the O(n^2) identifier uniqueness checks in L2. Not benchmarked.
+
+---
+
 ## Scaling Analysis
 
-Node/edge ratios between tiers: S to M ~10x elements, M to L ~4x, L to XL ~2.5x.
+Element ratios between tiers: S to M ~10x, M to L ~4x, L to XL ~2.5x,
+XL to Huge ~148x.
 
-| Operation       | S to M | M to L | L to XL | Complexity |
-|-----------------|:------:|:------:|:-------:|:----------:|
-| Deserialize     | 11.8x  |  6.3x  |  2.8x   |    O(n)    |
-| Serialize       | 11.1x  |  4.1x  |  2.7x   |    O(n)    |
-| Build graph     | 11.2x  |  4.6x  |  3.5x   |    O(n)    |
-| Validate L1     | 11.7x  |  5.0x  |  3.3x   |    O(n)    |
-| Validate L1+L2+L3| 14.7x |  7.1x  |  5.1x   | O(n log n) |
-| Diff identical  | 11.9x  |  5.0x  |  4.6x   | O(n log n) |
-| Redact partner  | 12.7x  |  4.8x  |  3.1x   |    O(n)    |
-| Selector (label)| 10.2x  |  6.5x  |  3.5x   |  O(n*S)    |
-| Selector (type) |  5.9x  |  3.7x  |  2.5x   |  O(n*S)    |
+| Operation       | S to M | M to L | L to XL | XL to Huge | Complexity |
+|-----------------|:------:|:------:|:-------:|:----------:|:----------:|
+| Deserialize     | 11.8x  |  6.3x  |  2.8x   |    148x    |    O(n)    |
+| Serialize       | 11.1x  |  4.1x  |  2.7x   |    182x    |    O(n)    |
+| Build graph     | 11.2x  |  4.6x  |  3.5x   |    347x    | O(n log n) |
+| Validate L1     | 11.7x  |  5.0x  |  3.3x   |    490x    | O(n log n) |
+| Validate L1+L2+L3| 14.7x |  7.1x  |  5.1x   |    --      |  >= O(n^2) |
+| Diff identical  | 11.9x  |  5.0x  |  4.6x   |    --      | O(n log n) |
+| Redact partner  | 12.7x  |  4.8x  |  3.1x   |    --      |    O(n)    |
+| Selector (label)| 10.2x  |  6.5x  |  3.5x   |    342x    | O(n log n) |
+| Selector (type) |  5.9x  |  3.7x  |  2.5x   |    509x    | O(n log n) |
 
-Most operations show near-linear scaling. Validation L2+L3 and diff show slightly
-super-linear behavior (hash-based identifier lookups). Selector scans scale linearly
-with element count; label matching is ~3x slower per element than node-type matching
-due to hash map lookups vs enum comparison.
+At the XL-to-Huge jump (~148x elements), most operations show super-linear
+scaling. Parse and serialize remain close to linear (148x and 182x). Build graph
+and validation L1 scale at ~2.3-3.3x expected, suggesting O(n log n) from hash
+map growth. Selector type matching at 509x reveals cache pressure at 2.2M
+elements. L1+L2+L3 validation is impractical at Huge tier due to quadratic
+identifier uniqueness checks.
 
 ## Key Takeaways
 
 1. **All operations complete under 100 ms for XL (5 MB) files** -- well within
    interactive budgets.
 2. **Serialization is 3-5x faster than deserialization** -- serde's write path is
-   highly optimized.
+   highly optimized. Ratio holds at Huge tier (4.3x).
 3. **Graph queries are the fastest operations** -- sub-millisecond even at XL.
-   Edge-type filtering provides 10-40x speedups.
+   Edge-type filtering provides 10-40x speedups (194x at Huge).
 4. **Merge is the most expensive operation** -- canonical identifier matching
    dominates. 76 ms for L-tier disjoint merge.
 5. **`all_paths` with depth 10 is the performance cliff** -- 194 ms on M-tier,
@@ -237,7 +328,12 @@ due to hash map lookups vs enum comparison.
 7. **No operation requires optimization for the current scale target** -- all are
    within acceptable latency bounds.
 8. **Selector scans are extremely fast** -- under 250 us for XL. Node-type matching
-   sustains ~500 Melem/s; label matching ~90-145 Melem/s.
+   sustains ~145 Melem/s even at Huge scale.
 9. **Selector subgraph with 3-hop expansion** completes in 4.2 ms on L-tier --
-   comparable to `ego_graph` radius 3 (2.9 ms). Expansion cost dominates over
-   the selector scan.
+   comparable to `ego_graph` radius 3 (2.9 ms). At Huge tier, expand 3 takes
+   3.85 s -- still tractable for batch processing.
+10. **L2 validation is the Huge-tier bottleneck** -- identifier uniqueness checks
+    scale quadratically, making L1+L2+L3 impractical at 737K nodes (~35 min per
+    iteration). L1-only validation remains tractable at 3.4 s.
+11. **Huge-tier parse + build round-trip: ~6.4 s** -- loading a 500 MB supply chain
+    graph into memory is feasible for batch analytics. Serialize back in 1.1 s.

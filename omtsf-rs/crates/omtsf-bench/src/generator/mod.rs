@@ -62,6 +62,8 @@ pub enum SizeTier {
     Large,
     /// ~5000 nodes, ~15000 edges, ~5MB JSON
     XLarge,
+    /// ~737K nodes, ~1.5M edges, ~500MB JSON, 20-tier supply chain
+    Huge,
 }
 
 impl SizeTier {
@@ -139,6 +141,24 @@ impl SizeTier {
                 mesh_density: 0.2,
                 inject_cycles: false,
                 num_boundary_refs: 100,
+            },
+            SizeTier::Huge => GeneratorConfig {
+                seed,
+                num_organizations: 331_500,
+                num_facilities: 147_300,
+                num_goods: 110_500,
+                num_persons: 22_100,
+                num_attestations: 73_650,
+                num_consignments: 36_800,
+                supply_chain_depth: 20,
+                ownership_depth: 7,
+                branching_factor: 8,
+                identifier_density: 3.0,
+                label_density: 2.5,
+                edge_property_fullness: 0.9,
+                mesh_density: 0.25,
+                inject_cycles: false,
+                num_boundary_refs: 14_700,
             },
         }
     }
