@@ -34,7 +34,7 @@ wasm-check:
 
 # Run cargo-deny checks
 deny:
-    cargo deny check
+    cargo deny check licenses bans sources
 
 # Build documentation
 doc:

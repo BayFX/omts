@@ -11,7 +11,7 @@ name = "omtsf"
 path = "src/main.rs"
 
 [dependencies]
-omtsf-core = { path = "../omtsf-core" }
+omtsf-core = { path = "../omtsf-core", version = "0.1.0" }
 clap = { version = "4", features = ["derive", "env"] }
 libc = { version = "0.2", optional = false }
 petgraph = "0.7"

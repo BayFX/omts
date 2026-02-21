@@ -3,10 +3,11 @@ name = "omtsf-bench"
 version = "0.1.0"
 edition = "2024"
 rust-version.workspace = true
+license = "Apache-2.0"
 publish = false
 
 [dependencies]
-omtsf-core = { path = "../omtsf-core" }
+omtsf-core = { path = "../omtsf-core", version = "0.1.0" }
 petgraph = "0.7"
 rand = { version = "0.8", features = ["std_rng"] }
 serde_json = "1"
