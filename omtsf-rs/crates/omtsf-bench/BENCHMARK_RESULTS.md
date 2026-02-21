@@ -1,6 +1,6 @@
 # Benchmark Results
 
-Collected on 2026-02-20 using `just bench` (Criterion 0.5, default sample sizes).
+Collected on 2026-02-21 using `cargo bench` (Criterion 0.5, default sample sizes).
 
 ## Test Data Profiles
 
@@ -170,6 +170,33 @@ traversal, not output construction.
 Self-diff (identical files) is more expensive than disjoint diff because it must
 match every element. XL self-diff at 78 ms is the second-slowest operation overall.
 
+## Group 10: Selector Query
+
+### `selector_match` (scan only, no subgraph assembly)
+
+| Selector           |    S     |    M     |    L     |    XL     | Throughput      |
+|--------------------|--------:|---------:|---------:|----------:|-----------------|
+| Label key          |  997 ns | 10.2 us  |  66.7 us |  233 us   |  64-145 Melem/s |
+| Node type          |  557 ns |  3.3 us  |  12.3 us |  30.1 us  | 255-497 Melem/s |
+| Multi (type+label+jurisdiction) |  891 ns | 10.4 us | 57.5 us | 185 us | 81-159 Melem/s |
+
+Node-type matching is ~3-8x faster than label matching -- enum comparison vs string
+lookup in the labels map. Multi-selector performance is close to label-only because
+the label check dominates. All selector scans complete under 250 us at XL.
+
+### `selector_subgraph` (full pipeline: scan + expand + assemble)
+
+| Variant                     |     S     |     M     |     L     |
+|-----------------------------|--------:|----------:|----------:|
+| Narrow (attestation, exp 0) |  7.8 us |   93.9 us |   412 us  |
+| Broad (organization, exp 0) | 60.7 us |   715 us  |  3.15 ms  |
+| Expand 1 (attestation)      | 19.2 us |   216 us  |   928 us  |
+| Expand 3 (attestation)      | 93.9 us |   968 us  |  4.19 ms  |
+
+Narrow selectors (~5% seed match) are 8x cheaper than broad (~45% seed match).
+Each expansion hop roughly doubles the cost. Expand 3 on L-tier: 4.2 ms -- fast enough
+for interactive use.
+
 ---
 
 ## Scaling Analysis
@@ -185,9 +212,13 @@ Node/edge ratios between tiers: S to M ~10x elements, M to L ~4x, L to XL ~2.5x.
 | Validate L1+L2+L3| 14.7x |  7.1x  |  5.1x   | O(n log n) |
 | Diff identical  | 11.9x  |  5.0x  |  4.6x   | O(n log n) |
 | Redact partner  | 12.7x  |  4.8x  |  3.1x   |    O(n)    |
+| Selector (label)| 10.2x  |  6.5x  |  3.5x   |  O(n*S)    |
+| Selector (type) |  5.9x  |  3.7x  |  2.5x   |  O(n*S)    |
 
 Most operations show near-linear scaling. Validation L2+L3 and diff show slightly
-super-linear behavior (hash-based identifier lookups).
+super-linear behavior (hash-based identifier lookups). Selector scans scale linearly
+with element count; label matching is ~3x slower per element than node-type matching
+due to hash map lookups vs enum comparison.
 
 ## Key Takeaways
 
@@ -205,3 +236,8 @@ super-linear behavior (hash-based identifier lookups).
    on top of L2.
 7. **No operation requires optimization for the current scale target** -- all are
    within acceptable latency bounds.
+8. **Selector scans are extremely fast** -- under 250 us for XL. Node-type matching
+   sustains ~500 Melem/s; label matching ~90-145 Melem/s.
+9. **Selector subgraph with 3-hop expansion** completes in 4.2 ms on L-tier --
+   comparable to `ego_graph` radius 3 (2.9 ms). Expansion cost dominates over
+   the selector scan.
