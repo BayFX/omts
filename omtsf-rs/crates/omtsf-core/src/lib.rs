@@ -11,6 +11,7 @@ pub mod diff;
 pub mod encoding;
 pub mod enums;
 pub mod file;
+pub mod file_parse;
 pub mod graph;
 pub mod identity;
 pub mod merge;
@@ -44,6 +45,7 @@ pub use enums::{
     VerificationStatus,
 };
 pub use file::OmtsFile;
+pub use file_parse::{OmtsDecodeError, parse_omts};
 pub use graph::{
     DEFAULT_MAX_DEPTH, Direction, EdgeWeight, GraphBuildError, NodeWeight, OmtsGraph, QueryError,
     Selector, SelectorMatchResult, SelectorSet, all_paths, build_graph, detect_cycles, ego_graph,
