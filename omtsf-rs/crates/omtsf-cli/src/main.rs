@@ -220,6 +220,63 @@ pub enum Command {
         #[arg(long)]
         example: bool,
     },
+
+    /// Query nodes and edges by property predicates.
+    Query {
+        /// Path to an .omts file, or `-` for stdin.
+        #[arg(value_name = "FILE")]
+        file: PathOrStdin,
+        /// Match nodes of this type (repeatable; e.g. organization, facility).
+        #[arg(long, value_name = "TYPE")]
+        node_type: Vec<String>,
+        /// Match edges of this type (repeatable; e.g. supplies, ownership).
+        #[arg(long, value_name = "TYPE")]
+        edge_type: Vec<String>,
+        /// Match elements with this label key, or key=value pair (repeatable).
+        #[arg(long, value_name = "KEY[=VALUE]")]
+        label: Vec<String>,
+        /// Match nodes with this identifier scheme, or scheme:value pair (repeatable).
+        #[arg(long, value_name = "SCHEME[:VALUE]")]
+        identifier: Vec<String>,
+        /// Match nodes whose jurisdiction equals this ISO 3166-1 alpha-2 code (repeatable).
+        #[arg(long, value_name = "CC")]
+        jurisdiction: Vec<String>,
+        /// Match nodes whose name contains this pattern (case-insensitive substring, repeatable).
+        #[arg(long, value_name = "PATTERN")]
+        name: Vec<String>,
+        /// Print only match counts (nodes: N, edges: M) without listing individual results.
+        #[arg(long)]
+        count: bool,
+    },
+
+    /// Extract a subgraph rooted at selector-matched nodes and edges.
+    #[command(name = "extract-subchain")]
+    ExtractSubchain {
+        /// Path to an .omts file, or `-` for stdin.
+        #[arg(value_name = "FILE")]
+        file: PathOrStdin,
+        /// Match nodes of this type (repeatable; e.g. organization, facility).
+        #[arg(long, value_name = "TYPE")]
+        node_type: Vec<String>,
+        /// Match edges of this type (repeatable; e.g. supplies, ownership).
+        #[arg(long, value_name = "TYPE")]
+        edge_type: Vec<String>,
+        /// Match elements with this label key, or key=value pair (repeatable).
+        #[arg(long, value_name = "KEY[=VALUE]")]
+        label: Vec<String>,
+        /// Match nodes with this identifier scheme, or scheme:value pair (repeatable).
+        #[arg(long, value_name = "SCHEME[:VALUE]")]
+        identifier: Vec<String>,
+        /// Match nodes whose jurisdiction equals this ISO 3166-1 alpha-2 code (repeatable).
+        #[arg(long, value_name = "CC")]
+        jurisdiction: Vec<String>,
+        /// Match nodes whose name contains this pattern (case-insensitive substring, repeatable).
+        #[arg(long, value_name = "PATTERN")]
+        name: Vec<String>,
+        /// BFS expansion hops from seed elements (default: 1).
+        #[arg(long, default_value = "1")]
+        expand: u32,
+    },
 }
 
 // ── Root Cli struct ──────────────────────────────────────────────────────────
@@ -385,6 +442,53 @@ fn dispatch(cli: &Cli) -> Result<(), error::CliError> {
                 &cli.format,
             )
         }
+
+        Command::Query {
+            file,
+            node_type,
+            edge_type,
+            label,
+            identifier,
+            jurisdiction,
+            name,
+            count,
+        } => {
+            let content = io::read_input(file, cli.max_file_size)?;
+            cmd::query::run(
+                &content,
+                node_type,
+                edge_type,
+                label,
+                identifier,
+                jurisdiction,
+                name,
+                *count,
+                &cli.format,
+            )
+        }
+
+        Command::ExtractSubchain {
+            file,
+            node_type,
+            edge_type,
+            label,
+            identifier,
+            jurisdiction,
+            name,
+            expand,
+        } => {
+            let content = io::read_input(file, cli.max_file_size)?;
+            cmd::extract_subchain::run(
+                &content,
+                node_type,
+                edge_type,
+                label,
+                identifier,
+                jurisdiction,
+                name,
+                *expand,
+            )
+        }
     }
 }
 
@@ -443,8 +547,18 @@ mod tests {
         let help = format!("{}", cmd.render_help());
 
         let expected_subcommands = [
-            "validate", "merge", "redact", "inspect", "diff", "convert", "reach", "path",
-            "subgraph", "init",
+            "validate",
+            "merge",
+            "redact",
+            "inspect",
+            "diff",
+            "convert",
+            "reach",
+            "path",
+            "subgraph",
+            "init",
+            "query",
+            "extract-subchain",
         ];
         for name in &expected_subcommands {
             assert!(
@@ -838,5 +952,215 @@ mod tests {
     #[test]
     fn test_cli_debug_assert() {
         Cli::command().debug_assert();
+    }
+
+    // ── query subcommand ─────────────────────────────────────────────────────
+
+    /// `omtsf query --help` must mention `--node-type`, `--edge-type`, and `--count`.
+    #[test]
+    fn test_query_help() {
+        let mut cmd = Cli::command();
+        let sub = cmd
+            .find_subcommand_mut("query")
+            .expect("query subcommand should exist");
+        let help = format!("{}", sub.render_help());
+        assert!(
+            help.contains("--node-type"),
+            "query help should mention --node-type"
+        );
+        assert!(
+            help.contains("--edge-type"),
+            "query help should mention --edge-type"
+        );
+        assert!(
+            help.contains("--count"),
+            "query help should mention --count"
+        );
+        assert!(help.contains("FILE"), "query help should mention FILE");
+    }
+
+    /// `omtsf query` with `--count` flag parses correctly.
+    #[test]
+    fn test_query_count_flag_parses() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "query",
+            "--node-type",
+            "organization",
+            "--count",
+            "graph.omts",
+        ])
+        .expect("should parse query --count");
+        match cli.command {
+            Command::Query { count, .. } => {
+                assert!(count, "--count should be true");
+            }
+            _ => panic!("expected Query subcommand"),
+        }
+    }
+
+    /// `omtsf query` with multiple `--node-type` flags parses all values.
+    #[test]
+    fn test_query_multiple_node_types_parse() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "query",
+            "--node-type",
+            "organization",
+            "--node-type",
+            "facility",
+            "graph.omts",
+        ])
+        .expect("should parse multiple --node-type");
+        match cli.command {
+            Command::Query { node_type, .. } => {
+                assert_eq!(node_type.len(), 2);
+                assert!(node_type.contains(&"organization".to_owned()));
+                assert!(node_type.contains(&"facility".to_owned()));
+            }
+            _ => panic!("expected Query subcommand"),
+        }
+    }
+
+    /// `omtsf query` with `--label key=value` parses correctly.
+    #[test]
+    fn test_query_label_flag_parses() {
+        let cli = Cli::try_parse_from(["omtsf", "query", "--label", "tier=1", "graph.omts"])
+            .expect("should parse --label tier=1");
+        match cli.command {
+            Command::Query { label, .. } => {
+                assert_eq!(label, vec!["tier=1"]);
+            }
+            _ => panic!("expected Query subcommand"),
+        }
+    }
+
+    /// `omtsf query` with `--identifier scheme:value` parses correctly.
+    #[test]
+    fn test_query_identifier_flag_parses() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "query",
+            "--identifier",
+            "lei:529900T8BM49AURSDO55",
+            "graph.omts",
+        ])
+        .expect("should parse --identifier scheme:value");
+        match cli.command {
+            Command::Query { identifier, .. } => {
+                assert_eq!(identifier, vec!["lei:529900T8BM49AURSDO55"]);
+            }
+            _ => panic!("expected Query subcommand"),
+        }
+    }
+
+    // ── extract-subchain subcommand ──────────────────────────────────────────
+
+    /// `omtsf extract-subchain --help` must mention `--expand` and selector flags.
+    #[test]
+    fn test_extract_subchain_help() {
+        let mut cmd = Cli::command();
+        let sub = cmd
+            .find_subcommand_mut("extract-subchain")
+            .expect("extract-subchain subcommand should exist");
+        let help = format!("{}", sub.render_help());
+        assert!(
+            help.contains("--expand"),
+            "extract-subchain help should mention --expand"
+        );
+        assert!(
+            help.contains("--node-type"),
+            "extract-subchain help should mention --node-type"
+        );
+        assert!(
+            help.contains("FILE"),
+            "extract-subchain help should mention FILE"
+        );
+    }
+
+    /// `omtsf extract-subchain` default `--expand` is 1.
+    #[test]
+    fn test_extract_subchain_expand_default_is_1() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "extract-subchain",
+            "--node-type",
+            "organization",
+            "graph.omts",
+        ])
+        .expect("should parse extract-subchain without --expand");
+        match cli.command {
+            Command::ExtractSubchain { expand, .. } => {
+                assert_eq!(expand, 1, "default --expand should be 1");
+            }
+            _ => panic!("expected ExtractSubchain subcommand"),
+        }
+    }
+
+    /// `omtsf extract-subchain --expand 3` parses correctly.
+    #[test]
+    fn test_extract_subchain_expand_override() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "extract-subchain",
+            "--node-type",
+            "facility",
+            "--expand",
+            "3",
+            "graph.omts",
+        ])
+        .expect("should parse --expand 3");
+        match cli.command {
+            Command::ExtractSubchain { expand, .. } => {
+                assert_eq!(expand, 3);
+            }
+            _ => panic!("expected ExtractSubchain subcommand"),
+        }
+    }
+
+    /// `omtsf extract-subchain` with stdin sentinel `-` parses correctly.
+    #[test]
+    fn test_extract_subchain_stdin_sentinel() {
+        let cli = Cli::try_parse_from([
+            "omtsf",
+            "extract-subchain",
+            "--node-type",
+            "organization",
+            "-",
+        ])
+        .expect("should parse stdin sentinel");
+        match cli.command {
+            Command::ExtractSubchain { file, .. } => match file {
+                PathOrStdin::Stdin => {}
+                PathOrStdin::Path(p) => panic!("expected Stdin, got Path({p:?})"),
+            },
+            _ => panic!("expected ExtractSubchain"),
+        }
+    }
+
+    /// `omtsf query` with `--jurisdiction CC` parses correctly.
+    #[test]
+    fn test_query_jurisdiction_flag_parses() {
+        let cli = Cli::try_parse_from(["omtsf", "query", "--jurisdiction", "DE", "graph.omts"])
+            .expect("should parse --jurisdiction DE");
+        match cli.command {
+            Command::Query { jurisdiction, .. } => {
+                assert_eq!(jurisdiction, vec!["DE"]);
+            }
+            _ => panic!("expected Query subcommand"),
+        }
+    }
+
+    /// `omtsf query` with `--name pattern` parses correctly.
+    #[test]
+    fn test_query_name_flag_parses() {
+        let cli = Cli::try_parse_from(["omtsf", "query", "--name", "acme", "graph.omts"])
+            .expect("should parse --name");
+        match cli.command {
+            Command::Query { name, .. } => {
+                assert_eq!(name, vec!["acme"]);
+            }
+            _ => panic!("expected Query subcommand"),
+        }
     }
 }

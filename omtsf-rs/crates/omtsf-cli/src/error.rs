@@ -126,6 +126,16 @@ pub enum CliError {
         detail: String,
     },
 
+    /// An invalid command-line argument value was provided.
+    ///
+    /// This covers cases where clap accepted the raw string but the value
+    /// failed domain validation (e.g. a malformed `--jurisdiction` code or
+    /// an empty selector set on `query`/`extract-subchain`).
+    InvalidArgument {
+        /// A human-readable description of what was wrong.
+        detail: String,
+    },
+
     /// An internal error that indicates a bug in omtsf.
     ///
     /// These should never occur under normal operation. If one appears it
@@ -159,7 +169,9 @@ impl CliError {
             | Self::DiffHasDifferences
             | Self::RedactionError { .. } => 1,
 
-            Self::GraphBuildError { .. } | Self::InternalError { .. } => 2,
+            Self::GraphBuildError { .. }
+            | Self::InternalError { .. }
+            | Self::InvalidArgument { .. } => 2,
         }
     }
 
@@ -261,6 +273,12 @@ impl CliError {
                     "error: redaction failed: {detail}\n\
                      hint: the target --scope must be at least as restrictive as the \
                      file's existing disclosure_scope"
+                )
+            }
+            Self::InvalidArgument { detail } => {
+                format!(
+                    "error: invalid argument: {detail}\n\
+                     hint: run `omtsf <subcommand> --help` for usage information"
                 )
             }
             Self::InternalError { detail } => internal_error_message(detail),
