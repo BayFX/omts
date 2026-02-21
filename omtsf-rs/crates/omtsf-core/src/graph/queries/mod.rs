@@ -1,0 +1,381 @@
+/// Graph query algorithms: reachability, shortest path, and all-paths enumeration.
+///
+/// Implements Sections 3 and 4 of the graph-engine technical specification.
+/// All functions operate on an [`OmtsGraph`] and return results as sequences
+/// of [`NodeIndex`] values.
+///
+/// # Direction
+///
+/// Every query accepts a [`Direction`] parameter controlling which edges are
+/// followed:
+/// - [`Direction::Forward`] — outgoing edges only (downstream traversal).
+/// - [`Direction::Backward`] — incoming edges only (upstream traversal).
+/// - [`Direction::Both`] — edges in either direction (undirected view).
+///
+/// # Edge-Type Filtering
+///
+/// All three query functions accept an optional `edge_filter: Option<&HashSet<EdgeTypeTag>>`.
+/// When `Some`, only edges whose `edge_type` is in the set are traversed.
+/// When `None`, all edge types are traversed.
+use std::collections::{HashMap, HashSet, VecDeque};
+
+use petgraph::stable_graph::NodeIndex;
+use petgraph::visit::EdgeRef;
+
+use crate::enums::EdgeTypeTag;
+use crate::graph::OmtsGraph;
+
+#[cfg(test)]
+mod tests;
+
+/// Controls which edges are followed during graph traversal.
+///
+/// Used by [`reachable_from`], [`shortest_path`], and [`all_paths`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Direction {
+    /// Follow outgoing edges only — traverse downstream from the start node.
+    Forward,
+    /// Follow incoming edges only — traverse upstream from the start node.
+    Backward,
+    /// Follow edges in either direction, treating the graph as undirected.
+    Both,
+}
+
+/// Errors that can occur during graph queries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueryError {
+    /// A node ID supplied to a query function does not exist in the graph.
+    ///
+    /// The contained string is the unknown ID.
+    NodeNotFound(String),
+    /// A selector-based query matched no nodes or edges in the file.
+    ///
+    /// Distinct from a query that matches elements but produces an empty
+    /// subgraph after expansion. This variant signals that the selector scan
+    /// itself found zero matches, which the CLI maps to exit code 1.
+    EmptyResult,
+}
+
+impl std::fmt::Display for QueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryError::NodeNotFound(id) => write!(f, "node not found: {id:?}"),
+            QueryError::EmptyResult => write!(f, "no elements matched the given selectors"),
+        }
+    }
+}
+
+impl std::error::Error for QueryError {}
+
+/// Returns `true` if the edge should be traversed given the optional filter.
+///
+/// When `filter` is `None`, all edges pass. When `Some`, only edges whose
+/// `edge_type` is in the set pass.
+fn edge_passes(edge_type: &EdgeTypeTag, filter: Option<&HashSet<EdgeTypeTag>>) -> bool {
+    match filter {
+        None => true,
+        Some(allowed) => allowed.contains(edge_type),
+    }
+}
+
+/// Collects the neighbour [`NodeIndex`] values reachable from `node` in one
+/// step, respecting `direction` and `edge_filter`.
+///
+/// Returns an iterator-style `Vec` rather than an iterator to avoid
+/// lifetime entanglement with the mutable BFS state that callers maintain.
+fn neighbours(
+    graph: &OmtsGraph,
+    node: NodeIndex,
+    direction: Direction,
+    edge_filter: Option<&HashSet<EdgeTypeTag>>,
+) -> Vec<NodeIndex> {
+    let g = graph.graph();
+    let mut result = Vec::new();
+
+    match direction {
+        Direction::Forward => {
+            for edge_ref in g.edges(node) {
+                if edge_passes(&edge_ref.weight().edge_type, edge_filter) {
+                    result.push(edge_ref.target());
+                }
+            }
+        }
+        Direction::Backward => {
+            for edge_ref in g.edges_directed(node, petgraph::Direction::Incoming) {
+                if edge_passes(&edge_ref.weight().edge_type, edge_filter) {
+                    result.push(edge_ref.source());
+                }
+            }
+        }
+        Direction::Both => {
+            for edge_ref in g.edges(node) {
+                if edge_passes(&edge_ref.weight().edge_type, edge_filter) {
+                    result.push(edge_ref.target());
+                }
+            }
+            for edge_ref in g.edges_directed(node, petgraph::Direction::Incoming) {
+                if edge_passes(&edge_ref.weight().edge_type, edge_filter) {
+                    result.push(edge_ref.source());
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// Returns the set of all nodes reachable from `start` via BFS.
+///
+/// The start node itself is excluded from the result.
+///
+/// # Parameters
+///
+/// - `graph` — the graph to query.
+/// - `start` — graph-local node ID of the starting node.
+/// - `direction` — which edges to follow (see [`Direction`]).
+/// - `edge_filter` — optional set of allowed edge types; `None` traverses all.
+///
+/// # Errors
+///
+/// Returns [`QueryError::NodeNotFound`] if `start` does not exist in the graph.
+pub fn reachable_from(
+    graph: &OmtsGraph,
+    start: &str,
+    direction: Direction,
+    edge_filter: Option<&HashSet<EdgeTypeTag>>,
+) -> Result<HashSet<NodeIndex>, QueryError> {
+    let start_idx = *graph
+        .node_index(start)
+        .ok_or_else(|| QueryError::NodeNotFound(start.to_owned()))?;
+
+    let mut visited: HashSet<NodeIndex> = HashSet::new();
+    let mut queue: VecDeque<NodeIndex> = VecDeque::new();
+
+    visited.insert(start_idx);
+    queue.push_back(start_idx);
+
+    while let Some(current) = queue.pop_front() {
+        for neighbour in neighbours(graph, current, direction, edge_filter) {
+            if !visited.contains(&neighbour) {
+                visited.insert(neighbour);
+                queue.push_back(neighbour);
+            }
+        }
+    }
+
+    visited.remove(&start_idx);
+
+    Ok(visited)
+}
+
+/// Returns the shortest path from `from` to `to` as a sequence of node indices.
+///
+/// Uses BFS, terminating as soon as `to` is first reached. The returned
+/// vector is ordered from `from` to `to` inclusive.
+///
+/// Returns `None` if no path exists between the two nodes.
+///
+/// # Parameters
+///
+/// - `graph` — the graph to query.
+/// - `from` — graph-local ID of the source node.
+/// - `to` — graph-local ID of the destination node.
+/// - `direction` — which edges to follow (see [`Direction`]).
+/// - `edge_filter` — optional set of allowed edge types; `None` traverses all.
+///
+/// # Errors
+///
+/// Returns [`QueryError::NodeNotFound`] if either `from` or `to` does not
+/// exist in the graph.
+pub fn shortest_path(
+    graph: &OmtsGraph,
+    from: &str,
+    to: &str,
+    direction: Direction,
+    edge_filter: Option<&HashSet<EdgeTypeTag>>,
+) -> Result<Option<Vec<NodeIndex>>, QueryError> {
+    let from_idx = *graph
+        .node_index(from)
+        .ok_or_else(|| QueryError::NodeNotFound(from.to_owned()))?;
+    let to_idx = *graph
+        .node_index(to)
+        .ok_or_else(|| QueryError::NodeNotFound(to.to_owned()))?;
+
+    if from_idx == to_idx {
+        return Ok(Some(vec![from_idx]));
+    }
+
+    let mut visited: HashSet<NodeIndex> = HashSet::new();
+    let mut predecessor: HashMap<NodeIndex, NodeIndex> = HashMap::new();
+    let mut queue: VecDeque<NodeIndex> = VecDeque::new();
+
+    visited.insert(from_idx);
+    queue.push_back(from_idx);
+
+    'bfs: while let Some(current) = queue.pop_front() {
+        for neighbour in neighbours(graph, current, direction, edge_filter) {
+            if !visited.contains(&neighbour) {
+                visited.insert(neighbour);
+                predecessor.insert(neighbour, current);
+
+                if neighbour == to_idx {
+                    break 'bfs;
+                }
+
+                queue.push_back(neighbour);
+            }
+        }
+    }
+
+    if !visited.contains(&to_idx) {
+        return Ok(None);
+    }
+
+    let mut path = Vec::new();
+    let mut current = to_idx;
+    loop {
+        path.push(current);
+        if current == from_idx {
+            break;
+        }
+        match predecessor.get(&current) {
+            Some(&prev) => {
+                current = prev;
+            }
+            None => {
+                // Should never happen: `to_idx` was reached via BFS so there
+                // must be an unbroken predecessor chain back to `from_idx`.
+                break;
+            }
+        }
+    }
+    path.reverse();
+
+    Ok(Some(path))
+}
+
+/// Default maximum depth for [`all_paths`] when not otherwise specified.
+pub const DEFAULT_MAX_DEPTH: usize = 20;
+
+/// Returns all simple paths from `from` to `to` up to `max_depth` hops.
+///
+/// Uses iterative-deepening DFS (IDDFS). A "simple path" visits each node at
+/// most once. The depth limit bounds the search to prevent combinatorial
+/// explosion on dense subgraphs.
+///
+/// The default depth limit is [`DEFAULT_MAX_DEPTH`] (20 hops).
+///
+/// # Parameters
+///
+/// - `graph` — the graph to query.
+/// - `from` — graph-local ID of the source node.
+/// - `to` — graph-local ID of the destination node.
+/// - `max_depth` — maximum number of hops (edges) in any returned path.
+/// - `direction` — which edges to follow (see [`Direction`]).
+/// - `edge_filter` — optional set of allowed edge types; `None` traverses all.
+///
+/// # Errors
+///
+/// Returns [`QueryError::NodeNotFound`] if either `from` or `to` does not
+/// exist in the graph.
+pub fn all_paths(
+    graph: &OmtsGraph,
+    from: &str,
+    to: &str,
+    max_depth: usize,
+    direction: Direction,
+    edge_filter: Option<&HashSet<EdgeTypeTag>>,
+) -> Result<Vec<Vec<NodeIndex>>, QueryError> {
+    let from_idx = *graph
+        .node_index(from)
+        .ok_or_else(|| QueryError::NodeNotFound(from.to_owned()))?;
+    let to_idx = *graph
+        .node_index(to)
+        .ok_or_else(|| QueryError::NodeNotFound(to.to_owned()))?;
+
+    let mut results: Vec<Vec<NodeIndex>> = Vec::new();
+
+    if from_idx == to_idx {
+        results.push(vec![from_idx]);
+        return Ok(results);
+    }
+
+    let mut seen_paths: HashSet<Vec<NodeIndex>> = HashSet::new();
+
+    for depth_limit in 1..=max_depth {
+        dfs_paths(
+            graph,
+            from_idx,
+            to_idx,
+            depth_limit,
+            direction,
+            edge_filter,
+            &mut seen_paths,
+        );
+    }
+
+    results.extend(seen_paths);
+
+    Ok(results)
+}
+
+/// Runs a depth-limited DFS from `current` to `target`, collecting all simple
+/// paths of exactly up to `depth_limit` hops into `results`.
+///
+/// `on_path` tracks nodes on the current DFS path to enforce simplicity.
+fn dfs_paths(
+    graph: &OmtsGraph,
+    from: NodeIndex,
+    target: NodeIndex,
+    depth_limit: usize,
+    direction: Direction,
+    edge_filter: Option<&HashSet<EdgeTypeTag>>,
+    results: &mut HashSet<Vec<NodeIndex>>,
+) {
+    struct Frame {
+        node: NodeIndex,
+        depth_used: usize,
+        path: Vec<NodeIndex>,
+        on_path: HashSet<NodeIndex>,
+    }
+
+    let mut stack: Vec<Frame> = Vec::new();
+
+    let mut initial_on_path = HashSet::new();
+    initial_on_path.insert(from);
+
+    stack.push(Frame {
+        node: from,
+        depth_used: 0,
+        path: vec![from],
+        on_path: initial_on_path,
+    });
+
+    while let Some(frame) = stack.pop() {
+        if frame.node == target && frame.depth_used > 0 {
+            results.insert(frame.path.clone());
+            continue;
+        }
+
+        if frame.depth_used >= depth_limit {
+            continue;
+        }
+
+        for neighbour in neighbours(graph, frame.node, direction, edge_filter) {
+            if !frame.on_path.contains(&neighbour) {
+                let mut new_path = frame.path.clone();
+                new_path.push(neighbour);
+
+                let mut new_on_path = frame.on_path.clone();
+                new_on_path.insert(neighbour);
+
+                stack.push(Frame {
+                    node: neighbour,
+                    depth_used: frame.depth_used + 1,
+                    path: new_path,
+                    on_path: new_on_path,
+                });
+            }
+        }
+    }
+}
