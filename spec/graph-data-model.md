@@ -14,6 +14,7 @@
 | OMTSF-SPEC-002 (Entity Identification) | Defines external identifier structures carried by nodes and edges defined here |
 | OMTSF-SPEC-003 (Merge Semantics) | Defines how graphs conforming to this model are combined |
 | OMTSF-SPEC-004 (Selective Disclosure) | Defines privacy controls for the `boundary_ref` node type and `person` node constraints |
+| OMTSF-SPEC-007 (Serialization Bindings) | Defines encoding formats (JSON, CBOR), compression, and serialization placement rules for the abstract model defined here |
 
 ---
 
@@ -27,7 +28,7 @@ An `.omts` file represents a directed labeled property multigraph where nodes re
 
 ## 2. File Structure
 
-An `.omts` file is a JSON document with the following top-level structure:
+An `.omts` file encodes the graph data model defined in this section. The abstract model is encoding-independent; concrete serialization rules (JSON, CBOR) are defined in OMTSF-SPEC-007. The top-level structure contains the following fields:
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -41,28 +42,15 @@ An `.omts` file is a JSON document with the following top-level structure:
 | `nodes` | Yes | array | Array of node objects |
 | `edges` | Yes | array | Array of edge objects |
 
-### 2.1 Serialization Conventions
+### 2.1 Edge Property Wrapper
 
-**Edge property wrapper.** Edge properties listed in Sections 5, 6, and 7 are **logical properties** of each edge type. In JSON serialization, these properties MUST be nested inside a `"properties"` object on the edge. The structural fields `id`, `type`, `source`, and `target` are top-level fields on the edge object; all other fields are inside `properties`. Example:
+Edge properties listed in Sections 5, 6, and 7 are **logical properties** of each edge type. In all serialization formats, these properties are grouped separately from the structural fields (`id`, `type`, `source`, `target`). The concrete placement rules (e.g., the `"properties"` object in JSON and CBOR) are defined in OMTSF-SPEC-007, Section 3.
 
-```json
-{
-  "id": "edge-001",
-  "type": "supplies",
-  "source": "org-bolt",
-  "target": "org-acme",
-  "properties": {
-    "valid_from": "2023-01-15",
-    "commodity": "7318.15"
-  }
-}
-```
+### 2.2 Date Format
 
-**First key requirement.** The first key in the top-level JSON object MUST be `"omtsf_version"`. Consumers MUST NOT reject files where `omtsf_version` is present but not the first key.
+All date fields in an `.omts` file MUST use the ISO 8601 calendar date format `YYYY-MM-DD` (e.g., `2026-02-18`). No other ISO 8601 profiles (week dates, ordinal dates) are permitted.
 
-**Date format.** All date fields in an `.omts` file MUST use the ISO 8601 calendar date format `YYYY-MM-DD` (e.g., `2026-02-18`). No other ISO 8601 profiles (week dates, ordinal dates) are permitted.
-
-### 2.2 Version Compatibility Rules
+### 2.3 Version Compatibility Rules
 
 The `omtsf_version` field uses semantic versioning (`MAJOR.MINOR.PATCH`). The following rules define consumer behavior when encountering version mismatches:
 
@@ -423,7 +411,7 @@ Producers MAY define custom edge types using reverse-domain notation (e.g., `com
 
 ### 8.3 Data Quality Metadata
 
-All nodes and edges MAY carry an optional `data_quality` object (serialized at the top level for nodes, inside `properties` for edges) with the following fields:
+All nodes and edges MAY carry an optional `data_quality` object with the following fields. Serialization placement (top-level for nodes, inside the property wrapper for edges) is defined in OMTSF-SPEC-007, Section 3.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -442,7 +430,7 @@ All nodes and edges MAY carry an optional `labels` array for general-purpose cla
 | `key` | Yes | string | Classification key. Custom keys SHOULD use reverse-domain notation (e.g., `com.example.risk-tier`). |
 | `value` | No | string | Classification value. When omitted, the label acts as a boolean flag (presence = true). |
 
-**Serialization.** On nodes, `labels` is a top-level array. On edges, `labels` is nested inside the `properties` object (following the same pattern as `data_quality` in Section 8.3).
+**Serialization.** Labels follow the same placement convention as `data_quality` (Section 8.3): top-level on nodes, inside the property wrapper on edges. See OMTSF-SPEC-007, Section 3 for concrete placement rules in each encoding.
 
 **Key naming conventions:**
 
@@ -576,9 +564,9 @@ Extension edge types (reverse-domain notation) are not constrained by this table
 
 ---
 
-## 10. Serialization Example
+## 10. Example Graph (JSON)
 
-A complete minimal `.omts` file demonstrating the graph data model:
+A complete minimal `.omts` file demonstrating the graph data model in JSON serialization. For CBOR encoding rules, see OMTSF-SPEC-007, Section 4.
 
 ```json
 {
@@ -716,10 +704,11 @@ A **conformant producer** is a system that generates `.omts` files. A conformant
 1. Produce files that pass all L1 validation rules defined in this specification (Section 9.1), OMTSF-SPEC-002 (Section 6.1), and OMTSF-SPEC-004 (Section 6.1).
 2. Set `omtsf_version` to a version of this specification that the producer implements.
 3. Generate `file_salt` using a CSPRNG (Section 2).
-4. Use the `"properties"` wrapper for all edge properties (Section 2.1).
+4. Apply the edge property wrapper (Section 2.1) using the serialization rules defined in OMTSF-SPEC-007.
 5. Ensure all graph-local node and edge IDs are unique within the file.
 6. Enforce graph type constraints (Section 9.5) for all core edge types.
 7. Respect `disclosure_scope` sensitivity constraints (OMTSF-SPEC-004, Section 3) when declared.
+8. Support at least one serialization encoding defined in OMTSF-SPEC-007.
 
 A conformant producer SHOULD satisfy L2 validation rules and SHOULD include `data_quality` metadata on nodes and edges.
 
@@ -728,9 +717,9 @@ A conformant producer SHOULD satisfy L2 validation rules and SHOULD include `dat
 A **conformant consumer** is a system that reads and processes `.omts` files. A conformant consumer MUST:
 
 1. Accept any file that passes L1 validation without error.
-2. Preserve unknown fields during round-trip serialization (forward compatibility).
+2. Preserve unknown fields during round-trip processing (forward compatibility).
 3. Not reject files containing extension node types, extension edge types, or unknown identifier schemes.
-4. Follow version compatibility rules (Section 2.2) when encountering version mismatches.
+4. Follow version compatibility rules (Section 2.3) when encountering version mismatches.
 
 A conformant consumer SHOULD process L2 validation warnings and present them to the user.
 

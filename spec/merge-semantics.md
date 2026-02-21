@@ -107,6 +107,8 @@ Given files A and B:
 }
 ```
 
+The `_conflicts` structure above is shown in JSON. In CBOR encoding, the same logical map structure applies; see OMTSF-SPEC-007 for serialization rules.
+
 Conflict records are informational. Validators MUST NOT reject files containing `_conflicts`. Tooling SHOULD present conflicts to users for resolution.
 
 ### 4.1 Merge-Group Safety Limits

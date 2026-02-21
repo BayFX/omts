@@ -71,6 +71,8 @@ Producers MAY override default sensitivity on any edge property by including a `
 }
 ```
 
+The `_property_sensitivity` structure above is shown in JSON. In CBOR encoding, the same logical map structure applies; see OMTSF-SPEC-007 for serialization rules.
+
 When generating files with `disclosure_scope: "public"`, edges MUST omit properties with sensitivity `restricted` or `confidential`. When generating files with `disclosure_scope: "partner"`, edges MUST omit properties with sensitivity `confidential`. The `_property_sensitivity` object itself MUST be omitted from files with `disclosure_scope: "public"`.
 
 ---
