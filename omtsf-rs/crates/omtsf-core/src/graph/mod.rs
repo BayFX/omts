@@ -20,7 +20,14 @@
 ///
 /// # Subgraph Extraction
 ///
-/// See the [`extraction`] submodule for [`induced_subgraph`] and [`ego_graph`].
+/// See the [`extraction`] submodule for [`induced_subgraph`], [`ego_graph`],
+/// [`selector_match`], and [`selector_subgraph`].
+///
+/// # Selector-Based Queries
+///
+/// See the [`selectors`] submodule for [`selectors::Selector`] and
+/// [`selectors::SelectorSet`], which implement property-based filtering of
+/// nodes and edges.
 ///
 /// # Cycle Detection
 ///
@@ -29,12 +36,16 @@
 pub mod cycles;
 pub mod extraction;
 pub mod queries;
+pub mod selectors;
 
 pub use cycles::detect_cycles;
-pub use extraction::{ego_graph, induced_subgraph};
+pub use extraction::{
+    SelectorMatchResult, ego_graph, induced_subgraph, selector_match, selector_subgraph,
+};
 pub use queries::{
     DEFAULT_MAX_DEPTH, Direction, QueryError, all_paths, reachable_from, shortest_path,
 };
+pub use selectors::{Selector, SelectorSet};
 
 use std::collections::HashMap;
 

@@ -53,12 +53,19 @@ pub enum QueryError {
     ///
     /// The contained string is the unknown ID.
     NodeNotFound(String),
+    /// A selector-based query matched no nodes or edges in the file.
+    ///
+    /// Distinct from a query that matches elements but produces an empty
+    /// subgraph after expansion. This variant signals that the selector scan
+    /// itself found zero matches, which the CLI maps to exit code 1.
+    EmptyResult,
 }
 
 impl std::fmt::Display for QueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             QueryError::NodeNotFound(id) => write!(f, "node not found: {id:?}"),
+            QueryError::EmptyResult => write!(f, "no elements matched the given selectors"),
         }
     }
 }
