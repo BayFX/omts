@@ -22,7 +22,7 @@ use crate::error::CliError;
 
 /// Runs the `extract-subchain` command.
 ///
-/// Parses `content` as an OMTSF file, builds a [`SelectorSet`] from the
+/// Parses `content` as an OMTSF file, builds a `SelectorSet` from the
 /// supplied flag vectors, then calls [`selector_subgraph`] to produce the
 /// induced subgraph after `expand` BFS hops.
 ///

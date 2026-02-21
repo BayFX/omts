@@ -1,7 +1,7 @@
 //! Shared selector flag parsing for `query` and `extract-subchain` commands.
 //!
 //! Provides [`build_selector_set`], which converts the raw string vectors
-//! collected by clap into a [`SelectorSet`] ready for use with
+//! collected by clap into a `SelectorSet` ready for use with
 //! [`omtsf_core::graph::selector_match`] and
 //! [`omtsf_core::graph::selector_subgraph`].
 //!
@@ -24,7 +24,7 @@ use omtsf_core::{CountryCode, EdgeTypeTag, NodeTypeTag};
 
 use crate::error::CliError;
 
-/// Builds a [`SelectorSet`] from the raw flag vectors collected by clap.
+/// Builds a `SelectorSet` from the raw flag vectors collected by clap.
 ///
 /// Each argument vector corresponds to one repeatable CLI flag. The function
 /// returns an error if the resulting `SelectorSet` would be empty (i.e. no

@@ -25,8 +25,8 @@ use crate::error::CliError;
 
 /// Runs the `query` command.
 ///
-/// Parses `content` as an OMTSF file, builds a [`SelectorSet`] from the
-/// supplied flag vectors, and calls [`selector_match`] to find matching nodes
+/// Parses `content` as an OMTSF file, builds a `SelectorSet` from the
+/// supplied flag vectors, and calls `selector_match` to find matching nodes
 /// and edges.
 ///
 /// # Output

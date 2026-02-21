@@ -245,7 +245,7 @@ pub fn selector_match(file: &OmtsFile, selectors: &SelectorSet) -> SelectorMatch
 ///    `expand` hops (treating the graph as undirected). Complexity: O(V + E)
 ///    per hop.
 ///
-/// 4. **Induced subgraph assembly** — delegates to [`assemble_subgraph`] to
+/// 4. **Induced subgraph assembly** — delegates to `assemble_subgraph` to
 ///    produce the final [`OmtsFile`]. Complexity: O(E).
 ///
 /// # Parameters
