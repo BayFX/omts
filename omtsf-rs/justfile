@@ -28,9 +28,9 @@ build:
 release:
     cargo build --workspace --release
 
-# Check that omtsf-core compiles to WASM
+# Check that omtsf-core compiles to WASM (compression excluded: zstd uses C bindings)
 wasm-check:
-    cargo build -p omtsf-core --target wasm32-unknown-unknown
+    cargo build -p omtsf-core --target wasm32-unknown-unknown --no-default-features
 
 # Run cargo-deny checks
 deny:
