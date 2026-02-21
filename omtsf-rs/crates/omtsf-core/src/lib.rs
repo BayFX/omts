@@ -3,6 +3,8 @@
 pub mod boundary_hash;
 pub mod canonical;
 pub mod check_digits;
+#[cfg(feature = "compression")]
+pub mod compression;
 pub mod diff;
 pub mod encoding;
 pub mod enums;
@@ -23,6 +25,8 @@ pub mod validation;
 
 pub use boundary_hash::{BoundaryHashError, boundary_ref_value, decode_salt, generate_file_salt};
 pub use canonical::{CanonicalId, build_identifier_index};
+#[cfg(feature = "compression")]
+pub use compression::{CompressionError, compress_zstd, decompress_zstd};
 pub use diff::{
     DiffFilter, DiffResult, DiffSummary, EdgeDiff, EdgeRef, EdgesDiff, IdentifierFieldDiff,
     IdentifierSetDiff, LabelSetDiff, NodeDiff, NodeRef, NodesDiff, PropertyChange, diff,
