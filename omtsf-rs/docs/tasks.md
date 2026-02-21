@@ -659,6 +659,134 @@
 
 ---
 
+## Phase 10: Serialization Bindings (SPEC-007)
+
+### T-049 -- Implement encoding detection (magic byte inspection)
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Section 2
+- **Dependencies:** T-008
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `detect_encoding(bytes: &[u8]) -> Result<Encoding, EncodingDetectionError>` inspects initial bytes per SPEC-007 Section 2
+  - Detection order: zstd (`0x28 0xB5 0x2F 0xFD`), CBOR tag 55799 (`0xD9 0xD9 0xF7`), JSON (first non-whitespace `{`)
+  - `Encoding` enum with `Json`, `Cbor`, `Zstd` variants
+  - Whitespace skipping for JSON detection (0x09, 0x0A, 0x0D, 0x20)
+  - Unrecognized bytes return `EncodingDetectionError`
+  - Unit tests for each encoding type, whitespace-prefixed JSON, and rejection of unknown bytes
+
+### T-050 -- Add CBOR serialization and deserialization for OmtsFile
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Sections 4.1--4.6
+- **Dependencies:** T-008, T-049
+- **Complexity:** L
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `ciborium` dependency added for CBOR encoding/decoding
+  - `encode_cbor(file: &OmtsFile) -> Result<Vec<u8>, CborError>` serializes with self-describing tag 55799 prepended
+  - `decode_cbor(bytes: &[u8]) -> Result<OmtsFile, CborError>` accepts files with or without tag 55799
+  - All map keys are text strings (major type 3); no integer keys
+  - Dates serialized as text strings, NOT CBOR tags 0/1
+  - All string data uses CBOR text strings (major type 3), not byte strings (major type 2)
+  - `omtsf_version` key present but position not enforced in CBOR
+  - Round-trip test: JSON fixture → parse → encode CBOR → decode CBOR → re-encode JSON → compare with original
+  - Unknown field preservation verified through CBOR round-trip
+
+### T-051 -- Add zstd compression and decompression layer
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Section 6
+- **Dependencies:** T-049
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `zstd` crate dependency added
+  - `compress_zstd(data: &[u8]) -> Result<Vec<u8>, CompressionError>` compresses with default level
+  - `decompress_zstd(data: &[u8], max_size: usize) -> Result<Vec<u8>, CompressionError>` decompresses with size limit to prevent decompression bombs
+  - After decompression, encoding re-detection applied per SPEC-007 Section 2
+  - Round-trip test: serialize JSON → compress → decompress → detect encoding → parse → compare
+  - Round-trip test: serialize CBOR → compress → decompress → detect encoding → parse → compare
+
+### T-052 -- Implement unified parse pipeline (auto-detect and decode)
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Sections 2, 3, 4, 6
+- **Dependencies:** T-049, T-050, T-051
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `parse_omts(bytes: &[u8], max_decompressed: usize) -> Result<(OmtsFile, Encoding), ParseError>` auto-detects encoding, decompresses if needed, parses JSON or CBOR
+  - Returns both the parsed file and the detected encoding (for informational purposes)
+  - Existing JSON-only `parse` paths updated to delegate to `parse_omts`
+  - All existing tests continue to pass
+  - New tests: CBOR input, zstd+JSON input, zstd+CBOR input
+
+### T-053 -- Implement lossless JSON↔CBOR conversion
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Section 5
+- **Dependencies:** T-050
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `convert(file: &OmtsFile, target: Encoding, compress: bool) -> Result<Vec<u8>, ConvertError>` produces output in the requested encoding
+  - Field names preserved (including unknown fields)
+  - Null vs. absent distinction preserved
+  - Array element order preserved for `nodes`, `edges`, `identifiers`, `labels`
+  - Test: JSON → CBOR → JSON round-trip produces logically equivalent output
+  - Test: CBOR → JSON → CBOR round-trip produces logically equivalent output
+  - Logical equivalence defined as identical abstract model after parsing
+
+### T-054 -- Update CLI file I/O to support multi-encoding input
+
+- **Spec Reference:** cli-interface.md Sections 4.1--4.6; serialization-bindings.md (SPEC-007)
+- **Dependencies:** T-038, T-052
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Acceptance Criteria:**
+  - `read_file` pipeline updated to call `parse_omts` instead of JSON-only parsing
+  - All commands that read `.omts` files transparently accept JSON, CBOR, and zstd-compressed inputs
+  - `--verbose` mode reports detected encoding to stderr
+  - Decompression bomb guard enforced (`4 * max_file_size` for zstd inputs)
+  - Integration tests: validate/inspect/diff commands work with CBOR and zstd inputs
+
+### T-055 -- Wire convert command with --to and --compress flags
+
+- **Spec Reference:** cli-interface.md Section 3.6; serialization-bindings.md (SPEC-007) Section 7
+- **Dependencies:** T-040, T-053, T-054
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Acceptance Criteria:**
+  - `convert` command accepts `--to <json|cbor>` flag (default: json)
+  - `convert` command accepts `--compress` flag to wrap output in zstd
+  - `--pretty` and `--compact` flags apply to JSON output only
+  - CBOR output ignores `--pretty`/`--compact`
+  - Exit code 0 on success, 2 on parse failure
+  - Integration tests: JSON→CBOR, CBOR→JSON, JSON→zstd+JSON, CBOR→zstd+CBOR
+
+### T-056 -- Add CBOR and compression test fixtures
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007)
+- **Dependencies:** T-009, T-050, T-051
+- **Complexity:** S
+- **Crate:** Both (tests/)
+- **Acceptance Criteria:**
+  - At least 3 CBOR fixture files generated from existing JSON fixtures via the convert pipeline
+  - At least 2 zstd-compressed fixtures (one JSON, one CBOR)
+  - All CBOR fixtures decode to logically equivalent abstract models as their JSON counterparts
+  - Fixtures committed under `omtsf-rs/tests/fixtures/` alongside existing JSON fixtures
+
+### T-057 -- Verify WASM compatibility of CBOR and compression dependencies
+
+- **Spec Reference:** serialization-bindings.md (SPEC-007) Section 7; overview.md Section 4
+- **Dependencies:** T-050, T-051, T-047
+- **Complexity:** S
+- **Crate:** omtsf-core
+- **Acceptance Criteria:**
+  - `ciborium` compiles for `wasm32-unknown-unknown` target
+  - Determine if `zstd` compiles for WASM; if not, gate compression behind a cargo feature flag (`compression`) that is disabled for WASM builds
+  - `cargo build --target wasm32-unknown-unknown -p omtsf-core` succeeds (with or without compression feature)
+  - Document any WASM limitations in `omtsf-rs/docs/data-model.md` Section 11
+
+---
+
 ## Notes: Spec Ambiguities Discovered During Planning
 
 1. **`control_type` disambiguation (data-model.md Section 4.5).** The spec reuses the JSON key `"control_type"` across two edge types with disjoint variant sets (`operational_control` vs `beneficial_ownership`). The data model stores this as `serde_json::Value`. Implementors should verify that the validation engine enforces the correct variant set per edge type, and that the diff engine compares `control_type` values structurally without assuming a single enum.

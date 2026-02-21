@@ -19,6 +19,7 @@ Before dispatching any agents, read ALL of the following files and keep their co
 - `spec/selective-disclosure.md` (SPEC-004)
 - `spec/erp-integration.md` (SPEC-005, informative)
 - `spec/standards-mapping.md` (SPEC-006, informative)
+- `spec/serialization-bindings.md` (SPEC-007)
 
 **Implementation context:**
 - `omtsf-rs/docs/overview.md`
@@ -41,6 +42,7 @@ If `$ARGUMENTS` specifies a focused scope, run only the relevant subset of agent
 | `graph` | 1A, 1B | 2E | skip |
 | `diff` | 1A, 1B | 2F | skip |
 | `cli` | 1A | 2G | skip |
+| `serialization` | 1A | 2H | skip |
 | `tasks` | skip | skip | Phase 3 only (reads existing spec files from disk) |
 | `all` or empty | all | all | yes |
 
@@ -680,13 +682,82 @@ Complete table mapping every error condition to a specific exit code.
 - Target 1500-2500 words.
 ```
 
+### Agent 2H → `omtsf-rs/docs/serialization.md`
+
+Receives: Agent 1A output, overview.md, Rust Engineer persona + Data Serialization Expert persona.
+
+```
+{Rust Engineer persona definition}
+
+{Data Serialization Expert persona definition}
+
+## Your Assignment
+
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF serialization layer (multi-encoding support).
+
+**Data Model & Identifier Requirements:**
+{Agent 1A output}
+
+**Implementation Overview:**
+{contents of omtsf-rs/docs/overview.md}
+
+**Serialization Bindings Spec:**
+{contents of spec/serialization-bindings.md}
+
+## What You Must Produce
+
+Write a technical specification document and save it to `omtsf-rs/docs/serialization.md`. The document must cover:
+
+### Encoding Detection
+- Magic byte inspection algorithm per SPEC-007 Section 2
+- Detection order (zstd → CBOR → JSON) and rationale
+- Error handling for unrecognized formats
+- Rust implementation: function signatures and byte-level inspection
+
+### CBOR Serialization
+- Crate selection (ciborium vs. alternatives) with justification
+- Type mapping from OMTSF abstract types to CBOR major types
+- Self-describing tag 55799 handling (encode with, decode with or without)
+- Date encoding as text strings (not CBOR tags)
+- Unknown field preservation through CBOR round-trip
+- Edge property wrapper in CBOR (identical to JSON)
+
+### Compression Layer
+- Zstd crate selection and configuration
+- Compress-after-serialize architecture
+- Decompression bomb mitigation (size limits)
+- WASM compatibility considerations (zstd may not compile to WASM)
+
+### Cross-Encoding Conversion
+- Lossless JSON↔CBOR conversion guarantees
+- What is preserved (field names, values, null/absent, array order)
+- What is not preserved (key ordering, whitespace, CBOR tag)
+- Logical equivalence definition for testing
+
+### Unified Parse Pipeline
+- Single entry point that auto-detects and decodes any supported format
+- Integration with existing JSON-only parse paths
+- Error types covering all encoding/compression failure modes
+
+### WASM Compatibility
+- Which dependencies compile to wasm32-unknown-unknown
+- Feature flags for optional compression support
+- Testing strategy for WASM builds
+
+## Guidelines
+- Write with dual expertise: systems engineering for implementation, format design for correctness.
+- Include Rust code blocks for key functions and types.
+- Reference SPEC-007 section numbers throughout.
+- Target 1500-2500 words.
+```
+
 ---
 
 ## Phase 3: Task Synthesis
 
 After ALL Phase 2 agents complete, launch a single agent using the **Task** tool with `subagent_type: "general-purpose"`.
 
-This agent reads all Phase 2 output files directly from disk and produces the ordered task list.
+This agent reads all Phase 2 output files directly from disk and appends new tasks to the existing task list.
 
 ```
 You are a senior engineering manager planning the implementation of a Rust project. You have access to a complete set of technical specification documents.
@@ -702,12 +773,19 @@ Read all implementation spec files from `omtsf-rs/docs/`:
 - `graph-engine.md`
 - `diff.md`
 - `cli-interface.md`
+- `serialization.md` (if present)
 
-Then produce an ordered, dependency-aware task list and write it to `omtsf-rs/docs/tasks.md`. This is your ONLY output — do not create any Rust source files or any files outside `omtsf-rs/docs/`.
+Also read the existing task list at `omtsf-rs/docs/tasks.md`.
+
+**CRITICAL: Existing tasks are immutable.** You MUST NOT modify, reorder, renumber, or delete any existing tasks. Your job is to identify work that is NOT covered by existing tasks and APPEND new tasks to the file. New task IDs continue from the highest existing ID (e.g., if the last existing task is T-048, new tasks start at T-049).
+
+If all spec requirements are already covered by existing tasks, append nothing and report that the task list is up to date.
+
+This is your ONLY output — do not create any Rust source files or any files outside `omtsf-rs/docs/`.
 
 ## What You Must Produce
 
-A task list with 35-40 tasks, each with:
+New tasks appended to the existing task list. Each new task has:
 
 ### Task Format
 For each task:
@@ -742,8 +820,10 @@ Group tasks into these phases:
 - Every task should be independently implementable once its dependencies are met.
 - Each task should be completable by one engineer.
 - Acceptance criteria must be testable — prefer "unit tests pass" over vague descriptions.
-- Flag any spec ambiguities discovered during task planning as notes at the end of the document.
-- Read the actual spec files from disk — do not rely on summaries.
+- Flag any NEW spec ambiguities discovered during task planning as notes appended to the end of the document.
+- Read the actual spec files and the existing task list from disk — do not rely on summaries.
+- New tasks may reference existing tasks as dependencies.
+- If a new task supersedes part of an existing task, note the overlap but do NOT modify the existing task.
 ```
 
 ---
