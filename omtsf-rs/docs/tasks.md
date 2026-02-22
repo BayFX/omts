@@ -1061,15 +1061,17 @@ and senior QA engineer assessments. Tasks ordered by priority.
 
 ## Phase 13: Excel Import
 
-### T-077 -- Implement `import-excel` command
+### T-077 -- Implement `import` command with `--format excel`
 
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
 - **Dependencies:** T-008, T-011, T-013, T-014, T-015, T-040
 - **Complexity:** XL
 - **Crate:** omtsf-cli (Excel I/O), omtsf-core (tabular-to-graph conversion logic)
-- **Description:** Read a multi-sheet `.xlsx` workbook in the OMTS Excel import format (see `tests/fixtures/excel/`) and convert it to a valid `.omts` file. The template has 12 sheets: README, Metadata, Organizations, Facilities, Goods, Persons, Attestations, Consignments, Supply Relationships, Corporate Structure, Same As, and Identifiers.
+- **Description:** Implement the `omtsf import` command with a `--format <fmt>` flag. The first supported format is `excel`, which reads a multi-sheet `.xlsx` workbook in the OMTS Excel import format (see `tests/fixtures/excel/`) and converts it to a valid `.omts` file. The `--format` flag defaults to `excel` for now but is designed to be extended with additional formats (e.g., CSV, Parquet) in the future. The template has 12 sheets: README, Metadata, Organizations, Facilities, Goods, Persons, Attestations, Consignments, Supply Relationships, Corporate Structure, Same As, and Identifiers.
 - **Acceptance Criteria:**
-  - `omtsf import-excel <input.xlsx> [-o output.omts]` reads an Excel file and writes a valid `.omts` file
+  - `omtsf import [--format excel] <input.xlsx> [-o output.omts]` reads an Excel file and writes a valid `.omts` file
+  - `--format` flag accepts `excel` (default); unknown formats produce a descriptive error and exit 2
+  - The `ImportFormat` enum in clap is `#[non_exhaustive]` to signal future extensibility
   - Uses `calamine` crate for `.xlsx` reading; dependency confined to `omtsf-cli` (not in `omtsf-core`)
   - **Metadata sheet:** reads `snapshot_date` (required), `reporting_entity`, `disclosure_scope`, data quality defaults
   - **Node sheets** (Organizations, Facilities, Goods, Persons, Attestations, Consignments): each row becomes a node with the appropriate `type`; common identifier columns on Organizations sheet (lei, duns, nat_reg, vat, internal) converted to identifier records
@@ -1084,18 +1086,20 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - **Person node + public scope:** import refuses to produce output, emits diagnostic referencing SPEC-004 Section 5
   - **Header row validation:** column headers validated against expected manifest before reading data rows; unrecognized headers produce warnings
   - Output passes `omtsf validate` at L1 with zero errors
-  - Integration test: `omtsf import-excel tests/fixtures/excel/omts-import-example.xlsx | omtsf validate -` exits 0
+  - Integration test: `omtsf import --format excel tests/fixtures/excel/omts-import-example.xlsx | omtsf validate -` exits 0
   - Integration test: round-trip — import example Excel, validate output, inspect node/edge counts match expected
 
-### T-078 -- Implement `export-excel` command
+### T-078 -- Implement `export` command with `--format excel`
 
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
 - **Dependencies:** T-008, T-040, T-077
 - **Complexity:** L
 - **Crate:** omtsf-cli (Excel I/O), omtsf-core (graph-to-tabular conversion logic)
-- **Description:** Read a valid `.omts` file and write a multi-sheet `.xlsx` workbook in the same format used by `import-excel`. This is the inverse of T-077 and enables round-trip workflows: import Excel → enrich/merge/redact → export back to Excel for review by procurement teams who don't use CLI tooling.
+- **Description:** Implement the `omtsf export` command with a `--format <fmt>` flag. The first supported format is `excel`, which reads a valid `.omts` file and writes a multi-sheet `.xlsx` workbook in the same format used by `import --format excel`. The `--format` flag defaults to `excel` for now but is designed to be extended with additional formats in the future. This is the inverse of T-077 and enables round-trip workflows: import Excel → enrich/merge/redact → export back to Excel for review by procurement teams who don't use CLI tooling.
 - **Acceptance Criteria:**
-  - `omtsf export-excel <input.omts> -o output.xlsx` reads an `.omts` file and writes an Excel workbook
+  - `omtsf export [--format excel] <input.omts> -o output.xlsx` reads an `.omts` file and writes an Excel workbook
+  - `--format` flag accepts `excel` (default); unknown formats produce a descriptive error and exit 2
+  - The `ExportFormat` enum in clap is `#[non_exhaustive]` to signal future extensibility
   - Uses `rust_xlsxwriter` crate for `.xlsx` writing; dependency confined to `omtsf-cli`
   - **Metadata sheet:** populated from file header fields (`omtsf_version`, `snapshot_date`, `reporting_entity`, `disclosure_scope`)
   - **Node sheets** (Organizations, Facilities, Goods, Persons, Attestations, Consignments): nodes routed to the correct sheet by `type`; common identifier schemes (lei, duns, nat_reg, vat, internal) extracted from identifier array into inline columns on Organizations sheet
@@ -1108,7 +1112,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - **Boundary ref nodes:** omitted from export (they are import-time artifacts)
   - **`_conflicts` metadata:** if present (from merge output), exported as a separate `Conflicts` column or ignored with a warning
   - **Labels:** recommended label keys (Appendix B) mapped to inline columns on node sheets; remaining labels exported to a Labels column or ignored with a warning
-  - Round-trip test: `omtsf import-excel example.xlsx | omtsf export-excel - -o roundtrip.xlsx` → re-import roundtrip.xlsx → validate → diff against original import shows zero structural differences (node/edge counts, identifiers, edge properties match)
+  - Round-trip test: `omtsf import --format excel example.xlsx | omtsf export --format excel - -o roundtrip.xlsx` → re-import roundtrip.xlsx → validate → diff against original import shows zero structural differences (node/edge counts, identifiers, edge properties match)
   - Integration test: export the SPEC-001 Section 10 example fixture, verify sheet/row counts match expected
 
 ---
