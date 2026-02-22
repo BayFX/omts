@@ -1,0 +1,20 @@
+{
+  "omtsf_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "7171717171717171717171717171717171717171717171717171717171717171",
+  "nodes": [
+    {
+      "id": "org-new",
+      "type": "organization",
+      "name": "New Registry Corp",
+      "identifiers": [
+        {
+          "scheme": "lei",
+          "value": "HWUPKR0MPOU8FGXBT394",
+          "valid_from": "2024-01-01"
+        }
+      ]
+    }
+  ],
+  "edges": []
+}

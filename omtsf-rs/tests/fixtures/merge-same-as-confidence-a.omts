@@ -1,0 +1,59 @@
+{
+  "omtsf_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "6060606060606060606060606060606060606060606060606060606060606060",
+  "nodes": [
+    {
+      "id": "org-def-1",
+      "type": "organization",
+      "name": "Definite Alpha Corp",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000001" }
+      ]
+    },
+    {
+      "id": "org-def-2",
+      "type": "organization",
+      "name": "Definite Alpha Corp (alt)",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000002" }
+      ]
+    },
+    {
+      "id": "org-prob-1",
+      "type": "organization",
+      "name": "Probable Beta Corp",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000003" }
+      ]
+    },
+    {
+      "id": "org-prob-2",
+      "type": "organization",
+      "name": "Probable Beta Corp (alt)",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000004" }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-def-same-as",
+      "type": "same_as",
+      "source": "org-def-1",
+      "target": "org-def-2",
+      "properties": {
+        "confidence": "definite"
+      }
+    },
+    {
+      "id": "e-prob-same-as",
+      "type": "same_as",
+      "source": "org-prob-1",
+      "target": "org-prob-2",
+      "properties": {
+        "confidence": "probable"
+      }
+    }
+  ]
+}

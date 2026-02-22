@@ -1,0 +1,21 @@
+{
+  "omtsf_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "7070707070707070707070707070707070707070707070707070707070707070",
+  "nodes": [
+    {
+      "id": "org-old",
+      "type": "organization",
+      "name": "Old Registry Corp",
+      "identifiers": [
+        {
+          "scheme": "lei",
+          "value": "HWUPKR0MPOU8FGXBT394",
+          "valid_from": "2020-01-01",
+          "valid_to": "2022-12-31"
+        }
+      ]
+    }
+  ],
+  "edges": []
+}

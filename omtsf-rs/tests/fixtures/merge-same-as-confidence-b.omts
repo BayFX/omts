@@ -1,0 +1,34 @@
+{
+  "omtsf_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "6161616161616161616161616161616161616161616161616161616161616161",
+  "nodes": [
+    {
+      "id": "org-poss-1",
+      "type": "organization",
+      "name": "Possible Gamma Corp",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000005" }
+      ]
+    },
+    {
+      "id": "org-poss-2",
+      "type": "organization",
+      "name": "Possible Gamma Corp (alt)",
+      "identifiers": [
+        { "scheme": "duns", "value": "600000006" }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-poss-same-as",
+      "type": "same_as",
+      "source": "org-poss-1",
+      "target": "org-poss-2",
+      "properties": {
+        "confidence": "possible"
+      }
+    }
+  ]
+}
