@@ -48,6 +48,29 @@ fn run_merge(file_a: &str, file_b: &str) -> serde_json::Value {
     serde_json::from_str(stdout.trim()).expect("merge output must be valid JSON")
 }
 
+/// Run `omtsf merge` on two fixtures and return both the parsed JSON value and
+/// the raw stderr bytes.
+fn run_merge_with_stderr(file_a: &str, file_b: &str) -> (serde_json::Value, String) {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "merge",
+            fixture(file_a).to_str().expect("path"),
+            fixture(file_b).to_str().expect("path"),
+        ])
+        .output()
+        .expect("run omtsf merge");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "merge must exit 0; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    let value = serde_json::from_str(stdout.trim()).expect("merge output must be valid JSON");
+    (value, stderr)
+}
+
 /// Write a `serde_json::Value` to a temporary file and validate it with
 /// `omtsf validate --level 1`. Returns true if validation exits 0.
 fn validate_value(value: &serde_json::Value) -> bool {
@@ -292,6 +315,195 @@ fn merge_annulled_lei_live_entity_merged_correctly() {
     assert!(
         has_duns,
         "live entity must carry DUNS from file-b after merge"
+    );
+}
+
+/// With the default `Definite` threshold, `same_as` edges marked `"definite"`
+/// cause their endpoints to merge into one canonical node.
+#[test]
+fn merge_same_as_definite_confidence_triggers_merge() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // File A has 4 nodes: definite pair (merged → 1) + probable pair (not merged → 2)
+    // File B has 2 nodes: possible pair (not merged → 2)
+    // Total after merge: 1 + 2 + 2 = 5 nodes.
+    assert_eq!(
+        nodes.len(),
+        5,
+        "definite threshold: definite pair merges, probable/possible pairs remain separate; \
+         nodes: {nodes:?}"
+    );
+}
+
+/// With the default `Definite` threshold, `same_as` edges marked `"probable"`
+/// or `"possible"` do NOT cause their endpoints to merge.
+#[test]
+fn merge_same_as_below_threshold_not_merged() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // Probable and possible pairs each contribute 2 nodes (not merged).
+    let duns_values: Vec<&str> = nodes
+        .iter()
+        .flat_map(|n| {
+            n["identifiers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|id| id["scheme"].as_str() == Some("duns"))
+                .filter_map(|id| id["value"].as_str())
+        })
+        .collect();
+    // DUNS 600000003/600000004 (probable) and 600000005/600000006 (possible)
+    // must both still be present as separate nodes.
+    assert!(
+        duns_values.contains(&"600000003"),
+        "probable pair node 1 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000004"),
+        "probable pair node 2 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000005"),
+        "possible pair node 1 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000006"),
+        "possible pair node 2 must remain as separate entity"
+    );
+}
+
+/// `same_as` merge output passes L1 validation.
+#[test]
+fn merge_same_as_output_passes_validate() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    assert!(
+        validate_value(&value),
+        "same_as confidence merge output must pass L1 validation"
+    );
+}
+
+/// Two nodes with the same LEI but non-overlapping validity periods are
+/// temporally incompatible and must NOT be merged into one canonical node.
+#[test]
+fn merge_temporal_incompatibility_prevents_merge() {
+    let value = run_merge("merge-temporal-a.omts", "merge-temporal-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        2,
+        "temporally incompatible LEI holders must remain as separate nodes; nodes: {nodes:?}"
+    );
+}
+
+/// Temporal incompatibility merge output passes L1 validation.
+#[test]
+fn merge_temporal_output_passes_validate() {
+    let value = run_merge("merge-temporal-a.omts", "merge-temporal-b.omts");
+    assert!(
+        validate_value(&value),
+        "temporal incompatibility merge output must pass L1 validation"
+    );
+}
+
+/// When a merge group exceeds the configured limit (default 50), the pipeline
+/// still succeeds (exit 0) and emits a warning to stderr.
+#[test]
+fn merge_oversized_group_emits_warning_and_succeeds() {
+    let (_value, stderr) =
+        run_merge_with_stderr("merge-oversized-a.omts", "merge-oversized-b.omts");
+    assert!(
+        stderr.contains("warning:"),
+        "oversized merge group must produce a warning on stderr; stderr: {stderr:?}"
+    );
+    assert!(
+        stderr.to_lowercase().contains("exceeding"),
+        "warning must mention exceeding the limit; stderr: {stderr:?}"
+    );
+}
+
+/// Oversized merge group output passes L1 validation despite the warning.
+#[test]
+fn merge_oversized_group_output_passes_validate() {
+    let (value, _stderr) =
+        run_merge_with_stderr("merge-oversized-a.omts", "merge-oversized-b.omts");
+    assert!(
+        validate_value(&value),
+        "oversized merge group output must pass L1 validation"
+    );
+}
+
+/// When two files both use the same node ID string (e.g. `"org-a"`) for
+/// different entities, the merge must treat them as separate nodes because the
+/// IDs are file-local and each file's ID map is resolved independently.
+#[test]
+fn merge_colliding_node_ids_kept_separate() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // Both files have 2 nodes each with distinct identifiers → 4 separate entities.
+    assert_eq!(
+        nodes.len(),
+        4,
+        "colliding file-local IDs must each resolve to separate merged nodes; nodes: {nodes:?}"
+    );
+}
+
+/// After merging files with colliding node IDs, all four distinct identifiers
+/// are present in the merged output.
+#[test]
+fn merge_colliding_node_ids_all_identifiers_present() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+
+    let all_ids: Vec<(&str, &str)> = nodes
+        .iter()
+        .flat_map(|n| {
+            n["identifiers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|id| {
+                    let scheme = id["scheme"].as_str()?;
+                    let value = id["value"].as_str()?;
+                    Some((scheme, value))
+                })
+        })
+        .collect();
+
+    assert!(
+        all_ids.contains(&("lei", "HWUPKR0MPOU8FGXBT394")),
+        "Alpha Industries LEI from file-a must be present"
+    );
+    assert!(
+        all_ids.contains(&("duns", "200100300")),
+        "Beta Manufacturing DUNS from file-a must be present"
+    );
+    assert!(
+        all_ids.contains(&("lei", "5493006MHB84DD0ZWV18")),
+        "Acorn Logistics LEI from file-b must be present"
+    );
+    assert!(
+        all_ids.contains(&("duns", "400500600")),
+        "Bridge Supplies DUNS from file-b must be present"
+    );
+}
+
+/// Colliding file-local node IDs merge output passes L1 validation.
+#[test]
+fn merge_colliding_node_ids_output_passes_validate() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    assert!(
+        validate_value(&value),
+        "colliding-IDs merge output must pass L1 validation"
     );
 }
 

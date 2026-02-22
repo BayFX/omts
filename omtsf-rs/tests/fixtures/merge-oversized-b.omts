@@ -1,0 +1,16 @@
+{
+  "omtsf_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "8181818181818181818181818181818181818181818181818181818181818181",
+  "nodes": [
+    {
+      "id": "org-extra",
+      "type": "organization",
+      "name": "Extra Org",
+      "identifiers": [
+        { "scheme": "duns", "value": "111222333" }
+      ]
+    }
+  ],
+  "edges": []
+}
