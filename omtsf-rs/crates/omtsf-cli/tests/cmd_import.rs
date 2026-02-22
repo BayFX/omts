@@ -223,3 +223,95 @@ fn import_explicit_format_excel_exits_0() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+#[test]
+fn import_unknown_format_exits_2() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "import",
+            "--input-format",
+            "csv",
+            excel_fixture("omts-import-example.xlsx")
+                .to_str()
+                .expect("path"),
+        ])
+        .output()
+        .expect("run omtsf import --input-format csv");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "unknown --input-format should produce exit 2; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn import_pipe_to_validate_exits_0() {
+    // Run import, write output to a tempfile, then validate that file.
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let tmp_path = tmp.path().to_path_buf();
+
+    let import_out = Command::new(omtsf_bin())
+        .args([
+            "import",
+            excel_fixture("omts-import-example.xlsx")
+                .to_str()
+                .expect("path"),
+            "-o",
+            tmp_path.to_str().expect("output path"),
+        ])
+        .output()
+        .expect("run omtsf import -o");
+    assert_eq!(
+        import_out.status.code(),
+        Some(0),
+        "import must succeed; stderr: {}",
+        String::from_utf8_lossy(&import_out.stderr)
+    );
+
+    let validate_out = Command::new(omtsf_bin())
+        .args(["validate", tmp_path.to_str().expect("path")])
+        .output()
+        .expect("run omtsf validate");
+    assert_eq!(
+        validate_out.status.code(),
+        Some(0),
+        "validate must exit 0 on imported file; stderr: {}",
+        String::from_utf8_lossy(&validate_out.stderr)
+    );
+}
+
+#[test]
+fn import_example_xlsx_node_and_edge_counts() {
+    // The omts-import-example.xlsx workbook has exactly 5 nodes and 5 edges.
+    // This test pins those counts to catch regressions in sheet parsing.
+    let out = Command::new(omtsf_bin())
+        .args([
+            "import",
+            excel_fixture("omts-import-example.xlsx")
+                .to_str()
+                .expect("path"),
+        ])
+        .output()
+        .expect("run omtsf import");
+    assert_eq!(out.status.code(), Some(0));
+
+    let stdout = String::from_utf8(out.stdout).expect("UTF-8 stdout");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+
+    let nodes = parsed["nodes"].as_array().expect("nodes array");
+    let edges = parsed["edges"].as_array().expect("edges array");
+
+    assert_eq!(
+        nodes.len(),
+        5,
+        "expected 5 nodes from example workbook, got {}",
+        nodes.len()
+    );
+    assert_eq!(
+        edges.len(),
+        5,
+        "expected 5 edges from example workbook, got {}",
+        edges.len()
+    );
+}

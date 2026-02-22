@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use calamine::{Data, Range};
 
-use omtsf_core::enums::{Sensitivity, VerificationStatus};
+use omtsf_core::enums::{NodeType, NodeTypeTag, Sensitivity, VerificationStatus};
 use omtsf_core::newtypes::CalendarDate;
 use omtsf_core::structures::Node;
 use omtsf_core::types::Identifier;
@@ -135,10 +135,20 @@ pub fn merge_identifiers_onto_nodes(
         // Deduplicate: keep first occurrence of each scheme+value pair.
         let mut seen: std::collections::HashSet<(String, String)> =
             std::collections::HashSet::new();
-        let deduped: Vec<Identifier> = combined
+        let mut deduped: Vec<Identifier> = combined
             .into_iter()
             .filter(|id| seen.insert((id.scheme.clone(), id.value.clone())))
             .collect();
+
+        // Per SPEC-004 Section 5, all identifiers on person nodes default to
+        // confidential regardless of scheme-level defaults.
+        if matches!(&node.node_type, NodeTypeTag::Known(NodeType::Person)) {
+            for id in &mut deduped {
+                if id.sensitivity.is_none() {
+                    id.sensitivity = Some(Sensitivity::Confidential);
+                }
+            }
+        }
 
         node.identifiers = Some(deduped);
     }
