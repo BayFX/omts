@@ -83,13 +83,13 @@ Read `/home/cc/omtsf/omtsf-rs/docs/tasks.md` to load the full task list. For eac
 
 ### Step 2: Assess Current State
 
-Determine which tasks are already complete by examining the codebase on `main`:
+Determine which tasks are already complete by reading `tasks.md`:
 
-1. Check `git log --oneline main` for merge commits mentioning task IDs (pattern: `T-0XX:`)
-2. Spot-check that key types/modules exist for tasks that appear complete
-3. Check for existing feature branches (`git branch --list 'impl/T-*'`) — these are in-progress work from a previous run
+1. Read `/home/cc/omtsf/omtsf-rs/docs/tasks.md` and check each task heading for the `✅` marker. A task is complete if its heading contains `✅` (e.g., `### T-044 -- End-to-end pipeline tests ✅`).
+2. Tasks WITHOUT `✅` in their heading are incomplete and may be candidates for implementation.
+3. Check for existing feature branches (`git branch --list 'impl/T-*'`) — these are in-progress work from a previous run.
 
-Mark a task as complete if its merge commit exists on `main`.
+The `✅` marker in `tasks.md` is the single source of truth for task completion status.
 
 ### Step 3: Select Tasks and Plan Waves
 
@@ -193,7 +193,11 @@ For each review result (received via teammate messages):
    git worktree remove .worktrees/T-{id}
    git branch -d impl/T-{id}
    ```
-4. Mark task as `completed` via `TaskUpdate`
+4. **Mark task as complete in `tasks.md`**: Edit `/home/cc/omtsf/omtsf-rs/docs/tasks.md` and add `✅` to the task heading (e.g., change `### T-{id} -- {title}` to `### T-{id} -- {title} ✅`). Commit this change:
+   ```bash
+   git add omtsf-rs/docs/tasks.md && git commit -m "mark T-{id} as complete in tasks.md"
+   ```
+5. Mark task as `completed` via `TaskUpdate`
 
 **On REQUEST_CHANGES:**
 1. Send the review feedback to the Coding Agent via `SendMessage` (re-dispatch if the agent has shut down, using the Revision Prompt Template)

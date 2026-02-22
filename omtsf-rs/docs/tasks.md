@@ -7,7 +7,7 @@
 
 ## Phase 1: Workspace Setup
 
-### T-001 -- Initialize Cargo workspace and crate scaffolding
+### T-001 -- Initialize Cargo workspace and crate scaffolding ✅
 
 - **Spec Reference:** overview.md Section 3
 - **Dependencies:** None
@@ -20,7 +20,7 @@
   - Stub `omtsf-wasm` crate exists with an empty `lib.rs`
   - `cargo build --workspace` succeeds with no errors
 
-### T-002 -- Configure CI and WASM compile-check
+### T-002 -- Configure CI and WASM compile-check ✅
 
 - **Spec Reference:** overview.md Sections 4, 11
 - **Dependencies:** T-001
@@ -35,7 +35,7 @@
 
 ## Phase 2: Data Model
 
-### T-003 -- Define newtype wrappers with validation-on-construct
+### T-003 -- Define newtype wrappers with validation-on-construct ✅
 
 - **Spec Reference:** data-model.md Section 3
 - **Dependencies:** T-001
@@ -47,7 +47,7 @@
   - All newtypes implement `Deref<Target = str>`, `Display`, `Serialize`, and `Deserialize` (with validation in the `Deserialize` impl)
   - Unit tests cover valid inputs, boundary cases, and rejected inputs for each newtype
 
-### T-004 -- Define enums for node types, edge types, and property-level enums
+### T-004 -- Define enums for node types, edge types, and property-level enums ✅
 
 - **Spec Reference:** data-model.md Sections 4.1 -- 4.5
 - **Dependencies:** T-001
@@ -59,7 +59,7 @@
   - `NodeTypeTag` and `EdgeTypeTag` two-variant enums (`Known` / `Extension`) are defined with custom `Deserialize` impls that fall back to `Extension` for unrecognized strings
   - Unit tests confirm serialization of each variant and correct fallback for extension strings
 
-### T-005 -- Define Node struct with flat optional fields and custom deserializer
+### T-005 -- Define Node struct with flat optional fields and custom deserializer ✅
 
 - **Spec Reference:** data-model.md Sections 5.1 -- 5.4
 - **Dependencies:** T-003, T-004
@@ -71,7 +71,7 @@
   - `Option<Option<CalendarDate>>` for `valid_to` correctly distinguishes absent, `null`, and present values
   - Round-trip tests: deserialize a Node JSON, re-serialize, and confirm byte-identical output for each node type (organization, facility, good, person, attestation, consignment, boundary_ref)
 
-### T-006 -- Define Edge and EdgeProperties structs
+### T-006 -- Define Edge and EdgeProperties structs ✅
 
 - **Spec Reference:** data-model.md Sections 6.1 -- 6.3
 - **Dependencies:** T-003, T-004
@@ -83,7 +83,7 @@
   - `EdgeTypeTag` custom deserializer works identically to `NodeTypeTag`
   - Round-trip serde tests for at least five edge types with varying property sets
 
-### T-007 -- Define shared types: Identifier, DataQuality, Label, Geo
+### T-007 -- Define shared types: Identifier, DataQuality, Label, Geo ✅
 
 - **Spec Reference:** data-model.md Sections 7.1 -- 7.4
 - **Dependencies:** T-003, T-004
@@ -95,7 +95,7 @@
   - `Identifier.scheme` is a plain `String`; scheme-specific validation deferred to the validation engine
   - Serde round-trip tests for each shared type, including unknown-field preservation via the `extra` map
 
-### T-008 -- Define OmtsFile top-level struct and serde strategy
+### T-008 -- Define OmtsFile top-level struct and serde strategy ✅
 
 - **Spec Reference:** data-model.md Sections 2, 8.1 -- 8.5
 - **Dependencies:** T-005, T-006, T-007
@@ -107,7 +107,7 @@
   - `#[serde(skip_serializing_if = "Option::is_none")]` on all optional fields except `valid_to` (uses custom serializer)
   - End-to-end test: parse a fixture JSON string into `OmtsFile`, re-serialize, and confirm the output is semantically equivalent (key order, null handling, unknown field preservation)
 
-### T-009 -- Create .omts fixture files for testing
+### T-009 -- Create .omts fixture files for testing ✅
 
 - **Spec Reference:** overview.md Section 3 (tests/ directory)
 - **Dependencies:** T-008
@@ -122,7 +122,7 @@
 
 ## Phase 3: Validation Engine
 
-### T-010 -- Define Diagnostic, RuleId, Severity, Location types
+### T-010 -- Define Diagnostic, RuleId, Severity, Location types ✅
 
 - **Spec Reference:** validation.md Sections 2, 2.1, 2.2
 - **Dependencies:** T-003
@@ -135,7 +135,7 @@
   - `ValidationResult` with `has_errors()`, `errors()`, `warnings()`, `infos()`, `is_conformant()` methods
   - Unit tests for `RuleId::code()` mapping and `ValidationResult` filtering
 
-### T-011 -- Build ValidationRule trait, registry, and ValidationContext
+### T-011 -- Build ValidationRule trait, registry, and ValidationContext ✅
 
 - **Spec Reference:** validation.md Sections 3.1 -- 3.4
 - **Dependencies:** T-008, T-010
@@ -149,7 +149,7 @@
   - `ValidateOutput` enum with `ParseFailed` and `Validated` variants
   - Test: an empty registry produces zero diagnostics; a single stub rule pushes exactly one diagnostic
 
-### T-012 -- Implement check-digit functions (MOD 97-10, GS1 mod-10)
+### T-012 -- Implement check-digit functions (MOD 97-10, GS1 mod-10) ✅
 
 - **Spec Reference:** validation.md Sections 5.1, 5.2
 - **Dependencies:** T-001
@@ -161,7 +161,7 @@
   - Both functions operate on `&str`, return `bool`, and do not allocate
   - Edge case tests: all-zeros GLN, max-value inputs, wrong-length inputs return false
 
-### T-013 -- Implement L1 validation rules (SPEC-001 GDM rules)
+### T-013 -- Implement L1 validation rules (SPEC-001 GDM rules) ✅
 
 - **Spec Reference:** validation.md Section 4.1 (L1-GDM-01 through L1-GDM-06)
 - **Dependencies:** T-011, T-009
@@ -174,7 +174,7 @@
   - L1-GDM-06: source/target node type constraints enforced per SPEC-001 Section 9.5 table; extension edge types exempt
   - Test each rule individually against fixture files; confirm correct `RuleId`, `Severity::Error`, and `Location`
 
-### T-014 -- Implement L1 validation rules (SPEC-002 EID rules)
+### T-014 -- Implement L1 validation rules (SPEC-002 EID rules) ✅
 
 - **Spec Reference:** validation.md Section 4.1 (L1-EID-01 through L1-EID-11)
 - **Dependencies:** T-011, T-012, T-009
@@ -188,7 +188,7 @@
   - L1-EID-11: duplicate `{scheme, value, authority}` tuple detection within a single node
   - Tests: valid and invalid identifiers per scheme, temporal range violations, duplicate tuples
 
-### T-015 -- Implement L1 validation rules (SPEC-004 SDI rules)
+### T-015 -- Implement L1 validation rules (SPEC-004 SDI rules) ✅
 
 - **Spec Reference:** validation.md Section 4.1 (L1-SDI-01, L1-SDI-02)
 - **Dependencies:** T-011, T-009
@@ -199,7 +199,7 @@
   - L1-SDI-02: disclosure_scope constraints enforced (public scope forbids restricted/confidential identifiers and person nodes; partner scope forbids confidential identifiers)
   - Tests with fixture files covering each constraint violation
 
-### T-016 -- Implement L2 validation rules
+### T-016 -- Implement L2 validation rules ✅
 
 - **Spec Reference:** validation.md Section 4.2 (L2-GDM-01 through L2-GDM-04, L2-EID-01 through L2-EID-08)
 - **Dependencies:** T-011, T-009
@@ -213,7 +213,7 @@
   - L2-EID-08: verified identifiers without verification_date flagged
   - Tests confirm each rule fires on appropriate fixture input and does NOT fire on conformant input
 
-### T-017 -- Implement L3 validation stubs and ExternalDataSource trait
+### T-017 -- Implement L3 validation stubs and ExternalDataSource trait ✅
 
 - **Spec Reference:** validation.md Sections 4.3, 3.2
 - **Dependencies:** T-011
@@ -230,7 +230,7 @@
 
 ## Phase 4: Graph Engine
 
-### T-018 -- Implement OmtsGraph construction from OmtsFile (petgraph wrapper)
+### T-018 -- Implement OmtsGraph construction from OmtsFile (petgraph wrapper) ✅
 
 - **Spec Reference:** graph-engine.md Sections 2.1 -- 2.4
 - **Dependencies:** T-008
@@ -243,7 +243,7 @@
   - Accessor methods: `node_count()`, `edge_count()`, `node_index()`, `node_weight()`, `edge_weight()`
   - Tests: build from fixture file, verify node/edge counts, verify ID lookup correctness
 
-### T-019 -- Implement BFS reachability query
+### T-019 -- Implement BFS reachability query ✅
 
 - **Spec Reference:** graph-engine.md Section 3
 - **Dependencies:** T-018
@@ -256,7 +256,7 @@
   - Start node excluded from result set
   - Tests: reachability on a known graph fixture with forward/backward/both directions; edge-type filtering; disconnected components
 
-### T-020 -- Implement shortest path and all-paths queries
+### T-020 -- Implement shortest path and all-paths queries ✅
 
 - **Spec Reference:** graph-engine.md Sections 4.1 -- 4.3
 - **Dependencies:** T-018
@@ -268,7 +268,7 @@
   - `DEFAULT_MAX_DEPTH = 20`; all_paths enforces simple paths (no node revisited within a single path)
   - Tests: shortest path on linear chain, diamond graph, no-path case; all_paths with depth limit; from == to case
 
-### T-021 -- Implement induced subgraph extraction and ego-graph
+### T-021 -- Implement induced subgraph extraction and ego-graph ✅
 
 - **Spec Reference:** graph-engine.md Sections 5.1 -- 5.3
 - **Dependencies:** T-018, T-019
@@ -281,7 +281,7 @@
   - Output round-trips through serde; L1 validation passes on output
   - Tests: subgraph of known fixture, ego_graph with radius 0 and radius 1, reporting_entity preservation/clearing
 
-### T-022 -- Implement cycle detection (Kahn's topological sort)
+### T-022 -- Implement cycle detection (Kahn's topological sort) ✅
 
 - **Spec Reference:** graph-engine.md Sections 6.1 -- 6.4
 - **Dependencies:** T-018
@@ -298,7 +298,7 @@
 
 ## Phase 5: Merge Engine
 
-### T-023 -- Implement UnionFind data structure
+### T-023 -- Implement UnionFind data structure ✅
 
 - **Spec Reference:** merge.md Section 2.1
 - **Dependencies:** T-001
@@ -310,7 +310,7 @@
   - Deterministic: `find` returns the same representative regardless of union call order
   - Unit tests: basic union/find, transitive closure, deterministic representative selection, idempotent union
 
-### T-024 -- Implement CanonicalId and identifier index construction
+### T-024 -- Implement CanonicalId and identifier index construction ✅
 
 - **Spec Reference:** merge.md Sections 2.2, 3.3
 - **Dependencies:** T-007, T-023
@@ -322,7 +322,7 @@
   - `build_identifier_index(nodes) -> HashMap<CanonicalId, Vec<usize>>` excludes `internal` scheme and ANNULLED LEIs
   - Tests: canonical form for each scheme type; percent-encoding edge cases; index construction with overlapping identifiers
 
-### T-025 -- Implement node identity predicate and pairwise matching
+### T-025 -- Implement node identity predicate and pairwise matching ✅
 
 - **Spec Reference:** merge.md Sections 3.1, 2.2
 - **Dependencies:** T-024, T-023
@@ -334,7 +334,7 @@
   - Index-driven candidate detection: for each key with 2+ nodes, evaluate pairwise predicate and union matches
   - Tests: matching by LEI, DUNS, nat-reg with authority; rejection for scheme mismatch, temporal incompatibility, internal scheme
 
-### T-026 -- Implement edge identity predicate and composite key index
+### T-026 -- Implement edge identity predicate and composite key index ✅
 
 - **Spec Reference:** merge.md Sections 3.2, 3.3
 - **Dependencies:** T-025
@@ -347,7 +347,7 @@
   - `build_edge_candidate_index(edges, uf) -> HashMap<EdgeCompositeKey, Vec<usize>>` constructs the index
   - Tests: edge matching per type; floating-point edge cases (NaN, -0.0); same_as exclusion
 
-### T-027 -- Implement property merge, conflict recording, and deterministic output
+### T-027 -- Implement property merge, conflict recording, and deterministic output ✅
 
 - **Spec Reference:** merge.md Sections 4.1 -- 4.3, 5
 - **Dependencies:** T-024
@@ -361,7 +361,7 @@
   - `MergeMetadata` struct populated with source_files, reporting_entities, timestamp, counts
   - Tests: scalar agree and conflict cases; identifier deduplication and ordering; label merging; conflict serialization
 
-### T-028 -- Implement same_as edge handling
+### T-028 -- Implement same_as edge handling ✅
 
 - **Spec Reference:** merge.md Section 7
 - **Dependencies:** T-023, T-025
@@ -374,7 +374,7 @@
   - Honoured same_as edges collected and returned for provenance reporting
   - Tests: threshold filtering at each level; absent confidence handling; transitive closure via same_as
 
-### T-029 -- Implement eight-step merge pipeline with post-merge validation
+### T-029 -- Implement eight-step merge pipeline with post-merge validation ✅
 
 - **Spec Reference:** merge.md Sections 8, 9
 - **Dependencies:** T-025, T-026, T-027, T-028, T-013
@@ -389,7 +389,7 @@
   - Merge-group safety limits: warning emitted for groups exceeding `group_size_limit` (default 50)
   - Tests: disjoint merge, full-overlap merge, partial-overlap merge, conflicting properties, transitive chains
 
-### T-030 -- Implement merge algebraic property tests
+### T-030 -- Implement merge algebraic property tests ✅
 
 - **Spec Reference:** merge.md Section 6
 - **Dependencies:** T-029
@@ -407,7 +407,7 @@
 
 ## Phase 6: Redaction Engine
 
-### T-031 -- Implement sensitivity classification and effective_sensitivity
+### T-031 -- Implement sensitivity classification and effective_sensitivity ✅
 
 - **Spec Reference:** redaction.md Sections 2.1 -- 2.3
 - **Dependencies:** T-007, T-004
@@ -420,7 +420,7 @@
   - `_property_sensitivity` override map consulted first for edge properties
   - Tests: each scheme default; person-node override to confidential; explicit override wins; edge property defaults per edge type
 
-### T-032 -- Implement boundary reference hashing
+### T-032 -- Implement boundary reference hashing ✅
 
 - **Spec Reference:** redaction.md Sections 4.1 -- 4.4
 - **Dependencies:** T-024, T-003
@@ -433,7 +433,7 @@
   - `sha2` and `getrandom` dependencies added (no `ring` or `openssl`)
   - All four test vectors from redaction.md Section 4.3 pass (TV1--TV3 deterministic, TV4 format-only)
 
-### T-033 -- Implement node classification and edge filtering logic
+### T-033 -- Implement node classification and edge filtering logic ✅
 
 - **Spec Reference:** redaction.md Sections 3, 5, 6
 - **Dependencies:** T-031
@@ -445,7 +445,7 @@
   - `classify_edge(edge, source_action, target_action, target_scope) -> EdgeAction` implements priority-ordered rules: beneficial_ownership in public scope omitted; either endpoint omitted -> omit; both endpoints replaced -> omit; otherwise retain
   - Tests for each combination of node type, scope, and edge disposition
 
-### T-034 -- Implement full redaction pipeline with post-redaction validation
+### T-034 -- Implement full redaction pipeline with post-redaction validation ✅
 
 - **Spec Reference:** redaction.md Sections 5 -- 7
 - **Dependencies:** T-031, T-032, T-033, T-013
@@ -465,7 +465,7 @@
 
 ## Phase 7: Diff Engine
 
-### T-035 -- Implement node and edge matching for diff
+### T-035 -- Implement node and edge matching for diff ✅
 
 - **Spec Reference:** diff.md Sections 2.1 -- 2.2
 - **Dependencies:** T-024, T-023
@@ -478,7 +478,7 @@
   - `same_as` edges never matched; excess edges reported as additions or deletions
   - Tests: exact match, partial overlap, disjoint files, ambiguous match groups
 
-### T-036 -- Implement property comparison and DiffResult construction
+### T-036 -- Implement property comparison and DiffResult construction ✅
 
 - **Spec Reference:** diff.md Sections 3, 4.1 -- 4.3
 - **Dependencies:** T-035
@@ -497,7 +497,7 @@
 
 ## Phase 8: CLI Shell
 
-### T-037 -- Implement clap argument parsing, global flags, and main dispatch
+### T-037 -- Implement clap argument parsing, global flags, and main dispatch ✅
 
 - **Spec Reference:** cli-interface.md Sections 2, 7, 9
 - **Dependencies:** T-001
@@ -511,7 +511,7 @@
   - `CliError` enum with `Io`, `FileTooLarge`, `InvalidUtf8`, `Parse`, `MultipleStdin` variants
   - Tests: clap rejects conflicting `--quiet` and `--verbose`; `--version` prints version; parse of each subcommand
 
-### T-038 -- Implement file I/O module (read pipeline, size enforcement, stdin)
+### T-038 -- Implement file I/O module (read pipeline, size enforcement, stdin) ✅
 
 - **Spec Reference:** cli-interface.md Sections 4.1 -- 4.6
 - **Dependencies:** T-037
@@ -525,7 +525,7 @@
   - File-not-found and permission-denied produce descriptive stderr messages and exit code 2
   - Tests: file too large rejection, invalid UTF-8 rejection, stdin read (via piped test)
 
-### T-039 -- Implement output formatting (human and JSON modes)
+### T-039 -- Implement output formatting (human and JSON modes) ✅
 
 - **Spec Reference:** cli-interface.md Sections 5.1 -- 5.4
 - **Dependencies:** T-037, T-010
@@ -539,7 +539,7 @@
   - Human-mode diff formatter: `+` / `-` / `~` prefix lines per diff.md Section 5.1
   - Tests: formatter output matches expected strings for sample diagnostics in both modes
 
-### T-040 -- Wire validate, inspect, convert, and init commands
+### T-040 -- Wire validate, inspect, convert, and init commands ✅
 
 - **Spec Reference:** cli-interface.md Sections 3.1, 3.4, 3.6, 3.10
 - **Dependencies:** T-038, T-039, T-011, T-018
@@ -552,7 +552,7 @@
   - `init`: generates minimal valid `.omts` (fresh salt, today's date, empty arrays) or `--example` with sample data
   - Integration tests for each command using fixture files; verify exit codes
 
-### T-041 -- Wire merge and redact commands
+### T-041 -- Wire merge and redact commands ✅
 
 - **Spec Reference:** cli-interface.md Sections 3.2, 3.3
 - **Dependencies:** T-038, T-039, T-029, T-034
@@ -564,7 +564,7 @@
   - Exit codes match cli-interface.md Section 6 table
   - Integration tests: merge two fixture files and validate output; redact to public scope and verify no person nodes
 
-### T-042 -- Wire reach, path, and subgraph commands
+### T-042 -- Wire reach, path, and subgraph commands ✅
 
 - **Spec Reference:** cli-interface.md Sections 3.7, 3.8, 3.9
 - **Dependencies:** T-038, T-039, T-019, T-020, T-021
@@ -578,7 +578,7 @@
   - Exit codes: 0 on success, 1 on node-not-found or no-path, 2 on parse failure
   - Integration tests for each command
 
-### T-043 -- Wire diff command
+### T-043 -- Wire diff command ✅
 
 - **Spec Reference:** cli-interface.md Section 3.5
 - **Dependencies:** T-038, T-039, T-036
@@ -645,7 +645,7 @@
   - `sha2` and `getrandom` compile for wasm32 target with appropriate feature flags
   - Grep confirms no OS-level I/O anywhere in `omtsf-core` source
 
-### T-048 -- Documentation: crate-level docs and public API rustdoc
+### T-048 -- Documentation: crate-level docs and public API rustdoc ✅
 
 - **Spec Reference:** overview.md
 - **Dependencies:** T-044
@@ -661,7 +661,7 @@
 
 ## Phase 10: Serialization Bindings (SPEC-007)
 
-### T-049 -- Implement encoding detection (magic byte inspection)
+### T-049 -- Implement encoding detection (magic byte inspection) ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Section 2
 - **Dependencies:** T-008
@@ -675,7 +675,7 @@
   - Unrecognized bytes return `EncodingDetectionError`
   - Unit tests for each encoding type, whitespace-prefixed JSON, and rejection of unknown bytes
 
-### T-050 -- Add CBOR serialization and deserialization for OmtsFile
+### T-050 -- Add CBOR serialization and deserialization for OmtsFile ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Sections 4.1--4.6
 - **Dependencies:** T-008, T-049
@@ -692,7 +692,7 @@
   - Round-trip test: JSON fixture → parse → encode CBOR → decode CBOR → re-encode JSON → compare with original
   - Unknown field preservation verified through CBOR round-trip
 
-### T-051 -- Add zstd compression and decompression layer
+### T-051 -- Add zstd compression and decompression layer ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Section 6
 - **Dependencies:** T-049
@@ -706,7 +706,7 @@
   - Round-trip test: serialize JSON → compress → decompress → detect encoding → parse → compare
   - Round-trip test: serialize CBOR → compress → decompress → detect encoding → parse → compare
 
-### T-052 -- Implement unified parse pipeline (auto-detect and decode)
+### T-052 -- Implement unified parse pipeline (auto-detect and decode) ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Sections 2, 3, 4, 6
 - **Dependencies:** T-049, T-050, T-051
@@ -719,7 +719,7 @@
   - All existing tests continue to pass
   - New tests: CBOR input, zstd+JSON input, zstd+CBOR input
 
-### T-053 -- Implement lossless JSON↔CBOR conversion
+### T-053 -- Implement lossless JSON↔CBOR conversion ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Section 5
 - **Dependencies:** T-050
@@ -734,7 +734,7 @@
   - Test: CBOR → JSON → CBOR round-trip produces logically equivalent output
   - Logical equivalence defined as identical abstract model after parsing
 
-### T-054 -- Update CLI file I/O to support multi-encoding input
+### T-054 -- Update CLI file I/O to support multi-encoding input ✅
 
 - **Spec Reference:** cli-interface.md Sections 4.1--4.6; serialization-bindings.md (SPEC-007)
 - **Dependencies:** T-038, T-052
@@ -747,7 +747,7 @@
   - Decompression bomb guard enforced (`4 * max_file_size` for zstd inputs)
   - Integration tests: validate/inspect/diff commands work with CBOR and zstd inputs
 
-### T-055 -- Wire convert command with --to and --compress flags
+### T-055 -- Wire convert command with --to and --compress flags ✅
 
 - **Spec Reference:** cli-interface.md Section 3.6; serialization-bindings.md (SPEC-007) Section 7
 - **Dependencies:** T-040, T-053, T-054
@@ -761,7 +761,7 @@
   - Exit code 0 on success, 2 on parse failure
   - Integration tests: JSON→CBOR, CBOR→JSON, JSON→zstd+JSON, CBOR→zstd+CBOR
 
-### T-056 -- Add CBOR and compression test fixtures
+### T-056 -- Add CBOR and compression test fixtures ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007)
 - **Dependencies:** T-009, T-050, T-051
@@ -773,7 +773,7 @@
   - All CBOR fixtures decode to logically equivalent abstract models as their JSON counterparts
   - Fixtures committed under `omtsf-rs/tests/fixtures/` alongside existing JSON fixtures
 
-### T-057 -- Verify WASM compatibility of CBOR and compression dependencies
+### T-057 -- Verify WASM compatibility of CBOR and compression dependencies ✅
 
 - **Spec Reference:** serialization-bindings.md (SPEC-007) Section 7; overview.md Section 4
 - **Dependencies:** T-050, T-051, T-047
@@ -792,7 +792,7 @@
 Findings from a parallel performance review of the codebase by two independent
 senior Rust engineers. Tasks are ordered by estimated impact.
 
-### T-059 -- Eliminate exponential cloning in `all_paths` query
+### T-059 -- Eliminate exponential cloning in `all_paths` query ✅
 
 - **Spec Reference:** graph-engine.md Section 4
 - **Dependencies:** T-020
@@ -807,7 +807,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - `all_paths` M/depth_10 benchmark improves by at least 10x
   - All existing `all_paths` tests continue to pass with identical results
 
-### T-060 -- Fix O(N*E) node lookup in diff edge matching
+### T-060 -- Fix O(N*E) node lookup in diff edge matching ✅
 
 - **Spec Reference:** diff.md Section 2.2
 - **Dependencies:** T-035
@@ -821,7 +821,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Diff L/XL benchmarks show measurable improvement
   - All existing diff tests continue to pass
 
-### T-061 -- Replace Vec.contains() with HashSet in diff node matching
+### T-061 -- Replace Vec.contains() with HashSet in diff node matching ✅
 
 - **Spec Reference:** diff.md Section 2.1
 - **Dependencies:** T-035
@@ -833,7 +833,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Replace `active_a` and `active_b` with `HashSet<usize>` or `Vec<bool>` for O(1) lookup
   - All existing diff tests continue to pass
 
-### T-062 -- Eliminate double String allocation in newtype deserialization
+### T-062 -- Eliminate double String allocation in newtype deserialization ✅
 
 - **Spec Reference:** data-model.md Section 3
 - **Dependencies:** T-003
@@ -847,7 +847,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Huge-tier CBOR decode benchmark shows measurable improvement (~5-8%)
   - All existing tests continue to pass
 
-### T-063 -- Visitor-based deserialization for NodeTypeTag/EdgeTypeTag
+### T-063 -- Visitor-based deserialization for NodeTypeTag/EdgeTypeTag ✅
 
 - **Spec Reference:** data-model.md Section 4.1
 - **Dependencies:** T-004
@@ -861,7 +861,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - All existing enum serde tests continue to pass
   - Decode benchmarks show ~2-4% improvement at L+ tiers
 
-### T-064 -- Fix O(N*E) edge scan in L3-MRG-01 validation rule
+### T-064 -- Fix O(N*E) edge scan in L3-MRG-01 validation rule ✅
 
 - **Spec Reference:** validation.md Section 4.3
 - **Dependencies:** T-017
@@ -875,7 +875,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Validation benchmarks at L+ tiers show measurable improvement
   - All existing validation tests continue to pass
 
-### T-065 -- Eliminate String allocations in build_graph
+### T-065 -- Eliminate String allocations in build_graph ✅
 
 - **Spec Reference:** graph-engine.md Section 2
 - **Dependencies:** T-018
@@ -889,7 +889,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Huge-tier graph construction benchmark shows ~5-10% improvement
   - All existing graph tests continue to pass
 
-### T-066 -- Replace serde_json tag_to_string with direct enum-to-str
+### T-066 -- Replace serde_json tag_to_string with direct enum-to-str ✅
 
 - **Spec Reference:** diff.md Section 2
 - **Dependencies:** T-035
@@ -903,7 +903,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Extension variants return the inner String by reference
   - All existing diff tests continue to pass
 
-### T-067 -- Return iterator from neighbours() instead of Vec allocation
+### T-067 -- Return iterator from neighbours() instead of Vec allocation ✅
 
 - **Spec Reference:** graph-engine.md Section 3
 - **Dependencies:** T-018
@@ -917,7 +917,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Graph query benchmarks show measurable improvement at L+ tiers
   - All existing graph query tests continue to pass
 
-### T-068 -- Reuse identifier index in merge pipeline
+### T-068 -- Reuse identifier index in merge pipeline ✅
 
 - **Spec Reference:** merge.md Section 8
 - **Dependencies:** T-029
@@ -930,7 +930,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
   - Eliminate the redundant `CanonicalId` computation pass
   - All existing merge tests continue to pass (including proptest algebraic properties)
 
-### T-069 -- Pre-compute lowercased selector patterns
+### T-069 -- Pre-compute lowercased selector patterns ✅
 
 - **Spec Reference:** graph-engine.md Section 5
 - **Dependencies:** T-021
@@ -951,7 +951,7 @@ senior Rust engineers. Tasks are ordered by estimated impact.
 Findings from a parallel quality review by independent senior Rust engineer
 and senior QA engineer assessments. Tasks ordered by priority.
 
-### T-070 -- Implement Default for Node struct
+### T-070 -- Implement Default for Node struct ✅
 
 - **Source:** Both reviewers (Rust engineer M-1, QA engineer m-1)
 - **Dependencies:** T-005
@@ -965,7 +965,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - Merge pipeline field-copying simplified where possible
   - All existing tests continue to pass
 
-### T-071 -- Add unit tests for union_find, check_digits, newtypes, canonical, encoding
+### T-071 -- Add unit tests for union_find, check_digits, newtypes, canonical, encoding ✅
 
 - **Source:** QA engineer M-1
 - **Dependencies:** T-023, T-012, T-003, T-024, T-049
@@ -979,7 +979,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - `canonical.rs`: unit tests for canonical ID construction per scheme
   - `encoding.rs`: unit tests for encoding detection heuristic (JSON, CBOR, zstd, unknown bytes, whitespace-prefixed JSON)
 
-### T-072 -- Add cmd_query.rs CLI integration tests
+### T-072 -- Add cmd_query.rs CLI integration tests ✅
 
 - **Source:** QA engineer M-2
 - **Dependencies:** T-040
@@ -1013,7 +1013,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - L3-EID rules tested with mock `ExternalDataSource`
   - Tests confirm correct `RuleId`, `Severity::Info`, and `Location`
 
-### T-074 -- Fix hardcoded merge timestamp placeholder
+### T-074 -- Fix hardcoded merge timestamp placeholder ✅
 
 - **Source:** Rust engineer M-5
 - **Dependencies:** T-029
@@ -1027,7 +1027,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - Existing merge tests updated to not assert on exact timestamp value
   - proptest `stable_hash` already zeros timestamp, so algebraic tests unaffected
 
-### T-075 -- Extract shared test helpers to reduce duplication
+### T-075 -- Extract shared test helpers to reduce duplication ✅
 
 - **Source:** Both reviewers (Rust engineer n-2, QA engineer m-1)
 - **Dependencies:** T-070
