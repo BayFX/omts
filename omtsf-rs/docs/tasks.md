@@ -1087,6 +1087,30 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - Integration test: `omtsf import-excel tests/fixtures/excel/omts-import-example.xlsx | omtsf validate -` exits 0
   - Integration test: round-trip — import example Excel, validate output, inspect node/edge counts match expected
 
+### T-078 -- Implement `export-excel` command
+
+- **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
+- **Dependencies:** T-008, T-040, T-077
+- **Complexity:** L
+- **Crate:** omtsf-cli (Excel I/O), omtsf-core (graph-to-tabular conversion logic)
+- **Description:** Read a valid `.omts` file and write a multi-sheet `.xlsx` workbook in the same format used by `import-excel`. This is the inverse of T-077 and enables round-trip workflows: import Excel → enrich/merge/redact → export back to Excel for review by procurement teams who don't use CLI tooling.
+- **Acceptance Criteria:**
+  - `omtsf export-excel <input.omts> -o output.xlsx` reads an `.omts` file and writes an Excel workbook
+  - Uses `rust_xlsxwriter` crate for `.xlsx` writing; dependency confined to `omtsf-cli`
+  - **Metadata sheet:** populated from file header fields (`omtsf_version`, `snapshot_date`, `reporting_entity`, `disclosure_scope`)
+  - **Node sheets** (Organizations, Facilities, Goods, Persons, Attestations, Consignments): nodes routed to the correct sheet by `type`; common identifier schemes (lei, duns, nat_reg, vat, internal) extracted from identifier array into inline columns on Organizations sheet
+  - **Edge sheets** (Supply Relationships, Corporate Structure): edges routed by type category; source/target mapped to domain-friendly column names (supplier_id/buyer_id, subsidiary_id/parent_id) per edge type direction convention
+  - **Same As sheet:** `same_as` edges exported with confidence and basis
+  - **Identifiers sheet:** all identifier records that were NOT mapped to inline columns on node sheets written here (multi-identifier overflow, non-organization nodes, extension schemes)
+  - **Attestations sheet:** `attested_by` edges merged back into attestation rows as `attested_entity_id` and `scope` columns
+  - **Styling:** header row formatting, data validation dropdowns on enum columns, column widths — matching the reference template (`tests/fixtures/excel/omts-import-template.xlsx`)
+  - **README sheet:** included with field definitions and instructions
+  - **Boundary ref nodes:** omitted from export (they are import-time artifacts)
+  - **`_conflicts` metadata:** if present (from merge output), exported as a separate `Conflicts` column or ignored with a warning
+  - **Labels:** recommended label keys (Appendix B) mapped to inline columns on node sheets; remaining labels exported to a Labels column or ignored with a warning
+  - Round-trip test: `omtsf import-excel example.xlsx | omtsf export-excel - -o roundtrip.xlsx` → re-import roundtrip.xlsx → validate → diff against original import shows zero structural differences (node/edge counts, identifiers, edge properties match)
+  - Integration test: export the SPEC-001 Section 10 example fixture, verify sheet/row counts match expected
+
 ---
 
 ## Notes: Spec Ambiguities Discovered During Planning
