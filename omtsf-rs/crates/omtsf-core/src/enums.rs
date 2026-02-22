@@ -61,13 +61,43 @@ impl Serialize for NodeTypeTag {
 
 impl<'de> Deserialize<'de> for NodeTypeTag {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        let str_de: de::value::StrDeserializer<de::value::Error> =
-            de::IntoDeserializer::into_deserializer(s.as_str());
-        match NodeType::deserialize(str_de) {
-            Ok(known) => Ok(NodeTypeTag::Known(known)),
-            Err(_) => Ok(NodeTypeTag::Extension(s)),
+        struct NodeTypeTagVisitor;
+
+        impl de::Visitor<'_> for NodeTypeTagVisitor {
+            type Value = NodeTypeTag;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string representing a node type")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(match v {
+                    "organization" => NodeTypeTag::Known(NodeType::Organization),
+                    "facility" => NodeTypeTag::Known(NodeType::Facility),
+                    "good" => NodeTypeTag::Known(NodeType::Good),
+                    "person" => NodeTypeTag::Known(NodeType::Person),
+                    "attestation" => NodeTypeTag::Known(NodeType::Attestation),
+                    "consignment" => NodeTypeTag::Known(NodeType::Consignment),
+                    "boundary_ref" => NodeTypeTag::Known(NodeType::BoundaryRef),
+                    other => NodeTypeTag::Extension(other.to_owned()),
+                })
+            }
+
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+                match v.as_str() {
+                    "organization" => Ok(NodeTypeTag::Known(NodeType::Organization)),
+                    "facility" => Ok(NodeTypeTag::Known(NodeType::Facility)),
+                    "good" => Ok(NodeTypeTag::Known(NodeType::Good)),
+                    "person" => Ok(NodeTypeTag::Known(NodeType::Person)),
+                    "attestation" => Ok(NodeTypeTag::Known(NodeType::Attestation)),
+                    "consignment" => Ok(NodeTypeTag::Known(NodeType::Consignment)),
+                    "boundary_ref" => Ok(NodeTypeTag::Known(NodeType::BoundaryRef)),
+                    _ => Ok(NodeTypeTag::Extension(v)),
+                }
+            }
         }
+
+        deserializer.deserialize_str(NodeTypeTagVisitor)
     }
 }
 
@@ -132,13 +162,61 @@ impl Serialize for EdgeTypeTag {
 
 impl<'de> Deserialize<'de> for EdgeTypeTag {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        let str_de: de::value::StrDeserializer<de::value::Error> =
-            de::IntoDeserializer::into_deserializer(s.as_str());
-        match EdgeType::deserialize(str_de) {
-            Ok(known) => Ok(EdgeTypeTag::Known(known)),
-            Err(_) => Ok(EdgeTypeTag::Extension(s)),
+        struct EdgeTypeTagVisitor;
+
+        impl de::Visitor<'_> for EdgeTypeTagVisitor {
+            type Value = EdgeTypeTag;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string representing an edge type")
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(match v {
+                    "ownership" => EdgeTypeTag::Known(EdgeType::Ownership),
+                    "operational_control" => EdgeTypeTag::Known(EdgeType::OperationalControl),
+                    "legal_parentage" => EdgeTypeTag::Known(EdgeType::LegalParentage),
+                    "former_identity" => EdgeTypeTag::Known(EdgeType::FormerIdentity),
+                    "beneficial_ownership" => EdgeTypeTag::Known(EdgeType::BeneficialOwnership),
+                    "supplies" => EdgeTypeTag::Known(EdgeType::Supplies),
+                    "subcontracts" => EdgeTypeTag::Known(EdgeType::Subcontracts),
+                    "tolls" => EdgeTypeTag::Known(EdgeType::Tolls),
+                    "distributes" => EdgeTypeTag::Known(EdgeType::Distributes),
+                    "brokers" => EdgeTypeTag::Known(EdgeType::Brokers),
+                    "operates" => EdgeTypeTag::Known(EdgeType::Operates),
+                    "produces" => EdgeTypeTag::Known(EdgeType::Produces),
+                    "composed_of" => EdgeTypeTag::Known(EdgeType::ComposedOf),
+                    "sells_to" => EdgeTypeTag::Known(EdgeType::SellsTo),
+                    "attested_by" => EdgeTypeTag::Known(EdgeType::AttestedBy),
+                    "same_as" => EdgeTypeTag::Known(EdgeType::SameAs),
+                    other => EdgeTypeTag::Extension(other.to_owned()),
+                })
+            }
+
+            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
+                match v.as_str() {
+                    "ownership" => Ok(EdgeTypeTag::Known(EdgeType::Ownership)),
+                    "operational_control" => Ok(EdgeTypeTag::Known(EdgeType::OperationalControl)),
+                    "legal_parentage" => Ok(EdgeTypeTag::Known(EdgeType::LegalParentage)),
+                    "former_identity" => Ok(EdgeTypeTag::Known(EdgeType::FormerIdentity)),
+                    "beneficial_ownership" => Ok(EdgeTypeTag::Known(EdgeType::BeneficialOwnership)),
+                    "supplies" => Ok(EdgeTypeTag::Known(EdgeType::Supplies)),
+                    "subcontracts" => Ok(EdgeTypeTag::Known(EdgeType::Subcontracts)),
+                    "tolls" => Ok(EdgeTypeTag::Known(EdgeType::Tolls)),
+                    "distributes" => Ok(EdgeTypeTag::Known(EdgeType::Distributes)),
+                    "brokers" => Ok(EdgeTypeTag::Known(EdgeType::Brokers)),
+                    "operates" => Ok(EdgeTypeTag::Known(EdgeType::Operates)),
+                    "produces" => Ok(EdgeTypeTag::Known(EdgeType::Produces)),
+                    "composed_of" => Ok(EdgeTypeTag::Known(EdgeType::ComposedOf)),
+                    "sells_to" => Ok(EdgeTypeTag::Known(EdgeType::SellsTo)),
+                    "attested_by" => Ok(EdgeTypeTag::Known(EdgeType::AttestedBy)),
+                    "same_as" => Ok(EdgeTypeTag::Known(EdgeType::SameAs)),
+                    _ => Ok(EdgeTypeTag::Extension(v)),
+                }
+            }
         }
+
+        deserializer.deserialize_str(EdgeTypeTagVisitor)
     }
 }
 
