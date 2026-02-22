@@ -23,8 +23,6 @@ fn fixture(name: &str) -> PathBuf {
     path
 }
 
-// ---- exit code: no selectors → 2 -------------------------------------------
-
 #[test]
 fn query_no_selectors_exits_2() {
     let out = Command::new(omtsf_bin())
@@ -37,8 +35,6 @@ fn query_no_selectors_exits_2() {
         "expected exit 2 when no selector flags given"
     );
 }
-
-// ---- exit code: nonexistent file → 2 ----------------------------------------
 
 #[test]
 fn query_nonexistent_file_exits_2() {
@@ -58,8 +54,6 @@ fn query_nonexistent_file_exits_2() {
     );
 }
 
-// ---- exit code: empty result → 1 --------------------------------------------
-
 #[test]
 fn query_no_match_exits_1() {
     // graph-query.omts has only organizations, no facilities
@@ -78,8 +72,6 @@ fn query_no_match_exits_1() {
         "expected exit 1 when no elements match"
     );
 }
-
-// ---- --node-type filtering --------------------------------------------------
 
 #[test]
 fn query_node_type_organization_exits_0() {
@@ -139,8 +131,6 @@ fn query_node_type_facility_in_full_featured_exits_0() {
         "stdout should contain fac-sheffield; stdout: {stdout}"
     );
 }
-
-// ---- --identifier scheme and scheme:value matching --------------------------
 
 #[test]
 fn query_identifier_scheme_lei_exits_0() {
@@ -203,8 +193,6 @@ fn query_identifier_scheme_value_no_match_exits_1() {
     );
 }
 
-// ---- --jurisdiction filtering -----------------------------------------------
-
 #[test]
 fn query_jurisdiction_de_exits_0() {
     // full-featured.omts has nodes with jurisdiction=DE
@@ -261,8 +249,6 @@ fn query_jurisdiction_us_no_match_exits_1() {
     );
 }
 
-// ---- --name substring matching ----------------------------------------------
-
 #[test]
 fn query_name_substring_exits_0() {
     // full-featured.omts has "Alpha Manufacturing GmbH"
@@ -318,8 +304,6 @@ fn query_name_no_match_exits_1() {
         "expected exit 1 for --name with no match"
     );
 }
-
-// ---- --count output format --------------------------------------------------
 
 #[test]
 fn query_count_exits_0() {
@@ -389,8 +373,6 @@ fn query_count_output_format_json() {
         "count output should contain 'nodes:'; stdout: {stdout}"
     );
 }
-
-// ---- --format json output structure -----------------------------------------
 
 #[test]
 fn query_format_json_exits_0() {
@@ -479,8 +461,6 @@ fn query_format_json_nodes_array_is_non_empty_for_organization() {
     assert!(!nodes.is_empty(), "nodes array should be non-empty");
 }
 
-// ---- human output format ----------------------------------------------------
-
 #[test]
 fn query_human_output_contains_header() {
     let out = Command::new(omtsf_bin())
@@ -506,8 +486,6 @@ fn query_human_output_contains_header() {
         "human output should contain TYPE column header; stdout: {stdout}"
     );
 }
-
-// ---- mixed selectors (AND/OR composition) -----------------------------------
 
 #[test]
 fn query_node_type_and_jurisdiction_intersection() {
@@ -613,8 +591,6 @@ fn query_identifier_and_jurisdiction_combined() {
     );
 }
 
-// ---- edge type matching -----------------------------------------------------
-
 #[test]
 fn query_edge_type_supplies_exits_0() {
     let out = Command::new(omtsf_bin())
@@ -651,8 +627,6 @@ fn query_edge_type_nonexistent_exits_1() {
     );
 }
 
-// ---- stderr: matched counts always emitted ----------------------------------
-
 #[test]
 fn query_matched_counts_on_stderr() {
     let out = Command::new(omtsf_bin())
@@ -668,5 +642,80 @@ fn query_matched_counts_on_stderr() {
     assert!(
         stderr.contains("matched"),
         "stderr should contain 'matched' count summary; stderr: {stderr}"
+    );
+}
+
+#[test]
+fn query_label_key_only_exits_0() {
+    // graph-labels.omts: org-tier1 and org-tier2 have a "tier" label key
+    let out = Command::new(omtsf_bin())
+        .args([
+            "query",
+            fixture("graph-labels.omts").to_str().expect("path"),
+            "--label",
+            "tier",
+        ])
+        .output()
+        .expect("run omtsf query --label tier");
+    assert!(
+        out.status.success(),
+        "expected exit 0 for --label tier; exit: {:?}",
+        out.status.code()
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("org-tier1"),
+        "stdout should contain org-tier1; stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("org-tier2"),
+        "stdout should contain org-tier2; stdout: {stdout}"
+    );
+}
+
+#[test]
+fn query_label_key_value_exits_0() {
+    // graph-labels.omts: org-tier1 has label tier=1
+    let out = Command::new(omtsf_bin())
+        .args([
+            "query",
+            fixture("graph-labels.omts").to_str().expect("path"),
+            "--label",
+            "tier=1",
+        ])
+        .output()
+        .expect("run omtsf query --label tier=1");
+    assert!(
+        out.status.success(),
+        "expected exit 0 for --label tier=1; exit: {:?}",
+        out.status.code()
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("org-tier1"),
+        "stdout should contain org-tier1 (tier=1); stdout: {stdout}"
+    );
+    assert!(
+        !stdout.contains("org-tier2"),
+        "stdout should not contain org-tier2 (tier=2, not tier=1); stdout: {stdout}"
+    );
+}
+
+#[test]
+fn query_label_no_match_exits_1() {
+    // graph-labels.omts has no nodes with label key "region"
+    let out = Command::new(omtsf_bin())
+        .args([
+            "query",
+            fixture("graph-labels.omts").to_str().expect("path"),
+            "--label",
+            "region",
+        ])
+        .output()
+        .expect("run omtsf query --label region (no match)");
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "expected exit 1 when no node has label key 'region'"
     );
 }
