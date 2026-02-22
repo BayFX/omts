@@ -1,4 +1,4 @@
-# OMTSF -- Open Multi-Tier Supply Format
+# OMTSF: Open Multi-Tier Supply Format
 
 An open exchange format for supply chain graph data. OMTSF represents supply networks as directed graphs of typed nodes and typed edges, serialized as self-contained `.omts` (JSON) files that can be validated, merged, redacted, and shared across organizational boundaries.
 
@@ -9,11 +9,11 @@ An open exchange format for supply chain graph data. OMTSF represents supply net
 
 Supply chain data is trapped. Every organization holds a partial view of a shared network, encoded in proprietary formats, internal schemas, and spreadsheets. There is no common way to export a supply network and hand it to another party such that both sides can read, validate, and merge it without manual translation.
 
-Regulations increasingly require multi-tier visibility -- EUDR, LkSG/CSDDD, CBAM, and beneficial ownership directives all demand structured proof of what is upstream. The tooling to analyze supply chains exists. The missing piece is a file format that lets the data reach it.
+Regulations increasingly require multi-tier visibility. EUDR, LkSG/CSDDD, CBAM, and beneficial ownership directives all demand structured proof of what is upstream. The tooling to analyze supply chains exists. The missing piece is a file format that lets the data reach it.
 
 ## What OMTSF Is
 
-An `.omts` file is a self-contained JSON document describing a supply chain as a graph. Nodes represent the entities -- organizations, facilities, goods, persons, attestations, consignments -- and edges represent the relationships between them: who supplies whom, who owns whom, what certifications cover which facilities, and how goods flow through the network.
+An `.omts` file is a self-contained JSON document describing a supply chain as a graph. Nodes represent the entities (organizations, facilities, goods, persons, attestations, consignments) and edges represent the relationships between them: who supplies whom, who owns whom, what certifications cover which facilities, and how goods flow through the network.
 
 ```json
 {
@@ -37,7 +37,7 @@ An `.omts` file is a self-contained JSON document describing a supply chain as a
 
 The format is designed around five principles:
 
-- **The file is a graph, stored flat.** Nodes and edges are flat lists -- no nesting. Merging files from different parties is list concatenation and deduplication, not tree reconciliation.
+- **The file is a graph, stored flat.** Nodes and edges are flat lists with no nesting. Merging files from different parties is list concatenation and deduplication, not tree reconciliation.
 - **Validation is not optional.** A valid `.omts` file passes structural and semantic checks. Edges must reference existing nodes. Identifiers must be well-formed. Recipients can trust the structure without inspecting every field.
 - **The format is the contract.** If two systems both produce valid `.omts` files, those files are compatible. No bilateral mapping tables, no integration projects.
 - **Data stays local.** Validation, analysis, and transformation all run locally. Supply chain data never needs to leave the machine.
@@ -47,12 +47,12 @@ The format is designed around five principles:
 
 OMTSF addresses real regulatory and operational scenarios:
 
-- **EUDR due diligence** -- Model origin cooperatives, plantations with geolocation, and Due Diligence Statements as attestation nodes. Prove deforestation-free sourcing with a single file.
-- **LkSG/CSDDD multi-tier mapping** -- Document supplier hierarchies across tiers with risk assessments attached as attestation nodes.
-- **Multi-ERP consolidation** -- Export supplier masters from SAP, Oracle, and Dynamics as `.omts` files. Merge them using composite identifiers (LEI, DUNS, VAT numbers) to produce a single deduplicated supplier graph.
-- **Beneficial ownership transparency** -- Map corporate structures with ownership percentages, legal parentage, and person nodes for UBOs, governed by privacy rules.
-- **CBAM embedded emissions** -- Track installation-level emissions data on consignment nodes linked to producing facilities.
-- **Selective disclosure** -- Share supply chain structure with auditors or partners while redacting commercially sensitive identities behind salted-hash boundary references.
+- **EUDR due diligence.** Model origin cooperatives, plantations with geolocation, and Due Diligence Statements as attestation nodes. Prove deforestation-free sourcing with a single file.
+- **LkSG/CSDDD multi-tier mapping.** Document supplier hierarchies across tiers with risk assessments attached as attestation nodes.
+- **Multi-ERP consolidation.** Export supplier masters from SAP, Oracle, and Dynamics as `.omts` files. Merge them using composite identifiers (LEI, DUNS, VAT numbers) to produce a single deduplicated supplier graph.
+- **Beneficial ownership transparency.** Map corporate structures with ownership percentages, legal parentage, and person nodes for UBOs, governed by privacy rules.
+- **CBAM embedded emissions.** Track installation-level emissions data on consignment nodes linked to producing facilities.
+- **Selective disclosure.** Share supply chain structure with auditors or partners while redacting commercially sensitive identities behind salted-hash boundary references.
 
 ## The Data Model
 
@@ -89,6 +89,7 @@ Nodes carry external identifiers (LEI, DUNS, GLN, VAT, national registrations) t
 | [SPEC-004](spec/selective-disclosure.md) | Selective Disclosure | Sensitivity levels, redaction rules, boundary references |
 | [SPEC-005](spec/erp-integration.md) | ERP Integration | Export mappings for SAP, Oracle, Dynamics 365 (informative) |
 | [SPEC-006](spec/standards-mapping.md) | Standards Mapping | Regulatory alignment: EUDR, LkSG, CSDDD, CBAM, AMLD (informative) |
+| [SPEC-007](spec/serialization-bindings.md) | Serialization Bindings | JSON and CBOR encoding, zstd compression, encoding detection |
 
 ## Rust Reference Implementation (`omtsf-rs`)
 
@@ -106,17 +107,39 @@ omtsf convert <file>               Re-serialize (normalize whitespace/key orderi
 omtsf reach <file> <node>          List all reachable nodes from a source
 omtsf path <file> <from> <to>      Find paths between two nodes
 omtsf subgraph <file> <nodes>...   Extract the induced subgraph for a set of nodes
+omtsf query <file>                 Search nodes/edges by type, label, identifier
+omtsf extract-subchain <file>      Extract subgraph matching selector criteria
 omtsf init                         Scaffold a new minimal .omts file
 ```
 
 ### Key Capabilities
 
-- **Three-level validation** -- L1 (structural integrity), L2 (semantic completeness), L3 (cross-reference enrichment including cycle detection).
-- **Merge with entity resolution** -- Combines files from different sources using composite external identifiers. Handles overlapping and disjoint graphs.
-- **Selective redaction** -- Replaces sensitive nodes with boundary references at `public` or `partner` disclosure scopes. Person nodes and confidential identifiers are stripped automatically.
-- **Graph queries** -- Reachability analysis, shortest path, all-paths enumeration, ego graphs, and induced subgraph extraction. Supports edge-type filtering and directional traversal.
-- **Structural diff** -- Compares two files and reports added, removed, and modified nodes and edges. Supports type-based and field-based filtering.
-- **WASM-compatible core** -- The `omtsf-core` library has no I/O dependencies and compiles to `wasm32-unknown-unknown` for client-side browser tooling.
+- **Three-level validation.** L1 (structural integrity), L2 (semantic completeness), L3 (cross-reference enrichment including cycle detection).
+- **Merge with entity resolution.** Combines files from different sources using composite external identifiers. Handles overlapping and disjoint graphs.
+- **Selective redaction.** Replaces sensitive nodes with boundary references at `public` or `partner` disclosure scopes. Person nodes and confidential identifiers are stripped automatically.
+- **Graph queries.** Reachability analysis, shortest path, all-paths enumeration, ego graphs, and induced subgraph extraction. Supports edge-type filtering and directional traversal.
+- **Structural diff.** Compares two files and reports added, removed, and modified nodes and edges. Supports type-based and field-based filtering.
+- **CBOR and compression.** CBOR encoding produces files 21% smaller than JSON and decodes 26-36% faster. Zstd compression supported. Automatic encoding detection on load.
+- **Selector-based queries.** Query nodes and edges by type, label, identifier, or jurisdiction. Extract subchains by selector match with configurable expansion hops.
+- **WASM-compatible core.** The `omtsf-core` library has no I/O dependencies and compiles to `wasm32-unknown-unknown` for client-side browser tooling.
+
+### Performance
+
+Benchmarked on supply chain graphs from 141 elements (28 KB) to 2.2 million elements (500 MB):
+
+| Operation | Small (141 elem) | Large (5.9K elem) | Huge (2.2M elem) |
+|-----------|------------------|--------------------|-------------------|
+| JSON parse | 162 us | 11.4 ms | 4.53 s |
+| CBOR decode | 163 us | 8.49 ms | 3.92 s |
+| Graph build | 29 us | 1.40 ms | 1.59 s |
+| Validate L1+L2+L3 | 59 us | 3.80 ms | 5.01 s |
+| Merge (disjoint) | 1.12 ms | 82.6 ms | - |
+| Structural diff | 316 us | 17.4 ms | - |
+| Reachability | 4.5 us | 234 us | 455 ms |
+| Selector match | 991 ns | 68.1 us | 82.5 ms |
+
+CBOR files are 21% smaller than JSON and decode 26-36% faster. Full
+validation of a 500 MB graph completes in roughly 5 seconds.
 
 ### Build
 
