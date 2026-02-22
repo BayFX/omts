@@ -2,7 +2,7 @@
 
 Collected on 2026-02-22 using `cargo bench` (Criterion 0.5, default sample sizes).
 
-CBOR backend: **cbor4ii 1.x** (replaced ciborium 0.2 — see CBOR Library Comparison below).
+CBOR backend: **cbor4ii 1.x** (replaced ciborium 0.2; see CBOR Library Comparison below).
 
 Phase 11 performance optimizations applied (T-059 through T-069).
 
@@ -108,7 +108,7 @@ No-path detection is O(1). Modest improvements from neighbour buffer reuse (T-06
 
 **Massive improvement from T-059**: replaced exponential-cloning IDDFS with push/pop
 backtracking DFS using `Vec<bool>` bitset for cycle detection. M/depth_10 dropped from
-193 ms to 11.6 ms — a **16.6x speedup**. S/depth_10 dropped from 1.56 ms to 47 us —
+193 ms to 11.6 ms, a **16.6x speedup**. S/depth_10 dropped from 1.56 ms to 47 us,
 a **33x speedup**. The algorithm is now practical for interactive use at M scale.
 
 ## Group 4: Subgraph Extraction
@@ -148,7 +148,7 @@ additional radius roughly doubles the cost.
 | Cyclic, `legal_parentage`     |  8.7 us |   91 us |   377 us |      --  |
 
 Edge-type filtering yields ~3.5x speedup. Cyclic vs. acyclic performance is nearly
-identical -- the algorithm does not short-circuit on first cycle. XL cycle detection
+identical because the algorithm does not short-circuit on first cycle. XL cycle detection
 in 4 ms.
 
 ## Group 6: Validation
@@ -195,7 +195,7 @@ matching and output construction.
 | 90%      | 1.86 ms | 1.64 ms  |
 
 Public redaction is slightly faster than partner (person nodes are removed entirely,
-reducing output). Retain fraction has modest impact -- the bulk of the cost is graph
+reducing output). Retain fraction has modest impact since the bulk of the cost is graph
 traversal, not output construction.
 
 ## Group 9: Diff
@@ -257,7 +257,7 @@ Fixture pre-generated to disk via `just gen-huge`; benchmarks load from
 
 CBOR decode is now **13% faster than JSON** at Huge scale (was 7% slower
 pre-optimization). The visitor-based deserialization (T-063) has outsized impact
-at this scale — 22% improvement on CBOR decode alone. CBOR encode is **33% faster**
+at this scale, yielding a 22% improvement on CBOR decode alone. CBOR encode is **33% faster**
 than JSON serialize.
 
 CBOR benchmarks run in a separate binary (`huge_cbor`) to avoid OOM on
@@ -270,7 +270,7 @@ memory-constrained machines.
 | 1.59 s | 1.40 Melem/s  |
 
 T-065's `&str` borrow optimization improved Huge-tier build by 13% (was 1.84 s).
-Throughput drops from ~3.4-5.1 Melem/s at XL to ~1.4 Melem/s at Huge -- hash map
+Throughput drops from ~3.4-5.1 Melem/s at XL to ~1.4 Melem/s at Huge as hash map
 resizing and cache pressure dominate at 2.2M elements. Now includes building
 type indexes.
 
@@ -307,7 +307,7 @@ Root-to-leaf spans 20 tiers in 455 ms (was 527 ms, -14% from T-067).
 | Multi        | 63.6 ms  |  35.0 Melem/s   |
 
 Label matching unchanged at Huge (cache misses on the larger label maps dominate,
-not pattern lowercasing). Node-type and multi slightly slower — within noise at
+not pattern lowercasing). Node-type and multi slightly slower, within noise at
 this scale.
 
 #### `selector_subgraph`
@@ -334,7 +334,7 @@ subgraph assembly, so the scan optimization is less visible.
 **L1+L2+L3 is now tractable at Huge tier.** The previous O(E*N) bug in
 `facility_ids_with_org_connection` caused L2 validation alone to be estimated at
 ~21,500 s (~6 hours). After fixing it to O(N+E) with a pre-built HashSet,
-full L1+L2+L3 completes in 5.0 s -- a >4000x improvement. L2 adds only ~1.6 s
+full L1+L2+L3 completes in 5.0 s, a >4000x improvement. L2 adds only ~1.6 s
 on top of L1.
 
 ---
@@ -355,7 +355,7 @@ regression comparison.
 | L    |  10.8 ms  |  20.5 ms |  12.9 ms |      1.20x      |
 
 cbor4ii decode is **2.0x faster** than ciborium across all tiers. At S/M, cbor4ii
-is at parity with JSON (within 3-7%). At L, cbor4ii is 20% slower than JSON — the
+is at parity with JSON (within 3-7%). At L, cbor4ii is 20% slower than JSON because the
 `#[serde(flatten)]` Content-buffering overhead grows with element count.
 
 ciborium's `from_reader()` trait-based byte reads are the dominant bottleneck;
@@ -400,7 +400,7 @@ identical.
 | M    |  423 us |  411 us  |   2.9%   |
 | L    | 1.89 ms | 1.79 ms  |   5.3%   |
 
-CBOR flatten overhead is **5-7%** with cbor4ii — down from 16-20% with ciborium.
+CBOR flatten overhead is **5-7%** with cbor4ii, down from 16-20% with ciborium.
 JSON flatten overhead is negligible (0-5%). The Content-buffering machinery has
 minimal impact with efficient format backends.
 
@@ -455,31 +455,31 @@ O(n log n) range.**
 
 ## Key Takeaways
 
-1. **all_paths query: 16.6x speedup** (T-059) — backtracking DFS with `Vec<bool>` bitset
-   replaces exponential-cloning IDDFS. M/depth_10: 193 ms → 11.6 ms.
-2. **Selector matching: 3-4x speedup** (T-069) — pre-computed lowercased patterns
-   eliminate per-match `to_lowercase()` calls. Label match at S: 4.1 µs → 991 ns.
-3. **CBOR decode: 34% faster at L** (T-062/T-063) — visitor-based deserialization
+1. **all_paths query: 16.6x speedup** (T-059). Backtracking DFS with `Vec<bool>` bitset
+   replaces exponential-cloning IDDFS. M/depth_10: 193 ms to 11.6 ms.
+2. **Selector matching: 3-4x speedup** (T-069). Pre-computed lowercased patterns
+   eliminate per-match `to_lowercase()` calls. Label match at S: 4.1 us to 991 ns.
+3. **CBOR decode: 34% faster at L** (T-062/T-063). Visitor-based deserialization
    and `TryFrom<String>` eliminate intermediate allocations. CBOR is now 26% faster
    than JSON for deserialization at L tier.
-4. **CBOR encode is 36% faster than JSON** — cbor4ii's compact encoding and direct buffer
+4. **CBOR encode is 36% faster than JSON.** cbor4ii's compact encoding and direct buffer
    writes outperform serde_json. Encode throughput: 571-646 MiB/s (CBOR) vs 480-540 MiB/s
    (JSON).
-5. **CBOR is 21% smaller than compact JSON** — consistent 0.78-0.80 ratio across all tiers.
-6. **`#[serde(flatten)]` overhead is 5-7% for CBOR** — down from 16-20% with ciborium.
-7. **Diff: 13% faster at XL** (T-060/T-061/T-066) — HashMap pre-indexing, HashSet
+5. **CBOR is 21% smaller than compact JSON.** Consistent 0.78-0.80 ratio across all tiers.
+6. **`#[serde(flatten)]` overhead is 5-7% for CBOR**, down from 16-20% with ciborium.
+7. **Diff: 13% faster at XL** (T-060/T-061/T-066). HashMap pre-indexing, HashSet
    containment, and direct tag-to-string conversion.
-8. **Graph construction: 14% faster at XL** (T-065) — `&str` borrows eliminate ~3M
+8. **Graph construction: 14% faster at XL** (T-065). `&str` borrows eliminate ~3M
    String allocations per build.
-9. **Graph queries: ~14% faster** (T-067) — reusable neighbour buffer eliminates
+9. **Graph queries: ~14% faster** (T-067). Reusable neighbour buffer eliminates
    per-call Vec allocations.
-10. **L2 validation O(E*N) bug is fixed** — full L1+L2+L3 validation at Huge tier
+10. **L2 validation O(E*N) bug is fixed.** Full L1+L2+L3 validation at Huge tier
     now completes in 5.0 s (was estimated ~6 hours).
-11. **Huge-tier CBOR decode: 22% faster** (T-063) — 5.01 s → 3.92 s. CBOR is now
-    13% faster than JSON for deserialization at Huge scale (was 7% slower).
-12. **Huge-tier reachability: 26% faster** (T-067) — bidirectional traversal from
-    mid-graph: 759 ms → 564 ms from neighbour buffer reuse.
-13. **Huge-tier parse + build round-trip: ~6.1 s** — loading a 500 MB supply chain
+11. **Huge-tier CBOR decode: 22% faster** (T-063). Improved from 5.01 s to 3.92 s.
+    CBOR is now 13% faster than JSON for deserialization at Huge scale (was 7% slower).
+12. **Huge-tier reachability: 26% faster** (T-067). Bidirectional traversal from
+    mid-graph improved from 759 ms to 564 ms via neighbour buffer reuse.
+13. **Huge-tier parse + build round-trip: ~6.1 s.** Loading a 500 MB supply chain
     graph into memory is feasible for batch analytics (was ~6.5 s).
-12. **No operation requires optimization for the current scale target** — all are
+14. **No operation requires optimization for the current scale target.** All are
     within acceptable latency bounds.
