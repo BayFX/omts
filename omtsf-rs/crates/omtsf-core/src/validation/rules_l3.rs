@@ -8,6 +8,8 @@
 ///
 /// Rules are registered in [`crate::validation::build_registry`] when
 /// [`crate::validation::ValidationConfig::run_l3`] is `true`.
+use std::collections::HashMap;
+
 use crate::enums::{EdgeType, EdgeTypeTag};
 use crate::file::OmtsFile;
 
@@ -123,6 +125,16 @@ impl ValidationRule for L3Mrg01 {
             .map(|n| n.id.as_ref() as &str)
             .collect();
 
+        let mut ownership_by_target: HashMap<&str, Vec<&crate::structures::Edge>> = HashMap::new();
+        for edge in &file.edges {
+            if edge.edge_type == EdgeTypeTag::Known(EdgeType::Ownership) {
+                ownership_by_target
+                    .entry(edge.target.as_ref())
+                    .or_default()
+                    .push(edge);
+            }
+        }
+
         for org_node in &file.nodes {
             if org_node.node_type
                 != crate::enums::NodeTypeTag::Known(crate::enums::NodeType::Organization)
@@ -135,13 +147,11 @@ impl ValidationRule for L3Mrg01 {
             let mut total_pct: f64 = 0.0;
             let mut has_any_pct = false;
 
-            for edge in &file.edges {
-                if edge.edge_type != EdgeTypeTag::Known(EdgeType::Ownership) {
-                    continue;
-                }
-                if (edge.target.as_ref() as &str) != org_id {
-                    continue;
-                }
+            let edges = ownership_by_target
+                .get(org_id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            for edge in edges {
                 if !org_ids.contains(edge.source.as_ref() as &str) {
                     continue;
                 }
