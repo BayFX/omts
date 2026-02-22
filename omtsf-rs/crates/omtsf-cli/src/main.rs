@@ -5,8 +5,8 @@ pub mod format;
 pub mod io;
 
 pub use cli::{
-    Cli, Command, Direction, DisclosureScope, ImportFormat, MergeStrategy, OutputFormat,
-    PathOrStdin, TargetEncoding,
+    Cli, Command, Direction, DisclosureScope, ExportFormat, ImportFormat, MergeStrategy,
+    OutputFormat, PathOrStdin, TargetEncoding,
 };
 
 use clap::Parser;
@@ -190,6 +190,15 @@ fn dispatch(cli: &Cli) -> Result<(), error::CliError> {
             input_format,
             output,
         } => cmd::import::run(file, input_format, output.as_deref()),
+
+        Command::Export {
+            file,
+            output_format,
+            output,
+        } => {
+            let (omts_file, _encoding) = io::read_and_parse(file, cli.max_file_size, cli.verbose)?;
+            cmd::export::run(&omts_file, output_format, output.as_deref())
+        }
     }
 }
 

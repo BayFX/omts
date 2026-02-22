@@ -38,13 +38,15 @@ use omtsf_core::validation::{ValidationConfig, validate};
 
 mod edges;
 pub mod error;
+pub mod export;
 mod identifiers;
 mod metadata;
 mod nodes;
 mod sheet;
 mod slug;
 
-pub use error::ImportError;
+pub use error::{ExportError, ImportError};
+pub use export::export_excel;
 
 /// The OMTSF version string embedded in all imported files.
 const OMTSF_VERSION: &str = "1.0.0";

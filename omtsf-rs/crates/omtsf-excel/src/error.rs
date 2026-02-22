@@ -98,3 +98,34 @@ impl fmt::Display for ImportError {
 }
 
 impl std::error::Error for ImportError {}
+
+/// All error conditions that can occur while exporting a workbook.
+///
+/// These errors cover Excel write failures and any internal serialization
+/// problems encountered while building the workbook.
+#[derive(Debug)]
+pub enum ExportError {
+    /// An error produced by the `rust_xlsxwriter` library while building or
+    /// writing the workbook.
+    ExcelWrite {
+        /// Human-readable description of the error.
+        detail: String,
+    },
+
+    /// An I/O error occurred while writing the output.
+    Io {
+        /// Human-readable description of the error.
+        detail: String,
+    },
+}
+
+impl std::fmt::Display for ExportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ExcelWrite { detail } => write!(f, "Excel write error: {detail}"),
+            Self::Io { detail } => write!(f, "I/O error: {detail}"),
+        }
+    }
+}
+
+impl std::error::Error for ExportError {}
