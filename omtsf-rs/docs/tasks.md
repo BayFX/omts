@@ -946,6 +946,119 @@ senior Rust engineers. Tasks are ordered by estimated impact.
 
 ---
 
+## Phase 12: Quality Review Findings
+
+Findings from a parallel quality review by independent senior Rust engineer
+and senior QA engineer assessments. Tasks ordered by priority.
+
+### T-070 -- Implement Default for Node struct
+
+- **Source:** Both reviewers (Rust engineer M-1, QA engineer m-1)
+- **Dependencies:** T-005
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Location:** `structures/node.rs:22-173`
+- **Issue:** The flat Node struct (32+ fields) causes massive boilerplate in both production code and tests. Test constructors require 30+ lines of `None` fields, duplicated across 10+ test files (~800+ lines). The merge pipeline (`pipeline.rs:347-372`) and redaction (`redaction/mod.rs:597-645`) copy fields individually, fragile to schema evolution.
+- **Acceptance Criteria:**
+  - `Default` impl for `Node` with a sentinel `id` and `node_type`
+  - All test constructors simplified to use struct update syntax (`..Default::default()`)
+  - Merge pipeline field-copying simplified where possible
+  - All existing tests continue to pass
+
+### T-071 -- Add unit tests for union_find, check_digits, newtypes, canonical, encoding
+
+- **Source:** QA engineer M-1
+- **Dependencies:** T-023, T-012, T-003, T-024, T-049
+- **Complexity:** L
+- **Crate:** omtsf-core
+- **Issue:** Several core algorithmic modules have zero direct unit tests (only indirect coverage through higher-level tests). A bug in check-digit arithmetic, union-find, or encoding detection would not necessarily be caught.
+- **Acceptance Criteria:**
+  - `union_find.rs`: tests for singleton find, two-element union+find, transitive union chain, path compression, rank balancing, idempotent union, large component merge
+  - `check_digits.rs`: tests for valid/invalid LEI MOD 97-10, valid/invalid GLN GS1 mod-10, boundary values (all zeros, all nines), non-digit characters, wrong-length inputs
+  - `newtypes.rs`: boundary tests for TryFrom impls — empty strings, too-long strings, special characters, exact boundary lengths (FileSalt 64 hex chars), invalid dates (Feb 30, month 13), lowercase country codes
+  - `canonical.rs`: unit tests for canonical ID construction per scheme
+  - `encoding.rs`: unit tests for encoding detection heuristic (JSON, CBOR, zstd, unknown bytes, whitespace-prefixed JSON)
+
+### T-072 -- Add cmd_query.rs CLI integration tests
+
+- **Source:** QA engineer M-2
+- **Dependencies:** T-040
+- **Complexity:** M
+- **Crate:** omtsf-cli
+- **Issue:** The `query` command is the only CLI subcommand without integration tests. All other commands have dedicated `cmd_*.rs` integration test files.
+- **Acceptance Criteria:**
+  - `--node-type` filtering produces correct output
+  - `--label` key and key=value matching
+  - `--identifier` scheme and scheme:value matching
+  - `--jurisdiction` filtering
+  - `--name` substring matching
+  - `--count` output format (human and JSON modes)
+  - `--format json` output structure
+  - Empty result → exit code 1
+  - Nonexistent file → exit code 2
+  - No selectors → exit code 2
+  - Mixed selectors with AND/OR composition
+
+### T-073 -- Add L3 validation rule tests
+
+- **Source:** QA engineer M-3
+- **Dependencies:** T-017
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Issue:** L3 validation rules exist in production code (`rules_l3.rs`) but have zero tests. L1 has ~2000 lines of tests, L2 has ~700 lines, L3 has none.
+- **Acceptance Criteria:**
+  - Tests following the same pattern as `rules_l1_gdm/tests.rs` and `rules_l2/tests.rs`
+  - L3-MRG-01 (ownership percentage sum) tested with valid and invalid inputs
+  - L3-MRG-02 (legal_parentage cycle detection) tested with acyclic and cyclic graphs
+  - L3-EID rules tested with mock `ExternalDataSource`
+  - Tests confirm correct `RuleId`, `Severity::Info`, and `Location`
+
+### T-074 -- Fix hardcoded merge timestamp placeholder
+
+- **Source:** Rust engineer M-5
+- **Dependencies:** T-029
+- **Complexity:** S
+- **Crate:** omtsf-core
+- **Location:** `merge_pipeline/pipeline.rs:690`
+- **Issue:** Merge metadata always emits `"2026-02-20T00:00:00Z"` instead of actual merge time. This is a placeholder left from development.
+- **Acceptance Criteria:**
+  - Timestamp reflects actual wall clock time at merge execution
+  - Since omtsf-core denies stdout/stderr but system time is fine, either get time in core or pass timestamp from CLI layer
+  - Existing merge tests updated to not assert on exact timestamp value
+  - proptest `stable_hash` already zeros timestamp, so algebraic tests unaffected
+
+### T-075 -- Extract shared test helpers to reduce duplication
+
+- **Source:** Both reviewers (Rust engineer n-2, QA engineer m-1)
+- **Dependencies:** T-070
+- **Complexity:** M
+- **Crate:** omtsf-core
+- **Issue:** Helper functions (`org_node()`, `facility_node()`, `supplies_edge()`, `minimal_file()`, `node_id()`, `edge_id()`) are copy-pasted across 10+ test files (~800+ lines total).
+- **Acceptance Criteria:**
+  - Shared `#[cfg(test)]` test_helpers module in omtsf-core (or dev-dependency helper crate)
+  - All test files import shared constructors instead of defining their own
+  - Net reduction of ~500+ lines of duplicated test code
+  - All existing tests continue to pass
+  - Blocked by T-070 (`Default` for Node makes helpers much simpler)
+
+### T-076 -- Expand shared fixture files and L1 validation test coverage ✅
+
+- **Source:** Test coverage gap analysis
+- **Dependencies:** T-009, T-013, T-014, T-015
+- **Complexity:** M
+- **Crate:** omtsf-core (tests)
+- **Issue:** The repo root `tests/fixtures/valid/` had only 2 fixtures (`minimal.omts`, `full-featured.omts`). 8 of 16 edge types had no valid fixture file. 9 of 19 invalid fixtures were undocumented in schema conformance tests. No L1 validation integration test existed against fixture files.
+- **Acceptance Criteria:**
+  - 6 new valid fixture files: `all-edge-types.omts` (all 16 edge types), `delta.omts` (delta mode), `identifiers-full.omts` (all identifier schemes + verification + temporal fields), `geo-polygon.omts` (GeoJSON Polygon), `labels-and-quality.omts` (labels + all confidence levels), `nullable-dates.omts` (`valid_to: null`)
+  - `existing_valid_fixtures_pass_schema` auto-discovers all `valid/*.omts` files
+  - `existing_invalid_fixtures_documented` covers all 19 invalid fixtures (7 schema-rejects, 12 schema-accepts)
+  - `existing_valid_fixtures_pass_l1_validation` runs L1-only validation on all valid fixtures
+  - `existing_invalid_fixtures_trigger_expected_rules` asserts each parseable invalid fixture triggers its expected L1 `RuleId`
+  - Parse + round-trip tests in `parse_fixtures.rs` for all 6 new fixtures via `repo_fixtures_dir()` helper
+  - `just pre-commit` passes; no file exceeds 800 lines
+
+---
+
 ## Notes: Spec Ambiguities Discovered During Planning
 
 1. **`control_type` disambiguation (data-model.md Section 4.5).** The spec reuses the JSON key `"control_type"` across two edge types with disjoint variant sets (`operational_control` vs `beneficial_ownership`). The data model stores this as `serde_json::Value`. Implementors should verify that the validation engine enforces the correct variant set per edge type, and that the diff engine compares `control_type` values structurally without assuming a single enum.
