@@ -14,6 +14,17 @@ pub enum ImportFormat {
     Excel,
 }
 
+/// Output format for the `export` subcommand.
+///
+/// Currently only `excel` is supported. Additional formats (e.g. CSV, Parquet)
+/// may be added in future releases.
+#[non_exhaustive]
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ExportFormat {
+    /// Microsoft Excel `.xlsx` format.
+    Excel,
+}
+
 /// A CLI argument that is either a filesystem path or the stdin sentinel `"-"`.
 ///
 /// Parsing `"-"` yields [`PathOrStdin::Stdin`]; anything else yields
@@ -283,6 +294,19 @@ pub enum Command {
         #[arg(long = "input-format", default_value = "excel", value_enum)]
         input_format: ImportFormat,
         /// Write output to this file instead of stdout.
+        #[arg(long, short = 'o', value_name = "OUTPUT")]
+        output: Option<PathBuf>,
+    },
+
+    /// Export a supply-chain graph to an external format (e.g. Excel).
+    Export {
+        /// Path to the input `.omts` file, or `-` for stdin.
+        #[arg(value_name = "FILE")]
+        file: PathOrStdin,
+        /// Output format. Only `excel` is currently supported.
+        #[arg(long = "output-format", default_value = "excel", value_enum)]
+        output_format: ExportFormat,
+        /// Write output to this file (required for binary formats like Excel).
         #[arg(long, short = 'o', value_name = "OUTPUT")]
         output: Option<PathBuf>,
     },
