@@ -595,7 +595,7 @@
 
 ## Phase 9: Integration & Polish
 
-### T-044 -- End-to-end pipeline tests
+### T-044 -- End-to-end pipeline tests ✅
 
 - **Spec Reference:** All specs
 - **Dependencies:** T-040, T-041, T-042, T-043
@@ -622,7 +622,7 @@
   - `--verbose` verified to produce timing and count information
   - Exit codes verified against the complete table in cli-interface.md Section 6
 
-### T-046 -- Write comprehensive test fixtures for merge edge cases
+### T-046 -- Write comprehensive test fixtures for merge edge cases ✅
 
 - **Spec Reference:** merge.md Section 6.3
 - **Dependencies:** T-029, T-009
@@ -633,7 +633,7 @@
   - Each fixture pair has a corresponding expected-output file or assertion
   - All fixture-based merge tests pass
 
-### T-047 -- Verify WASM compatibility of omtsf-core
+### T-047 -- Verify WASM compatibility of omtsf-core ✅
 
 - **Spec Reference:** overview.md Section 4; data-model.md Section 11
 - **Dependencies:** T-029, T-034, T-036, T-022
