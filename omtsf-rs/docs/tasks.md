@@ -1066,13 +1066,15 @@ and senior QA engineer assessments. Tasks ordered by priority.
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
 - **Dependencies:** T-008, T-011, T-013, T-014, T-015, T-040
 - **Complexity:** XL
-- **Crate:** omtsf-cli (Excel I/O), omtsf-core (tabular-to-graph conversion logic)
-- **Description:** Implement the `omtsf import` command with a `--format <fmt>` flag. The first supported format is `excel`, which reads a multi-sheet `.xlsx` workbook in the OMTS Excel import format (see `tests/fixtures/excel/`) and converts it to a valid `.omts` file. The `--format` flag defaults to `excel` for now but is designed to be extended with additional formats (e.g., CSV, Parquet) in the future. The template has 12 sheets: README, Metadata, Organizations, Facilities, Goods, Persons, Attestations, Consignments, Supply Relationships, Corporate Structure, Same As, and Identifiers.
+- **Crate:** `omtsf-excel` (new crate; Excel I/O + tabular-to-graph conversion logic), `omtsf-cli` (CLI wiring only)
+- **Description:** Create a new workspace crate `crates/omtsf-excel` that implements the Excel import logic. The crate depends on `omtsf-core` for graph types and `calamine` for `.xlsx` reading. The `omtsf-cli` crate depends on `omtsf-excel` and wires the `omtsf import` subcommand. The `--format <fmt>` flag defaults to `excel` for now but is designed to be extended with additional formats (e.g., CSV, Parquet) in the future. The template has 12 sheets: README, Metadata, Organizations, Facilities, Goods, Persons, Attestations, Consignments, Supply Relationships, Corporate Structure, Same As, and Identifiers.
 - **Acceptance Criteria:**
+  - A new crate `crates/omtsf-excel` is created as a workspace member with its own `Cargo.toml`; it depends on `omtsf-core` and `calamine`; it does NOT depend on `omtsf-cli`
+  - `omtsf-excel` exposes a public `import_excel(reader: impl Read + Seek) -> Result<OmtsFile, ImportError>` function (or similar) that the CLI calls
   - `omtsf import [--format excel] <input.xlsx> [-o output.omts]` reads an Excel file and writes a valid `.omts` file
   - `--format` flag accepts `excel` (default); unknown formats produce a descriptive error and exit 2
   - The `ImportFormat` enum in clap is `#[non_exhaustive]` to signal future extensibility
-  - Uses `calamine` crate for `.xlsx` reading; dependency confined to `omtsf-cli` (not in `omtsf-core`)
+  - `calamine` dependency is confined to `omtsf-excel` (not in `omtsf-core` or `omtsf-cli`)
   - **Metadata sheet:** reads `snapshot_date` (required), `reporting_entity`, `disclosure_scope`, data quality defaults
   - **Node sheets** (Organizations, Facilities, Goods, Persons, Attestations, Consignments): each row becomes a node with the appropriate `type`; common identifier columns on Organizations sheet (lei, duns, nat_reg, vat, internal) converted to identifier records
   - **Edge sheets** (Supply Relationships, Corporate Structure): each row becomes an edge; domain-friendly column names (supplier_id/buyer_id, subsidiary_id/parent_id) mapped to source/target per edge type direction convention
@@ -1094,13 +1096,15 @@ and senior QA engineer assessments. Tasks ordered by priority.
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
 - **Dependencies:** T-008, T-040, T-077
 - **Complexity:** L
-- **Crate:** omtsf-cli (Excel I/O), omtsf-core (graph-to-tabular conversion logic)
-- **Description:** Implement the `omtsf export` command with a `--format <fmt>` flag. The first supported format is `excel`, which reads a valid `.omts` file and writes a multi-sheet `.xlsx` workbook in the same format used by `import --format excel`. The `--format` flag defaults to `excel` for now but is designed to be extended with additional formats in the future. This is the inverse of T-077 and enables round-trip workflows: import Excel → enrich/merge/redact → export back to Excel for review by procurement teams who don't use CLI tooling.
+- **Crate:** `omtsf-excel` (Excel I/O + graph-to-tabular conversion logic), `omtsf-cli` (CLI wiring only)
+- **Description:** Add export functionality to the `omtsf-excel` crate (created in T-077). The export logic uses `rust_xlsxwriter` for `.xlsx` writing, added as a dependency of `omtsf-excel`. The `omtsf-cli` crate wires the `omtsf export` subcommand. The `--format` flag defaults to `excel` for now but is designed to be extended with additional formats in the future. This is the inverse of T-077 and enables round-trip workflows: import Excel → enrich/merge/redact → export back to Excel for review by procurement teams who don't use CLI tooling.
 - **Acceptance Criteria:**
+  - Export logic lives in `crates/omtsf-excel` alongside the import logic; `rust_xlsxwriter` dependency is confined to `omtsf-excel`
+  - `omtsf-excel` exposes a public `export_excel(file: &OmtsFile, writer: impl Write) -> Result<(), ExportError>` function (or similar) that the CLI calls
   - `omtsf export [--format excel] <input.omts> -o output.xlsx` reads an `.omts` file and writes an Excel workbook
   - `--format` flag accepts `excel` (default); unknown formats produce a descriptive error and exit 2
   - The `ExportFormat` enum in clap is `#[non_exhaustive]` to signal future extensibility
-  - Uses `rust_xlsxwriter` crate for `.xlsx` writing; dependency confined to `omtsf-cli`
+  - `rust_xlsxwriter` dependency is confined to `omtsf-excel` (not in `omtsf-core` or `omtsf-cli`)
   - **Metadata sheet:** populated from file header fields (`omtsf_version`, `snapshot_date`, `reporting_entity`, `disclosure_scope`)
   - **Node sheets** (Organizations, Facilities, Goods, Persons, Attestations, Consignments): nodes routed to the correct sheet by `type`; common identifier schemes (lei, duns, nat_reg, vat, internal) extracted from identifier array into inline columns on Organizations sheet
   - **Edge sheets** (Supply Relationships, Corporate Structure): edges routed by type category; source/target mapped to domain-friendly column names (supplier_id/buyer_id, subsidiary_id/parent_id) per edge type direction convention
