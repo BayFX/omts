@@ -1061,7 +1061,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
 
 ## Phase 13: Excel Import
 
-### T-077 -- Implement `import` command with `--format excel`
+### T-077 -- Implement `import` command with `--format excel` ✅
 
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md`), SPEC-001 through SPEC-005
 - **Dependencies:** T-008, T-011, T-013, T-014, T-015, T-040
