@@ -216,15 +216,18 @@ pub(super) fn match_edges(
         }
     };
 
+    let node_map_a: HashMap<&str, &Node> = nodes_a.iter().map(|n| (&*n.id as &str, n)).collect();
+    let node_map_b: HashMap<&str, &Node> = nodes_b.iter().map(|n| (&*n.id as &str, n)).collect();
+
     let node_type_allowed_for_id = |node_id: &NodeId| -> bool {
         match filter.and_then(|f| f.node_types.as_ref()) {
             None => true,
             Some(allowed) => {
                 let id_str: &str = node_id;
-                if let Some(node) = nodes_a.iter().find(|n| &*n.id == id_str) {
+                if let Some(node) = node_map_a.get(id_str) {
                     return allowed.contains(&tag_to_string(&node.node_type));
                 }
-                if let Some(node) = nodes_b.iter().find(|n| &*n.id == id_str) {
+                if let Some(node) = node_map_b.get(id_str) {
                     return allowed.contains(&tag_to_string(&node.node_type));
                 }
                 false
