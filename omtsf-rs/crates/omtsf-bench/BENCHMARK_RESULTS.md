@@ -250,14 +250,15 @@ Fixture pre-generated to disk via `just gen-huge`; benchmarks load from
 
 | Operation        |   Time   | Throughput   |
 |------------------|--------:|--------------|
-| Deserialize JSON |  4.68 s  | 107 MiB/s    |
-| Serialize JSON   |  1.36 s  | 367 MiB/s    |
-| Decode CBOR      |  5.01 s  |  80 MiB/s    |
-| Encode CBOR      |  892 ms  | 448 MiB/s    |
+| Deserialize JSON |  4.53 s  | 110 MiB/s    |
+| Serialize JSON   |  1.28 s  | 391 MiB/s    |
+| Decode CBOR      |  3.92 s  | 102 MiB/s    |
+| Encode CBOR      |  853 ms  | 469 MiB/s    |
 
-JSON serialize/deserialize ratio holds at ~3.4x, consistent with smaller tiers.
-CBOR decode is 1.07x JSON deserialize — near parity at Huge scale. CBOR encode
-is **34% faster** than JSON serialize.
+CBOR decode is now **13% faster than JSON** at Huge scale (was 7% slower
+pre-optimization). The visitor-based deserialization (T-063) has outsized impact
+at this scale — 22% improvement on CBOR decode alone. CBOR encode is **33% faster**
+than JSON serialize.
 
 CBOR benchmarks run in a separate binary (`huge_cbor`) to avoid OOM on
 memory-constrained machines.
@@ -266,9 +267,10 @@ memory-constrained machines.
 
 | Time   | Throughput    |
 |-------:|---------------|
-| 1.84 s | 1.21 Melem/s  |
+| 1.59 s | 1.40 Melem/s  |
 
-Throughput drops from ~3.4-5.1 Melem/s at XL to ~1.2 Melem/s at Huge -- hash map
+T-065's `&str` borrow optimization improved Huge-tier build by 13% (was 1.84 s).
+Throughput drops from ~3.4-5.1 Melem/s at XL to ~1.4 Melem/s at Huge -- hash map
 resizing and cache pressure dominate at 2.2M elements. Now includes building
 type indexes.
 
@@ -276,23 +278,23 @@ type indexes.
 
 | Variant                |    Huge    |
 |------------------------|----------:|
-| Forward from root      |   413 ms  |
-| Filtered (supplies)    |  2.25 ms  |
-| Both from mid          |   759 ms  |
+| Forward from root      |   393 ms  |
+| Filtered (supplies)    |  2.06 ms  |
+| Both from mid          |   564 ms  |
 
-Edge-type filtering yields ~184x speedup at this scale (vs ~36x at XL).
-Full bidirectional traversal from mid-graph: 759 ms.
+T-067's reusable neighbour buffer improved bidirectional traversal by 26% (was 759 ms).
+Edge-type filtering yields ~191x speedup at this scale (vs ~36x at XL).
 
 ### Shortest Path
 
 | Variant        |    Huge    |
 |----------------|----------:|
-| Root to leaf   |   527 ms  |
-| Root to mid    |  64.7 ms  |
-| No path        |   158 ns  |
+| Root to leaf   |   455 ms  |
+| Root to mid    |  57.6 ms  |
+| No path        |   157 ns  |
 
-No-path remains O(1) at 158 ns, identical to all smaller tiers.
-Root-to-leaf spans 20 tiers in 527 ms.
+No-path remains O(1) at 157 ns, identical to all smaller tiers.
+Root-to-leaf spans 20 tiers in 455 ms (was 527 ms, -14% from T-067).
 
 ### Selector Query
 
@@ -301,21 +303,22 @@ Root-to-leaf spans 20 tiers in 527 ms.
 | Selector     |   Huge   | Throughput      |
 |--------------|--------:|-----------------:|
 | Label key    | 82.5 ms  |  27.0 Melem/s   |
-| Node type    | 16.8 ms  | 132.5 Melem/s   |
-| Multi        | 59.5 ms  |  37.4 Melem/s   |
+| Node type    | 21.9 ms  | 101.6 Melem/s   |
+| Multi        | 63.6 ms  |  35.0 Melem/s   |
 
-Label matching drops to ~27 Melem/s at Huge -- cache misses on the
-larger label maps dominate.
+Label matching unchanged at Huge (cache misses on the larger label maps dominate,
+not pattern lowercasing). Node-type and multi slightly slower — within noise at
+this scale.
 
 #### `selector_subgraph`
 
 | Variant                     |   Huge    |
 |----------------------------|---------:|
-| Narrow (attestation, exp 0) |  237 ms  |
-| Narrow (attestation, exp 1) |  708 ms  |
-| Narrow (attestation, exp 3) | 4.32 s   |
-| Broad (organization, exp 0) | 2.73 s   |
-| Broad (organization, exp 1) | 4.24 s   |
+| Narrow (attestation, exp 0) |  226 ms  |
+| Narrow (attestation, exp 1) |  707 ms  |
+| Narrow (attestation, exp 3) | 4.16 s   |
+| Broad (organization, exp 0) | 2.74 s   |
+| Broad (organization, exp 1) | 4.33 s   |
 
 Type-index fast path yields improvement on narrow exp 0 (type-only selector
 skips the 737K-node linear scan). Broader expansions are dominated by BFS and
@@ -325,8 +328,8 @@ subgraph assembly, so the scan optimization is less visible.
 
 | Level      |   Huge   | Throughput     |
 |------------|--------:|----------------|
-| L1 only    |  3.43 s  | 649 Kelem/s    |
-| L1+L2+L3   |  5.00 s  | 445 Kelem/s    |
+| L1 only    |  3.45 s  | 645 Kelem/s    |
+| L1+L2+L3   |  5.01 s  | 445 Kelem/s    |
 
 **L1+L2+L3 is now tractable at Huge tier.** The previous O(E*N) bug in
 `facility_ids_with_org_connection` caused L2 validation alone to be estimated at
@@ -432,23 +435,23 @@ XL to Huge ~148x.
 |-----------------|:------:|:------:|:-------:|:----------:|:----------:|
 | Deserialize JSON| 11.3x  |  6.2x  |  2.9x   |    143x    |    O(n)    |
 | Serialize JSON  | 10.6x  |  4.3x  |  2.8x   |    205x    |    O(n)    |
-| Decode CBOR     | 11.2x  |  4.7x  |  3.2x   |     --     |    O(n)    |
-| Encode CBOR     | 10.4x  |  4.3x  |  2.9x   |     --     |    O(n)    |
-| Build graph     | 10.2x  |  4.8x  |  3.2x   |    415x    | O(n log n) |
-| Validate L1     | 12.2x  |  5.0x  |  3.8x   |    436x    | O(n log n) |
-| Validate L1+L2+L3| 12.7x |  5.1x  |  3.9x   |    340x    | O(n log n) |
+| Decode CBOR     | 11.2x  |  4.7x  |  3.2x   |    144x    |    O(n)    |
+| Encode CBOR     | 10.4x  |  4.3x  |  2.9x   |    194x    |    O(n)    |
+| Build graph     | 10.2x  |  4.8x  |  3.2x   |    359x    | O(n log n) |
+| Validate L1     | 12.2x  |  5.0x  |  3.8x   |    439x    | O(n log n) |
+| Validate L1+L2+L3| 12.7x |  5.1x  |  3.9x   |    341x    | O(n log n) |
 | Diff identical  | 11.4x  |  4.8x  |  4.0x   |    --      | O(n log n) |
 | Redact partner  | 12.2x  |  4.8x  |  3.5x   |    --      |    O(n)    |
 | Selector (label)| 10.2x  |  6.7x  |  3.5x   |    345x    | O(n log n) |
 | Selector (type) | 5.8x   |  3.5x  |  2.5x   |    537x    | O(n log n) |
 
 At the XL-to-Huge jump (~148x elements), most operations show super-linear
-scaling. Parse and serialize remain close to linear (143x). Build graph
-and validation L1 scale at ~2.9-3.0x expected, suggesting O(n log n) from hash
-map growth. **L1+L2+L3 validation now scales at 340x (vs 148x elements),
-confirming the O(E*N) → O(N+E) fix brought it to O(n log n) range.**
-
-CBOR decode and encode both scale linearly across S-L tiers, consistent with JSON.
+scaling. Parse and serialize remain close to linear (138-143x). CBOR decode
+and encode now scale linearly across all tiers including Huge (144x and 194x
+respectively). Build graph and validation L1 scale at ~2.4-3.0x expected,
+suggesting O(n log n) from hash map growth. **L1+L2+L3 validation scales at
+341x (vs 148x elements), confirming the O(E*N) → O(N+E) fix brought it to
+O(n log n) range.**
 
 ## Key Takeaways
 
@@ -472,7 +475,11 @@ CBOR decode and encode both scale linearly across S-L tiers, consistent with JSO
    per-call Vec allocations.
 10. **L2 validation O(E*N) bug is fixed** — full L1+L2+L3 validation at Huge tier
     now completes in 5.0 s (was estimated ~6 hours).
-11. **Huge-tier parse + build round-trip: ~6.5 s** — loading a 500 MB supply chain
-    graph into memory is feasible for batch analytics.
+11. **Huge-tier CBOR decode: 22% faster** (T-063) — 5.01 s → 3.92 s. CBOR is now
+    13% faster than JSON for deserialization at Huge scale (was 7% slower).
+12. **Huge-tier reachability: 26% faster** (T-067) — bidirectional traversal from
+    mid-graph: 759 ms → 564 ms from neighbour buffer reuse.
+13. **Huge-tier parse + build round-trip: ~6.1 s** — loading a 500 MB supply chain
+    graph into memory is feasible for batch analytics (was ~6.5 s).
 12. **No operation requires optimization for the current scale target** — all are
     within acceptable latency bounds.
