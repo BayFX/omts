@@ -442,22 +442,15 @@ pub fn merge_with_config(
     }
 
     let mut node_rep_to_canonical: HashMap<usize, String> = HashMap::new();
-    for (idx, node) in all_nodes.iter().enumerate() {
-        let rep = uf.find(idx);
-        let cids: Vec<String> = node
-            .identifiers
-            .as_deref()
-            .unwrap_or(&[])
-            .iter()
-            .filter(|id| id.scheme != "internal" && !is_lei_annulled(id))
-            .map(|id| CanonicalId::from_identifier(id).into_string())
-            .collect();
-        for cid in cids {
+    for (canonical_id, node_indices) in &id_index {
+        let cid_str = canonical_id.as_str();
+        for &node_idx in node_indices {
+            let rep = uf.find(node_idx);
             let entry = node_rep_to_canonical
                 .entry(rep)
-                .or_insert_with(|| cid.clone());
-            if cid < *entry {
-                *entry = cid;
+                .or_insert_with(|| cid_str.to_owned());
+            if cid_str < entry.as_str() {
+                *entry = cid_str.to_owned();
             }
         }
     }
