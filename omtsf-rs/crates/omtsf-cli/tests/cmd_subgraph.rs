@@ -373,3 +373,156 @@ fn subgraph_output_passes_validate() {
         String::from_utf8_lossy(&validate_out.stderr)
     );
 }
+
+#[test]
+fn subgraph_selector_node_type_exits_0() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            fixture("graph-query.omts").to_str().expect("path"),
+            "--node-type",
+            "organization",
+        ])
+        .output()
+        .expect("run omtsf subgraph --node-type organization");
+    assert!(out.status.success(), "exit code: {:?}", out.status.code());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let value: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("valid JSON from subgraph");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert!(
+        !nodes.is_empty(),
+        "should have at least one organization node"
+    );
+}
+
+#[test]
+fn subgraph_selector_with_expand() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            fixture("full-featured.omts").to_str().expect("path"),
+            "--node-type",
+            "facility",
+            "--expand",
+            "1",
+        ])
+        .output()
+        .expect("run omtsf subgraph --node-type facility --expand 1");
+    assert!(out.status.success(), "exit code: {:?}", out.status.code());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let value: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("valid JSON from subgraph");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert!(
+        nodes.len() > 1,
+        "expand=1 from facility should include neighbors"
+    );
+}
+
+#[test]
+fn subgraph_combined_node_ids_and_selectors() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            fixture("graph-query.omts").to_str().expect("path"),
+            "org-a",
+            "--node-type",
+            "organization",
+        ])
+        .output()
+        .expect("run omtsf subgraph org-a --node-type organization");
+    assert!(out.status.success(), "exit code: {:?}", out.status.code());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let value: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("valid JSON from subgraph");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    let node_ids: Vec<&str> = nodes.iter().filter_map(|n| n["id"].as_str()).collect();
+    assert!(
+        node_ids.contains(&"org-a"),
+        "explicit node ID org-a must be present"
+    );
+}
+
+#[test]
+fn subgraph_no_ids_no_selectors_exits_2() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            fixture("graph-query.omts").to_str().expect("path"),
+        ])
+        .output()
+        .expect("run omtsf subgraph with no args");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "expected exit 2 when no node IDs and no selectors"
+    );
+}
+
+#[test]
+fn subgraph_selector_to_cbor_exits_0() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            "--to",
+            "cbor",
+            fixture("graph-query.omts").to_str().expect("path"),
+            "--node-type",
+            "organization",
+        ])
+        .output()
+        .expect("run omtsf subgraph --node-type org --to cbor");
+    assert!(out.status.success(), "exit code: {:?}", out.status.code());
+    assert!(
+        out.stdout.len() >= 3,
+        "CBOR output should have at least 3 bytes"
+    );
+    assert_eq!(
+        &out.stdout[..3],
+        &[0xD9, 0xD9, 0xF7],
+        "CBOR output must start with self-describing tag 55799"
+    );
+}
+
+#[test]
+fn subgraph_selector_compress_exits_0() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            "--compress",
+            fixture("graph-query.omts").to_str().expect("path"),
+            "--node-type",
+            "organization",
+        ])
+        .output()
+        .expect("run omtsf subgraph --node-type org --compress");
+    assert!(out.status.success(), "exit code: {:?}", out.status.code());
+    assert!(
+        out.stdout.len() >= 4,
+        "compressed output should have at least 4 bytes"
+    );
+    assert_eq!(
+        &out.stdout[..4],
+        &[0x28, 0xB5, 0x2F, 0xFD],
+        "compressed output must start with zstd magic bytes"
+    );
+}
+
+#[test]
+fn subgraph_selector_no_match_exits_1() {
+    let out = Command::new(omtsf_bin())
+        .args([
+            "subgraph",
+            fixture("graph-query.omts").to_str().expect("path"),
+            "--node-type",
+            "facility",
+        ])
+        .output()
+        .expect("run omtsf subgraph --node-type facility (no facilities in graph-query)");
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "expected exit 1 when selectors match nothing"
+    );
+}

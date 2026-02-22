@@ -106,9 +106,8 @@ omtsf inspect <file>               Print summary statistics
 omtsf convert <file>               Re-serialize (normalize whitespace/key ordering)
 omtsf reach <file> <node>          List all reachable nodes from a source
 omtsf path <file> <from> <to>      Find paths between two nodes
-omtsf subgraph <file> <nodes>...   Extract the induced subgraph for a set of nodes
+omtsf subgraph <file> [nodes]...   Extract induced subgraph by node IDs and/or selectors
 omtsf query <file>                 Search nodes/edges by type, label, identifier
-omtsf extract-subchain <file>      Extract subgraph matching selector criteria
 omtsf init                         Scaffold a new minimal .omts file
 ```
 

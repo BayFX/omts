@@ -5,7 +5,6 @@
 /// a [`crate::error::CliError`] on failure.
 pub mod convert;
 pub mod diff;
-pub mod extract_subchain;
 pub mod init;
 pub mod inspect;
 pub mod merge;

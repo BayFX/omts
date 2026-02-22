@@ -1,4 +1,4 @@
-//! Shared selector flag parsing for `query` and `extract-subchain` commands.
+//! Shared selector flag parsing for `query` and `subgraph` commands.
 //!
 //! Provides [`build_selector_set`], which converts the raw string vectors
 //! collected by clap into a `SelectorSet` ready for use with

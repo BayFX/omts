@@ -219,14 +219,32 @@ pub enum Command {
         max_depth: u32,
     },
 
-    /// Extract the induced subgraph for a set of nodes.
+    /// Extract the induced subgraph for a set of nodes and/or selector-matched elements.
     Subgraph {
         /// Path to an .omts file, or `-` for stdin.
         #[arg(value_name = "FILE")]
         file: PathOrStdin,
-        /// One or more node IDs to include.
-        #[arg(value_name = "NODE_ID", num_args = 1.., required = true)]
+        /// Node IDs to include (optional when selector flags are provided).
+        #[arg(value_name = "NODE_ID", num_args = 0..)]
         node_ids: Vec<String>,
+        /// Match nodes of this type (repeatable; e.g. organization, facility).
+        #[arg(long, value_name = "TYPE")]
+        node_type: Vec<String>,
+        /// Match edges of this type (repeatable; e.g. supplies, ownership).
+        #[arg(long, value_name = "TYPE")]
+        edge_type: Vec<String>,
+        /// Match elements with this label key, or key=value pair (repeatable).
+        #[arg(long, value_name = "KEY[=VALUE]")]
+        label: Vec<String>,
+        /// Match nodes with this identifier scheme, or scheme:value pair (repeatable).
+        #[arg(long, value_name = "SCHEME[:VALUE]")]
+        identifier: Vec<String>,
+        /// Match nodes whose jurisdiction equals this ISO 3166-1 alpha-2 code (repeatable).
+        #[arg(long, value_name = "CC")]
+        jurisdiction: Vec<String>,
+        /// Match nodes whose name contains this pattern (case-insensitive substring, repeatable).
+        #[arg(long, value_name = "PATTERN")]
+        name: Vec<String>,
         /// Include neighbors up to N hops from the specified nodes (default: 0).
         #[arg(long, default_value = "0")]
         expand: u32,
@@ -271,35 +289,6 @@ pub enum Command {
         /// Print only match counts (nodes: N, edges: M) without listing individual results.
         #[arg(long)]
         count: bool,
-    },
-
-    /// Extract a subgraph rooted at selector-matched nodes and edges.
-    #[command(name = "extract-subchain")]
-    ExtractSubchain {
-        /// Path to an .omts file, or `-` for stdin.
-        #[arg(value_name = "FILE")]
-        file: PathOrStdin,
-        /// Match nodes of this type (repeatable; e.g. organization, facility).
-        #[arg(long, value_name = "TYPE")]
-        node_type: Vec<String>,
-        /// Match edges of this type (repeatable; e.g. supplies, ownership).
-        #[arg(long, value_name = "TYPE")]
-        edge_type: Vec<String>,
-        /// Match elements with this label key, or key=value pair (repeatable).
-        #[arg(long, value_name = "KEY[=VALUE]")]
-        label: Vec<String>,
-        /// Match nodes with this identifier scheme, or scheme:value pair (repeatable).
-        #[arg(long, value_name = "SCHEME[:VALUE]")]
-        identifier: Vec<String>,
-        /// Match nodes whose jurisdiction equals this ISO 3166-1 alpha-2 code (repeatable).
-        #[arg(long, value_name = "CC")]
-        jurisdiction: Vec<String>,
-        /// Match nodes whose name contains this pattern (case-insensitive substring, repeatable).
-        #[arg(long, value_name = "PATTERN")]
-        name: Vec<String>,
-        /// BFS expansion hops from seed elements (default: 1).
-        #[arg(long, default_value = "1")]
-        expand: u32,
     },
 }
 

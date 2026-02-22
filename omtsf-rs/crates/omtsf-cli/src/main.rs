@@ -86,12 +86,30 @@ fn dispatch(cli: &Cli) -> Result<(), error::CliError> {
         Command::Subgraph {
             file,
             node_ids,
+            node_type,
+            edge_type,
+            label,
+            identifier,
+            jurisdiction,
+            name,
             expand,
             to,
             compress,
         } => {
             let (omts_file, _encoding) = io::read_and_parse(file, cli.max_file_size, cli.verbose)?;
-            cmd::subgraph::run(&omts_file, node_ids, *expand, to, *compress)
+            cmd::subgraph::run(
+                &omts_file,
+                node_ids,
+                node_type,
+                edge_type,
+                label,
+                identifier,
+                jurisdiction,
+                name,
+                *expand,
+                to,
+                *compress,
+            )
         }
 
         Command::Merge {
@@ -162,29 +180,6 @@ fn dispatch(cli: &Cli) -> Result<(), error::CliError> {
                 name,
                 *count,
                 &cli.format,
-            )
-        }
-
-        Command::ExtractSubchain {
-            file,
-            node_type,
-            edge_type,
-            label,
-            identifier,
-            jurisdiction,
-            name,
-            expand,
-        } => {
-            let (omts_file, _encoding) = io::read_and_parse(file, cli.max_file_size, cli.verbose)?;
-            cmd::extract_subchain::run(
-                &omts_file,
-                node_type,
-                edge_type,
-                label,
-                identifier,
-                jurisdiction,
-                name,
-                *expand,
             )
         }
     }

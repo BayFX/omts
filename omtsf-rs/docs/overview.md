@@ -83,9 +83,8 @@ omtsf-rs/
 |---------|-------|--------|-------------|
 | `omtsf reach <file> <node-id>` | File + source node | Reachable node set | All nodes reachable from the given node via directed edges |
 | `omtsf path <file> <from> <to>` | File + two node IDs | Paths | All or shortest paths between two nodes |
-| `omtsf subgraph <file> <node-id>...` | File + node set | `.omts` subgraph to stdout | Extract the induced subgraph containing the specified nodes and all edges between them |
+| `omtsf subgraph <file> [node-id...] [selectors]` | File + node IDs and/or selector flags | `.omts` subgraph to stdout | Extract the induced subgraph by explicit node IDs, property-based selectors, or both |
 | `omtsf query <file> [selectors]` | File + selector flags | Matching nodes/edges to stdout | Display nodes and edges matching property-based selectors (type, label, identifier, jurisdiction, name) |
-| `omtsf extract-subchain <file> [selectors]` | File + selector flags | `.omts` subgraph to stdout | Extract the subgraph matching selectors with neighbor expansion |
 
 ### 4.3 Scaffolding Commands
 
@@ -142,5 +141,5 @@ This overview is the first of several specification documents for the CLI and li
 | `redaction.md` | Selective disclosure engine. Scope filtering, boundary ref generation, sensitivity enforcement. |
 | `graph-engine.md` | Graph construction from flat adjacency list. petgraph integration. Query algorithms (reach, path, subgraph). |
 | `diff.md` | Structural diff algorithm. Node/edge matching strategy. Output format. |
-| `query.md` | Selector-based query engine. Selector types, composition rules, `query` and `extract-subchain` commands, benchmark specification. |
+| `query.md` | Selector-based query engine. Selector types, composition rules, `query` and `subgraph` commands, benchmark specification. |
 | `cli-interface.md` | Detailed command specifications: all flags, argument parsing, output formatting, exit codes. |

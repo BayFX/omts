@@ -142,7 +142,7 @@ pub enum CliError {
     ///
     /// This covers cases where clap accepted the raw string but the value
     /// failed domain validation (e.g. a malformed `--jurisdiction` code or
-    /// an empty selector set on `query`/`extract-subchain`).
+    /// an empty selector set on `query`/`subgraph`).
     InvalidArgument {
         /// A human-readable description of what was wrong.
         detail: String,

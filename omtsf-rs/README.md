@@ -13,7 +13,7 @@ omtsf diff <a> <b>                 Compute a structural diff between two files
 omtsf convert <file>               Re-serialize an .omts file (normalize whitespace, key ordering)
 omtsf reach <file> <node_id>       List all nodes reachable from a source node
 omtsf path <file> <from> <to>      Find paths between two nodes
-omtsf subgraph <file> <node_id>... Extract the induced subgraph for a set of nodes
+omtsf subgraph <file> [node_id...] Extract induced subgraph by node IDs and/or selectors
 omtsf init                         Scaffold a new minimal .omts file
 ```
 
@@ -106,11 +106,19 @@ Finds paths between two nodes. Reports one or more simple paths through the grap
 
 ### `subgraph`
 
-Extracts the induced subgraph for a given set of node IDs. Output includes all edges whose source and target are both in the selected set.
+Extracts the induced subgraph for seed nodes selected by explicit IDs, property-based selector flags, or both. Output includes all edges whose source and target are both in the selected set.
 
 | Option | Description |
 |--------|-------------|
-| `--expand` | Include neighbors up to N hops from the specified nodes (default: 0) |
+| `--node-type` | Match nodes of this type (repeatable) |
+| `--edge-type` | Match edges of this type (repeatable) |
+| `--label` | Match elements with this label key or key=value pair (repeatable) |
+| `--identifier` | Match nodes with this identifier scheme or scheme:value pair (repeatable) |
+| `--jurisdiction` | Match nodes by ISO 3166-1 alpha-2 country code (repeatable) |
+| `--name` | Case-insensitive substring match on node name (repeatable) |
+| `--expand` | Include neighbors up to N hops from the seed set (default: 0) |
+| `--to` | Output encoding: `json` (default) or `cbor` |
+| `--compress` | Compress output with zstd |
 
 ### `init`
 

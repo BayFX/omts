@@ -7,9 +7,9 @@
 
 ## 1. Purpose
 
-This document specifies the selector-based query and subchain extraction subsystem within `omtsf-core` and its CLI surface in `omtsf-cli`. The system enables users to filter supply chain graphs by node/edge properties (type, labels, identifiers, jurisdiction, name) and extract the matching subgraph with connecting neighbors.
+This document specifies the selector-based query and subgraph extraction subsystem within `omtsf-core` and its CLI surface in `omtsf-cli`. The system enables users to filter supply chain graphs by node/edge properties (type, labels, identifiers, jurisdiction, name) and extract the matching subgraph with connecting neighbors.
 
-The existing `subgraph` command requires users to know exact node IDs. The `query` and `extract-subchain` commands extend this to property-based selection, enabling queries such as "all organizations in Germany with an ISO 14001 attestation" without prior knowledge of specific node identifiers.
+The `query` command displays matching elements, while the `subgraph` command accepts both explicit node IDs and property-based selectors for extracting induced subgraphs. This enables queries such as "all organizations in Germany with an ISO 14001 attestation" without prior knowledge of specific node identifiers.
 
 **Spec requirement coverage:**
 
@@ -298,30 +298,17 @@ omtsf query -f json graph.omts --identifier lei --count
 omtsf query graph.omts --edge-type supplies --label tier=1
 ```
 
-### 5.2 `omtsf extract-subchain <file> [selectors]`
+### 5.2 `omtsf subgraph` with Selector Flags
 
-Extracts the subgraph matching the given selectors and writes a valid `.omts` file to stdout. This is the property-based equivalent of `omtsf subgraph`.
-
-**Arguments:**
-- `<file>` (required) -- Path to an `.omts` file, or `-` for stdin.
-
-**Selector flags:** Same as `omtsf query` (Section 5.1).
-
-**Additional flags:**
-- `--expand <n>` -- Include neighbors up to `n` hops from the seed set (default: 1). Setting `--expand 0` returns only the seed nodes/edges and their immediate incident neighbors.
-
-**Behavior:** Parses the file, evaluates selectors to build the seed set, expands by `--expand` hops, computes the induced subgraph, and writes the result to stdout as a valid `.omts` file. The output header is copied from the input with an updated `snapshot_date`. The `reporting_entity` is retained only if the referenced node is present in the output subgraph. Reports extraction statistics (seed count, expanded count, output node/edge count) to stderr in verbose mode.
-
-At least one selector flag must be provided. If no selectors are given, the command exits with a usage error.
-
-**Exit codes:** 0 = subgraph extracted, 1 = no matches found for the given selectors, 2 = parse/input failure.
+The `subgraph` command accepts both explicit node IDs and selector flags. When selectors are provided, the seed set is the union of explicit node IDs and selector-matched elements. See `cli-interface.md` Section 3.9 for the full command specification.
 
 **Examples:**
 ```
-omtsf extract-subchain supply-chain.omts --node-type organization --jurisdiction DE > german-orgs.omts
-omtsf extract-subchain supply-chain.omts --identifier lei --expand 2 > lei-neighborhood.omts
-omtsf extract-subchain graph.omts --label tier=1 --expand 0 > tier1-only.omts
-cat graph.omts | omtsf extract-subchain - --name "Acme" > acme-subchain.omts
+omtsf subgraph supply-chain.omts --node-type organization --jurisdiction DE > german-orgs.omts
+omtsf subgraph supply-chain.omts --identifier lei --expand 2 > lei-neighborhood.omts
+omtsf subgraph graph.omts --label tier=1 --expand 0 > tier1-only.omts
+omtsf subgraph graph.omts org-001 --node-type facility --expand 1 > combined.omts
+cat graph.omts | omtsf subgraph - --name "Acme" > acme-subgraph.omts
 ```
 
 ---
@@ -479,24 +466,21 @@ The `label_density` field is added to `GeneratorConfig` with a default value. Ex
 
 ## 8. Interaction with Existing Commands
 
-### 8.1 Relationship to `subgraph`
+### 8.1 Relationship to `query`
 
-`extract-subchain` is a superset of `subgraph`. The `subgraph` command selects nodes by explicit ID; `extract-subchain` selects nodes by property predicates. Both use the same underlying `assemble_subgraph` function for output assembly.
+`query` is a read-only inspection of what matches. `subgraph` is a write operation (produces an `.omts` file). The `query --count` variant is useful for previewing the size of an extraction before running `subgraph`.
 
-The two commands remain separate for clarity and backward compatibility:
-- `subgraph` is precise: "give me exactly these nodes."
-- `extract-subchain` is exploratory: "give me all nodes matching these criteria."
+The `subgraph` command accepts both explicit node IDs and selector flags:
+- Explicit IDs are precise: "give me exactly these nodes."
+- Selector flags are exploratory: "give me all nodes matching these criteria."
+- Both can be combined: the seed set is the union of explicit IDs and selector-matched elements.
 
-### 8.2 Relationship to `query`
+### 8.2 Composability
 
-`query` is a read-only inspection of what matches. `extract-subchain` is a write operation (produces an `.omts` file). The `query --count` variant is useful for previewing the size of an extraction before running it.
-
-### 8.3 Composability
-
-The output of `extract-subchain` is a valid `.omts` file, so it can be piped into any other command:
+The output of `subgraph` is a valid `.omts` file, so it can be piped into any other command:
 
 ```
-omtsf extract-subchain graph.omts --jurisdiction DE | omtsf validate -
-omtsf extract-subchain graph.omts --node-type organization | omtsf inspect -
-omtsf extract-subchain a.omts --label certified | omtsf diff - <(omtsf extract-subchain b.omts --label certified)
+omtsf subgraph graph.omts --jurisdiction DE | omtsf validate -
+omtsf subgraph graph.omts --node-type organization | omtsf inspect -
+omtsf subgraph a.omts --label certified | omtsf diff - <(omtsf subgraph b.omts --label certified)
 ```

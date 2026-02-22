@@ -255,28 +255,43 @@ omtsf path supply-chain.omts org-001 facility-099
 omtsf path --max-paths 3 graph.omts src dst
 ```
 
-### 3.9 `omtsf subgraph <file> <node-id>...`
+### 3.9 `omtsf subgraph <file> [node-id...] [selectors]`
 
-Extracts the induced subgraph for a set of nodes.
+Extracts the induced subgraph for a set of seed nodes selected by explicit IDs, property-based selector flags, or both.
 
 **Arguments:**
 - `<file>` (required) -- Path to an `.omts` file, or `-` for stdin.
-- `<node-id>...` (required, minimum 1) -- One or more node IDs to include.
+- `[node-id...]` (optional) -- Zero or more node IDs to include.
 
-**Flags:**
-- `--expand <n>` -- Include neighbors up to `n` hops from the specified nodes (default: 0, meaning only the listed nodes and edges between them).
+**Selector flags:** (all repeatable, same as `omtsf query` Section 3.11)
+- `--node-type <type>` -- Filter by node type.
+- `--edge-type <type>` -- Filter by edge type.
+- `--label <spec>` -- Filter by label key or key=value pair.
+- `--identifier <spec>` -- Filter by identifier scheme or scheme:value pair.
+- `--jurisdiction <CC>` -- Filter by jurisdiction (ISO 3166-1 alpha-2 code).
+- `--name <pattern>` -- Case-insensitive substring match on node name.
+
+**Additional flags:**
+- `--expand <n>` -- Include neighbors up to `n` hops from the seed set (default: 0).
 - `--compress` -- Compress output with zstd.
 - `--to <encoding>` -- Output encoding: `json` (default) or `cbor`.
 
-**Behavior:** Builds the graph, selects the specified nodes (plus neighbors within `--expand` distance via BFS), collects all edges where both endpoints are in the selected set, and writes a valid `.omts` file to stdout. The output header is copied from the input with an updated `snapshot_date`. The `reporting_entity` is retained only if the referenced node is in the subgraph.
+**Behavior:** Builds the graph, collects seed nodes from explicit IDs and/or selector-matched elements (union of both sources), optionally expands by `--expand` hops using BFS, collects all edges where both endpoints are in the selected set, and writes a valid `.omts` file to stdout. The output header is copied from the input with an updated `snapshot_date`. The `reporting_entity` is retained only if the referenced node is in the subgraph.
 
-**Exit codes:** 0 = success, 1 = one or more node IDs not found, 2 = parse failure.
+At least one node ID or one selector flag is required. If neither is provided, an error is returned (exit 2).
+
+**Exit codes:** 0 = success, 1 = one or more node IDs not found or no selector matches, 2 = parse/input failure or missing arguments.
 
 **Examples:**
 ```
 omtsf subgraph supply-chain.omts org-001 org-002 > pair.omts
 omtsf subgraph --expand 2 graph.omts org-001 > neighborhood.omts
 omtsf subgraph --to cbor --compress graph.omts org-001 org-002 > pair.omts.zst
+omtsf subgraph supply-chain.omts --node-type organization --jurisdiction DE > german-orgs.omts
+omtsf subgraph supply-chain.omts --identifier lei --expand 2 > lei-neighborhood.omts
+omtsf subgraph graph.omts --label tier=1 --expand 0 > tier1-only.omts
+omtsf subgraph graph.omts org-001 --node-type facility --expand 1 > combined.omts
+cat graph.omts | omtsf subgraph - --name "Acme" > acme-subgraph.omts
 ```
 
 ### 3.10 `omtsf init`
@@ -332,35 +347,6 @@ omtsf query supply-chain.omts --node-type organization --jurisdiction DE
 omtsf query supply-chain.omts --label certified --name "Acme"
 omtsf query -f json graph.omts --identifier lei --count
 omtsf query graph.omts --edge-type supplies --label tier=1
-```
-
-### 3.12 `omtsf extract-subchain <file> [selectors]`
-
-Extracts the subgraph matching property-based selectors and writes a valid `.omts` file to stdout. This is the property-based equivalent of `omtsf subgraph`.
-
-**Arguments:**
-- `<file>` (required) -- Path to an `.omts` file, or `-` for stdin.
-
-**Selector flags:** Same as `omtsf query` (Section 3.11).
-
-**Additional flags:**
-- `--expand <n>` -- Include neighbors up to `n` hops from the seed set (default: 1). Setting `--expand 0` returns only the seed nodes/edges and their immediate incident neighbors.
-- `--compress` -- Compress output with zstd.
-- `--to <encoding>` -- Output encoding: `json` (default) or `cbor`.
-
-**Behavior:** Parses the file, evaluates selectors to build the seed set, expands by `--expand` hops using BFS, computes the induced subgraph, and writes the result to stdout as a valid `.omts` file. The output header is copied from the input with an updated `snapshot_date`. The `reporting_entity` is retained only if the referenced node is present in the output subgraph. Reports extraction statistics (seed count, expanded count, output node/edge count) to stderr in verbose mode.
-
-At least one selector flag is required. If none are provided, clap produces a usage error.
-
-**Exit codes:** 0 = subgraph extracted, 1 = no matches found for the given selectors, 2 = parse/input failure.
-
-**Examples:**
-```
-omtsf extract-subchain supply-chain.omts --node-type organization --jurisdiction DE > german-orgs.omts
-omtsf extract-subchain supply-chain.omts --identifier lei --expand 2 > lei-neighborhood.omts
-omtsf extract-subchain graph.omts --label tier=1 --expand 0 > tier1-only.omts
-omtsf extract-subchain --to cbor --compress graph.omts --name "Acme" > acme.omts.zst
-cat graph.omts | omtsf extract-subchain - --name "Acme" > acme-subchain.omts
 ```
 
 ---
@@ -466,7 +452,7 @@ Both paths produce the same `OmtsFile` data structure. From this point forward, 
 
 ### 4.5 Output Encoding
 
-Commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `extract-subchain`, `init`) support `--to <encoding>` and `--compress` flags:
+Commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`) support `--to <encoding>` and `--compress` flags:
 
 - `--to json` (default): Serialize as JSON. `--pretty` (default) emits 2-space indented output; `--compact` emits minified output.
 - `--to cbor`: Serialize as CBOR with the self-describing tag 55799 prepended per SPEC-007 Section 4.1.
@@ -530,7 +516,7 @@ fn reset_sigpipe() {
 
 Colors: `[E]` red, `[W]` yellow, `[I]` cyan. Disabled when `--no-color` is set, `NO_COLOR` env var is present, or stderr is not a TTY.
 
-**Data (stdout):** Command-specific. `inspect` uses aligned columns. `reach` and `path` use plain text, one entry per line. `diff` uses `+`/`-`/`~` prefixed lines. Commands that emit `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `extract-subchain`, `init`) write serialized data directly regardless of `--format`.
+**Data (stdout):** Command-specific. `inspect` uses aligned columns. `reach` and `path` use plain text, one entry per line. `diff` uses `+`/`-`/`~` prefixed lines. Commands that emit `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`) write serialized data directly regardless of `--format`.
 
 **Quiet mode (`--quiet`):** Suppresses all stderr output except parse errors and I/O errors. Data output to stdout is unaffected. Useful in scripts that only check exit codes.
 
@@ -543,7 +529,7 @@ Colors: `[E]` red, `[W]` yellow, `[I]` cyan. Disabled when `--no-color` is set, 
 {"rule_id":"L1-GDM-03","severity":"error","location":{"type":"edge","id":"e-042","field":"target"},"message":"target \"node-999\" not found"}
 ```
 
-**Data:** Single JSON document to stdout. For commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `extract-subchain`, `init`), the output is the serialized file itself (JSON or CBOR depending on `--to`) regardless of `--format`. For `inspect`, `reach`, `path`, and `diff`, the output is a structured JSON object specific to the command.
+**Data:** Single JSON document to stdout. For commands that produce `.omts` files (`merge`, `redact`, `convert`, `subgraph`, `init`), the output is the serialized file itself (JSON or CBOR depending on `--to`) regardless of `--format`. For `inspect`, `reach`, `path`, and `diff`, the output is a structured JSON object specific to the command.
 
 ### 5.3 Summary Counts
 
@@ -570,7 +556,7 @@ The CLI never emits ANSI codes to stdout. Color is used exclusively for stderr d
 | Code | Meaning | Used By |
 |------|---------|---------|
 | 0 | Success. No errors, or diff found no differences. | All commands |
-| 1 | Logical failure: validation errors (L1), merge conflicts, no path found, node ID not found, diff found differences, redaction scope error, no selector matches. | `validate`, `merge`, `redact`, `reach`, `path`, `subgraph`, `query`, `extract-subchain`, `diff` |
+| 1 | Logical failure: validation errors (L1), merge conflicts, no path found, node ID not found, diff found differences, redaction scope error, no selector matches. | `validate`, `merge`, `redact`, `reach`, `path`, `subgraph`, `query`, `diff` |
 | 2 | Input failure: file not found, permission denied, size limit exceeded, invalid UTF-8, encoding detection error, JSON/CBOR parse error, missing required fields, decompression failure. | All commands |
 
 ### Detailed Exit Code Mapping
@@ -588,7 +574,7 @@ The CLI never emits ANSI codes to stdout. Color is used exclusively for stderr d
 | Source or target node ID not found in graph | 1 | `reach`, `path`, `subgraph` |
 | No path exists between nodes | 1 | `path` |
 | Diff computed, differences found | 1 | `diff` |
-| No nodes or edges match the given selectors | 1 | `query`, `extract-subchain` |
+| No nodes or edges match the given selectors | 1 | `query`, `subgraph` |
 | File not found | 2 | All |
 | Permission denied | 2 | All |
 | File exceeds size limit | 2 | All |
@@ -698,12 +684,24 @@ enum Command {
         #[arg(long, default_value = "20")]
         max_depth: u32,
     },
-    /// Extract an induced subgraph.
+    /// Extract an induced subgraph by node IDs and/or property-based selectors.
     Subgraph {
         #[arg(value_name = "FILE")]
         file: PathOrStdin,
-        #[arg(value_name = "NODE_ID", num_args = 1..)]
+        #[arg(value_name = "NODE_ID", num_args = 0..)]
         node_ids: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        node_type: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        edge_type: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        label: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        identifier: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        jurisdiction: Vec<String>,
+        #[arg(long, num_args = 1..)]
+        name: Vec<String>,
         #[arg(long, default_value = "0")]
         expand: u32,
         #[arg(long, default_value = "json", value_enum)]
@@ -729,29 +727,6 @@ enum Command {
         name: Vec<String>,
         #[arg(long)]
         count: bool,
-    },
-    /// Extract a subgraph matching property-based selectors.
-    ExtractSubchain {
-        #[arg(value_name = "FILE")]
-        file: PathOrStdin,
-        #[arg(long, num_args = 1..)]
-        node_type: Vec<String>,
-        #[arg(long, num_args = 1..)]
-        edge_type: Vec<String>,
-        #[arg(long, num_args = 1..)]
-        label: Vec<String>,
-        #[arg(long, num_args = 1..)]
-        identifier: Vec<String>,
-        #[arg(long, num_args = 1..)]
-        jurisdiction: Vec<String>,
-        #[arg(long, num_args = 1..)]
-        name: Vec<String>,
-        #[arg(long, default_value = "1")]
-        expand: u32,
-        #[arg(long, default_value = "json", value_enum)]
-        to: Encoding,
-        #[arg(long)]
-        compress: bool,
     },
     /// Scaffold a new .omts file.
     Init {
@@ -800,7 +775,7 @@ clap handles type parsing, range checks, and `conflicts_with` constraints. The f
 3. **File existence.** For `PathOrStdin::Path` variants, check that the file exists before attempting to read. This produces a clearer error message than the OS-level I/O error.
 4. **Merge minimum files.** clap's `num_args = 2..` enforces the minimum of 2 files for `merge`.
 5. **Pretty/compact mutual exclusion.** `--compact` conflicts with `--pretty`. When `--to cbor` is specified, both `--pretty` and `--compact` are silently ignored (CBOR has no formatting options).
-6. **Selector requirement.** For `query` and `extract-subchain`, verify that at least one selector flag is provided. If all selector vecs are empty, emit a usage error.
+6. **Selector requirement.** For `query`, verify that at least one selector flag is provided. For `subgraph`, verify that at least one node ID or selector flag is provided. If neither is given, emit a usage error.
 
 ---
 

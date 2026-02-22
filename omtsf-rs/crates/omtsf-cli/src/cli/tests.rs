@@ -13,18 +13,8 @@ fn test_root_help_lists_all_subcommands() {
     let help = format!("{}", cmd.render_help());
 
     let expected_subcommands = [
-        "validate",
-        "merge",
-        "redact",
-        "inspect",
-        "diff",
-        "convert",
-        "reach",
-        "path",
-        "subgraph",
-        "init",
-        "query",
-        "extract-subchain",
+        "validate", "merge", "redact", "inspect", "diff", "convert", "reach", "path", "subgraph",
+        "init", "query",
     ];
     for name in &expected_subcommands {
         assert!(
@@ -266,7 +256,7 @@ fn test_path_help() {
     );
 }
 
-/// `omtsf subgraph --help` must mention `--expand`.
+/// `omtsf subgraph --help` must mention `--expand` and selector flags.
 #[test]
 fn test_subgraph_help() {
     let mut cmd = Cli::command();
@@ -277,6 +267,30 @@ fn test_subgraph_help() {
     assert!(
         help.contains("--expand"),
         "subgraph help should mention --expand"
+    );
+    assert!(
+        help.contains("--node-type"),
+        "subgraph help should mention --node-type"
+    );
+    assert!(
+        help.contains("--edge-type"),
+        "subgraph help should mention --edge-type"
+    );
+    assert!(
+        help.contains("--label"),
+        "subgraph help should mention --label"
+    );
+    assert!(
+        help.contains("--identifier"),
+        "subgraph help should mention --identifier"
+    );
+    assert!(
+        help.contains("--jurisdiction"),
+        "subgraph help should mention --jurisdiction"
+    );
+    assert!(
+        help.contains("--name"),
+        "subgraph help should mention --name"
     );
 }
 
@@ -397,14 +411,70 @@ fn test_merge_accepts_two_files() {
     }
 }
 
-/// `subgraph` requires at least one node ID.
+/// `subgraph` accepts no node IDs when selector flags are provided.
 #[test]
-fn test_subgraph_requires_at_least_one_node_id() {
-    let result = Cli::try_parse_from(["omtsf", "subgraph", "graph.omts"]);
-    assert!(
-        result.is_err(),
-        "subgraph with no node IDs should fail to parse"
-    );
+fn test_subgraph_accepts_selectors_without_node_ids() {
+    let cli = Cli::try_parse_from([
+        "omtsf",
+        "subgraph",
+        "graph.omts",
+        "--node-type",
+        "organization",
+    ])
+    .expect("should parse subgraph with --node-type and no node IDs");
+    match cli.command {
+        Command::Subgraph {
+            node_ids,
+            node_type,
+            ..
+        } => {
+            assert!(node_ids.is_empty(), "no explicit node IDs");
+            assert_eq!(node_type, vec!["organization"]);
+        }
+        _ => panic!("expected Subgraph subcommand"),
+    }
+}
+
+/// `subgraph` parses when both node IDs and selector flags are provided.
+#[test]
+fn test_subgraph_accepts_node_ids_and_selectors() {
+    let cli = Cli::try_parse_from([
+        "omtsf",
+        "subgraph",
+        "graph.omts",
+        "org-a",
+        "--node-type",
+        "facility",
+        "--expand",
+        "1",
+    ])
+    .expect("should parse subgraph with node IDs and selectors");
+    match cli.command {
+        Command::Subgraph {
+            node_ids,
+            node_type,
+            expand,
+            ..
+        } => {
+            assert_eq!(node_ids, vec!["org-a"]);
+            assert_eq!(node_type, vec!["facility"]);
+            assert_eq!(expand, 1);
+        }
+        _ => panic!("expected Subgraph subcommand"),
+    }
+}
+
+/// `subgraph` with no node IDs and no selectors still parses (runtime validation).
+#[test]
+fn test_subgraph_no_ids_no_selectors_parses() {
+    let cli = Cli::try_parse_from(["omtsf", "subgraph", "graph.omts"])
+        .expect("should parse subgraph with no node IDs");
+    match cli.command {
+        Command::Subgraph { node_ids, .. } => {
+            assert!(node_ids.is_empty());
+        }
+        _ => panic!("expected Subgraph subcommand"),
+    }
 }
 
 /// `validate --level` range: values 1, 2, 3 are valid.
@@ -589,88 +659,6 @@ fn test_query_identifier_flag_parses() {
             assert_eq!(identifier, vec!["lei:529900T8BM49AURSDO55"]);
         }
         _ => panic!("expected Query subcommand"),
-    }
-}
-
-/// `omtsf extract-subchain --help` must mention `--expand` and selector flags.
-#[test]
-fn test_extract_subchain_help() {
-    let mut cmd = Cli::command();
-    let sub = cmd
-        .find_subcommand_mut("extract-subchain")
-        .expect("extract-subchain subcommand should exist");
-    let help = format!("{}", sub.render_help());
-    assert!(
-        help.contains("--expand"),
-        "extract-subchain help should mention --expand"
-    );
-    assert!(
-        help.contains("--node-type"),
-        "extract-subchain help should mention --node-type"
-    );
-    assert!(
-        help.contains("FILE"),
-        "extract-subchain help should mention FILE"
-    );
-}
-
-/// `omtsf extract-subchain` default `--expand` is 1.
-#[test]
-fn test_extract_subchain_expand_default_is_1() {
-    let cli = Cli::try_parse_from([
-        "omtsf",
-        "extract-subchain",
-        "--node-type",
-        "organization",
-        "graph.omts",
-    ])
-    .expect("should parse extract-subchain without --expand");
-    match cli.command {
-        Command::ExtractSubchain { expand, .. } => {
-            assert_eq!(expand, 1, "default --expand should be 1");
-        }
-        _ => panic!("expected ExtractSubchain subcommand"),
-    }
-}
-
-/// `omtsf extract-subchain --expand 3` parses correctly.
-#[test]
-fn test_extract_subchain_expand_override() {
-    let cli = Cli::try_parse_from([
-        "omtsf",
-        "extract-subchain",
-        "--node-type",
-        "facility",
-        "--expand",
-        "3",
-        "graph.omts",
-    ])
-    .expect("should parse --expand 3");
-    match cli.command {
-        Command::ExtractSubchain { expand, .. } => {
-            assert_eq!(expand, 3);
-        }
-        _ => panic!("expected ExtractSubchain subcommand"),
-    }
-}
-
-/// `omtsf extract-subchain` with stdin sentinel `-` parses correctly.
-#[test]
-fn test_extract_subchain_stdin_sentinel() {
-    let cli = Cli::try_parse_from([
-        "omtsf",
-        "extract-subchain",
-        "--node-type",
-        "organization",
-        "-",
-    ])
-    .expect("should parse stdin sentinel");
-    match cli.command {
-        Command::ExtractSubchain { file, .. } => match file {
-            PathOrStdin::Stdin => {}
-            PathOrStdin::Path(p) => panic!("expected Stdin, got Path({p:?})"),
-        },
-        _ => panic!("expected ExtractSubchain"),
     }
 }
 

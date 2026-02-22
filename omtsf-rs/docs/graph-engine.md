@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This document specifies the graph construction, query, and cycle-detection subsystem within `omtsf-core`. The engine converts a deserialized `OmtsFile` into a directed labeled property multigraph backed by `petgraph`, then provides traversal algorithms that implement the `reach`, `path`, `subgraph`, `query`, and `extract-subchain` CLI commands and the cycle detection used by validation rule L3-MRG-02.
+This document specifies the graph construction, query, and cycle-detection subsystem within `omtsf-core`. The engine converts a deserialized `OmtsFile` into a directed labeled property multigraph backed by `petgraph`, then provides traversal algorithms that implement the `reach`, `path`, `subgraph`, and `query` CLI commands and the cycle detection used by validation rule L3-MRG-02.
 
 The engine is a pure library component with no I/O dependencies. It compiles to `wasm32-unknown-unknown`.
 
