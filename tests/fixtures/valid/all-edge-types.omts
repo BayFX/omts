@@ -1,0 +1,227 @@
+{
+  "omtsf_version": "0.1.0",
+  "snapshot_date": "2026-02-22",
+  "file_salt": "a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
+  "nodes": [
+    {
+      "id": "org-alpha",
+      "type": "organization",
+      "name": "Alpha Corp"
+    },
+    {
+      "id": "org-beta",
+      "type": "organization",
+      "name": "Beta Corp"
+    },
+    {
+      "id": "fac-one",
+      "type": "facility",
+      "name": "Factory One"
+    },
+    {
+      "id": "good-steel",
+      "type": "good",
+      "name": "Steel Plate"
+    },
+    {
+      "id": "good-bolts",
+      "type": "good",
+      "name": "Steel Bolts"
+    },
+    {
+      "id": "person-owner",
+      "type": "person",
+      "name": "John Owner"
+    },
+    {
+      "id": "att-cert",
+      "type": "attestation",
+      "name": "ISO 14001 Cert",
+      "attestation_type": "certification",
+      "valid_from": "2025-01-01"
+    },
+    {
+      "id": "con-batch",
+      "type": "consignment",
+      "name": "Batch 2026-Q1"
+    },
+    {
+      "id": "bref-redacted",
+      "type": "boundary_ref",
+      "name": "Redacted Entity",
+      "identifiers": [
+        { "scheme": "opaque", "value": "e8798687b081da98b7cd1c4e5e2423bd3214fbab0f1f476a2dcdbf67c2e21141" }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-ownership",
+      "type": "ownership",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "percentage": 51.0,
+        "direct": true,
+        "valid_from": "2020-01-01"
+      }
+    },
+    {
+      "id": "e-operational-control",
+      "type": "operational_control",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "control_type": "management",
+        "valid_from": "2020-01-01"
+      }
+    },
+    {
+      "id": "e-legal-parentage",
+      "type": "legal_parentage",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "consolidation_basis": "ifrs10",
+        "valid_from": "2020-01-01"
+      }
+    },
+    {
+      "id": "e-former-identity",
+      "type": "former_identity",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "event_type": "acquisition",
+        "effective_date": "2019-06-01",
+        "description": "Alpha acquired Beta subsidiary"
+      }
+    },
+    {
+      "id": "e-beneficial-ownership",
+      "type": "beneficial_ownership",
+      "source": "person-owner",
+      "target": "org-alpha",
+      "properties": {
+        "percentage": 60.0,
+        "control_type": "capital",
+        "direct": true,
+        "valid_from": "2015-03-01"
+      }
+    },
+    {
+      "id": "e-supplies",
+      "type": "supplies",
+      "source": "org-beta",
+      "target": "org-alpha",
+      "properties": {
+        "commodity": "7318.15",
+        "contract_ref": "PO-2024-001",
+        "volume": 10000,
+        "volume_unit": "kg",
+        "tier": 1,
+        "share_of_buyer_demand": 35.0,
+        "valid_from": "2023-01-15"
+      }
+    },
+    {
+      "id": "e-subcontracts",
+      "type": "subcontracts",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "commodity": "7318.15",
+        "contract_ref": "SUB-2024-001",
+        "valid_from": "2023-06-01"
+      }
+    },
+    {
+      "id": "e-tolls",
+      "type": "tolls",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "commodity": "7318.15",
+        "valid_from": "2023-01-01"
+      }
+    },
+    {
+      "id": "e-distributes",
+      "type": "distributes",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "service_type": "transport",
+        "valid_from": "2022-01-01"
+      }
+    },
+    {
+      "id": "e-brokers",
+      "type": "brokers",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "commodity": "7318.15",
+        "valid_from": "2023-01-01"
+      }
+    },
+    {
+      "id": "e-operates",
+      "type": "operates",
+      "source": "org-alpha",
+      "target": "fac-one",
+      "properties": {
+        "valid_from": "2018-06-01"
+      }
+    },
+    {
+      "id": "e-produces",
+      "type": "produces",
+      "source": "fac-one",
+      "target": "good-steel",
+      "properties": {
+        "valid_from": "2020-03-01"
+      }
+    },
+    {
+      "id": "e-composed-of",
+      "type": "composed_of",
+      "source": "good-bolts",
+      "target": "good-steel",
+      "properties": {
+        "quantity": 500,
+        "unit": "pcs"
+      }
+    },
+    {
+      "id": "e-sells-to",
+      "type": "sells_to",
+      "source": "org-alpha",
+      "target": "org-beta",
+      "properties": {
+        "commodity": "7318.15",
+        "contract_ref": "SELL-2024-001",
+        "valid_from": "2024-01-01"
+      }
+    },
+    {
+      "id": "e-attested-by",
+      "type": "attested_by",
+      "source": "fac-one",
+      "target": "att-cert",
+      "properties": {
+        "scope": "environmental"
+      }
+    },
+    {
+      "id": "e-same-as",
+      "type": "same_as",
+      "source": "org-beta",
+      "target": "bref-redacted",
+      "properties": {
+        "confidence": "probable",
+        "basis": "name_match"
+      }
+    }
+  ]
+}

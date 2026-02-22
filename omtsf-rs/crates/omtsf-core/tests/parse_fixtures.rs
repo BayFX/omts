@@ -17,8 +17,20 @@ fn fixtures_dir() -> PathBuf {
         .expect("fixtures directory should exist")
 }
 
+fn repo_fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../tests/fixtures")
+        .canonicalize()
+        .expect("repo fixtures directory should exist")
+}
+
 fn read_fixture(name: &str) -> String {
     let path = fixtures_dir().join(name);
+    std::fs::read_to_string(&path).expect("fixture file should be readable")
+}
+
+fn read_repo_fixture(name: &str) -> String {
+    let path = repo_fixtures_dir().join(name);
     std::fs::read_to_string(&path).expect("fixture file should be readable")
 }
 
@@ -222,4 +234,180 @@ fn parse_extension_types_fixture() {
     );
 
     round_trip(&f, "extension-types.omts");
+}
+
+#[test]
+fn parse_all_edge_types_fixture() {
+    let content = read_repo_fixture("valid/all-edge-types.omts");
+    let f = parse(&content, "all-edge-types.omts");
+
+    use omtsf_core::enums::{EdgeType, EdgeTypeTag};
+    let edge_types: Vec<&EdgeTypeTag> = f.edges.iter().map(|e| &e.edge_type).collect();
+
+    let expected = [
+        EdgeType::Ownership,
+        EdgeType::OperationalControl,
+        EdgeType::LegalParentage,
+        EdgeType::FormerIdentity,
+        EdgeType::BeneficialOwnership,
+        EdgeType::Supplies,
+        EdgeType::Subcontracts,
+        EdgeType::Tolls,
+        EdgeType::Distributes,
+        EdgeType::Brokers,
+        EdgeType::Operates,
+        EdgeType::Produces,
+        EdgeType::ComposedOf,
+        EdgeType::SellsTo,
+        EdgeType::AttestedBy,
+        EdgeType::SameAs,
+    ];
+    for et in &expected {
+        assert!(
+            edge_types.contains(&&EdgeTypeTag::Known(et.clone())),
+            "missing edge type: {et:?}"
+        );
+    }
+    assert_eq!(f.edges.len(), 16, "should have exactly 16 edges");
+
+    round_trip(&f, "all-edge-types.omts");
+}
+
+#[test]
+fn parse_delta_fixture() {
+    let content = read_repo_fixture("valid/delta.omts");
+    let f = parse(&content, "delta.omts");
+
+    assert!(
+        f.extra.contains_key("update_type"),
+        "extra should contain update_type"
+    );
+    assert!(
+        f.extra.contains_key("base_snapshot_ref"),
+        "extra should contain base_snapshot_ref"
+    );
+    assert_eq!(f.nodes.len(), 3, "delta fixture should have 3 nodes");
+    assert_eq!(f.edges.len(), 1, "delta fixture should have 1 edge");
+
+    round_trip(&f, "delta.omts");
+}
+
+#[test]
+fn parse_identifiers_full_fixture() {
+    let content = read_repo_fixture("valid/identifiers-full.omts");
+    let f = parse(&content, "identifiers-full.omts");
+
+    let node = &f.nodes[0];
+    let ids = node.identifiers.as_ref().expect("should have identifiers");
+    assert!(ids.len() >= 8, "should have at least 8 identifiers");
+
+    let schemes: Vec<&str> = ids.iter().map(|i| i.scheme.as_str()).collect();
+    for scheme in &[
+        "lei",
+        "duns",
+        "gln",
+        "nat-reg",
+        "vat",
+        "internal",
+        "opaque",
+        "org.gs1.gtin",
+    ] {
+        assert!(
+            schemes.contains(scheme),
+            "missing identifier scheme: {scheme}"
+        );
+    }
+
+    let lei = ids.iter().find(|i| i.scheme == "lei").expect("lei");
+    assert!(
+        lei.verification_status.is_some(),
+        "lei should have verification_status"
+    );
+    assert!(
+        lei.verification_date.is_some(),
+        "lei should have verification_date"
+    );
+
+    let nat_reg = ids.iter().find(|i| i.scheme == "nat-reg").expect("nat-reg");
+    assert_eq!(
+        nat_reg.valid_to,
+        Some(None),
+        "nat-reg valid_to should be Some(None) for null"
+    );
+
+    round_trip(&f, "identifiers-full.omts");
+}
+
+#[test]
+fn parse_geo_polygon_fixture() {
+    let content = read_repo_fixture("valid/geo-polygon.omts");
+    let f = parse(&content, "geo-polygon.omts");
+
+    let node = &f.nodes[0];
+    assert!(node.geo.is_some(), "facility should have geo");
+
+    round_trip(&f, "geo-polygon.omts");
+}
+
+#[test]
+fn parse_labels_and_quality_fixture() {
+    let content = read_repo_fixture("valid/labels-and-quality.omts");
+    let f = parse(&content, "labels-and-quality.omts");
+
+    let labelled = f
+        .nodes
+        .iter()
+        .find(|n| &*n.id == "org-labelled-a")
+        .expect("org-labelled-a");
+    let labels = labelled.labels.as_ref().expect("should have labels");
+    assert!(labels.len() >= 2, "should have at least 2 labels");
+
+    let dq = labelled
+        .data_quality
+        .as_ref()
+        .expect("should have data_quality");
+    assert!(dq.confidence.is_some(), "confidence should be set");
+
+    assert_eq!(f.nodes.len(), 4, "should have 4 nodes");
+
+    round_trip(&f, "labels-and-quality.omts");
+}
+
+#[test]
+fn parse_nullable_dates_fixture() {
+    let content = read_repo_fixture("valid/nullable-dates.omts");
+    let f = parse(&content, "nullable-dates.omts");
+
+    let att = f
+        .nodes
+        .iter()
+        .find(|n| &*n.id == "att-open")
+        .expect("att-open");
+    assert_eq!(
+        att.valid_to,
+        Some(None),
+        "attestation valid_to should be Some(None) for null"
+    );
+
+    let edge = &f.edges[0];
+    assert_eq!(
+        edge.properties.valid_to,
+        Some(None),
+        "edge valid_to should be Some(None) for null"
+    );
+
+    let org = f
+        .nodes
+        .iter()
+        .find(|n| &*n.id == "org-null-dates")
+        .expect("org-null-dates");
+    let ids = org.identifiers.as_ref().expect("identifiers");
+    let lei = ids.iter().find(|i| i.scheme == "lei").expect("lei");
+    assert_eq!(
+        lei.valid_to,
+        Some(None),
+        "identifier valid_to should be Some(None) for null"
+    );
+
+    round_trip(&f, "nullable-dates.omts");
 }

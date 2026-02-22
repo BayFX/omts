@@ -18,7 +18,7 @@ use jsonschema::Validator;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use omtsf_core::OmtsFile;
+use omtsf_core::{OmtsFile, RuleId, ValidationConfig, validate};
 
 const SALT: &str = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
@@ -414,9 +414,20 @@ fn schema_enum_coverage() {
 fn existing_valid_fixtures_pass_schema() {
     let schema = load_schema();
     let validator = compile_schema(&schema);
-    for name in &["valid/minimal.omts", "valid/full-featured.omts"] {
-        let path = fixtures_dir().join(name);
-        let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {name}: {e}"));
+    let valid_dir = fixtures_dir().join("valid");
+    let mut entries: Vec<_> = std::fs::read_dir(&valid_dir)
+        .expect("read valid dir")
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "omts"))
+        .collect();
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+
+    assert!(!entries.is_empty(), "expected at least one valid fixture");
+
+    for entry in &entries {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let raw =
+            std::fs::read_to_string(entry.path()).unwrap_or_else(|e| panic!("read {name}: {e}"));
         let val: Value = serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {name}: {e}"));
         validate_and_parse(&val, &validator);
     }
@@ -458,8 +469,18 @@ fn existing_invalid_fixtures_documented() {
         }
     }
 
-    // These fixtures have structural issues that the JSON Schema catches
-    let expected_schema_rejects = ["missing-node-id.omts"];
+    // These fixtures have structural issues that the JSON Schema catches:
+    // missing required fields, minLength violations, enum mismatches,
+    // or cardinality constraints (e.g. boundary_ref maxItems: 1).
+    let expected_schema_rejects = [
+        "bad-boundary-ref.omts",
+        "missing-node-id.omts",
+        "missing-edge-id.omts",
+        "missing-identifier-scheme.omts",
+        "missing-identifier-value.omts",
+        "invalid-sensitivity.omts",
+        "missing-authority.omts",
+    ];
 
     for name in &expected_schema_rejects {
         assert!(
@@ -473,21 +494,119 @@ fn existing_invalid_fixtures_documented() {
     // that the schema intentionally does not enforce. This is expected — the
     // schema is a structural grammar, not a semantic validator.
     let expected_schema_accepts = [
-        "broken-edge-ref.omts",
-        "duplicate-node-id.omts",
-        "duplicate-identifier.omts",
-        "bad-lei-checksum.omts",
         "bad-duns-format.omts",
         "bad-gln-checksum.omts",
+        "bad-lei-checksum.omts",
+        "broken-edge-ref.omts",
         "date-range-inverted.omts",
         "disclosure-violation.omts",
+        "duplicate-identifier.omts",
+        "duplicate-node-id.omts",
         "graph-type-violation.omts",
+        "invalid-date.omts",
+        "invalid-edge-type.omts",
+        "invalid-scheme.omts",
     ];
 
     for name in &expected_schema_accepts {
         assert!(
             schema_accepts.contains(&name.to_string()),
             "{name} should be accepted by schema but was rejected"
+        );
+    }
+
+    // Verify all 19 fixtures are accounted for
+    let total_documented = expected_schema_rejects.len() + expected_schema_accepts.len();
+    assert_eq!(
+        total_documented,
+        entries.len(),
+        "all invalid fixtures should be documented in either rejects or accepts"
+    );
+}
+
+#[test]
+fn existing_valid_fixtures_pass_l1_validation() {
+    let valid_dir = fixtures_dir().join("valid");
+    let mut entries: Vec<_> = std::fs::read_dir(&valid_dir)
+        .expect("read valid dir")
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "omts"))
+        .collect();
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+
+    assert!(!entries.is_empty(), "expected at least one valid fixture");
+
+    let config = ValidationConfig {
+        run_l1: true,
+        run_l2: false,
+        run_l3: false,
+    };
+
+    // full-featured.omts intentionally has disclosure_scope: "partner" with a
+    // confidential identifier on person-doe, which triggers L1-SDI-02. It is
+    // a valid *schema* fixture but not L1-conformant by design.
+    let l1_known_violations = ["full-featured.omts"];
+
+    for entry in &entries {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if l1_known_violations.contains(&name.as_str()) {
+            continue;
+        }
+        let raw =
+            std::fs::read_to_string(entry.path()).unwrap_or_else(|e| panic!("read {name}: {e}"));
+        let file: OmtsFile =
+            serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {name}: {e}"));
+        let result = validate(&file, &config, None);
+        let errors: Vec<_> = result.errors().collect();
+        assert!(
+            errors.is_empty(),
+            "{name}: expected zero L1 errors, got: {errors:?}"
+        );
+    }
+}
+
+#[test]
+fn existing_invalid_fixtures_trigger_expected_rules() {
+    let config = ValidationConfig {
+        run_l1: true,
+        run_l2: false,
+        run_l3: false,
+    };
+
+    // Each parseable invalid fixture mapped to the L1 rule it should trigger.
+    // Fixtures that fail to parse as OmtsFile (strict enum mismatches, missing
+    // required fields) are tested via schema rejection in
+    // `existing_invalid_fixtures_documented` and skipped here.
+    let expected_rules: &[(&str, RuleId)] = &[
+        ("bad-duns-format.omts", RuleId::L1Eid06),
+        ("bad-gln-checksum.omts", RuleId::L1Eid07),
+        ("bad-lei-checksum.omts", RuleId::L1Eid05),
+        ("broken-edge-ref.omts", RuleId::L1Gdm03),
+        ("date-range-inverted.omts", RuleId::L1Eid09),
+        ("disclosure-violation.omts", RuleId::L1Sdi02),
+        ("duplicate-identifier.omts", RuleId::L1Eid11),
+        ("duplicate-node-id.omts", RuleId::L1Gdm01),
+        ("graph-type-violation.omts", RuleId::L1Gdm06),
+        ("invalid-date.omts", RuleId::L1Eid08),
+        ("invalid-edge-type.omts", RuleId::L1Gdm04),
+        ("invalid-scheme.omts", RuleId::L1Eid04),
+    ];
+
+    let invalid_dir = fixtures_dir().join("invalid");
+
+    for (name, expected_rule) in expected_rules {
+        let path = invalid_dir.join(name);
+        let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {name}: {e}"));
+        let file: OmtsFile = match serde_json::from_str(&raw) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+        let result = validate(&file, &config, None);
+        let rule_ids: Vec<&RuleId> = result.diagnostics.iter().map(|d| &d.rule_id).collect();
+        assert!(
+            rule_ids.contains(&expected_rule),
+            "{name}: expected rule {:?} in diagnostics, got {rule_ids:?}",
+            expected_rule
         );
     }
 }
