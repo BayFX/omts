@@ -13,6 +13,7 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.comments import Comment
 from openpyxl.worksheet.datavalidation import DataValidation
 
 
@@ -64,6 +65,13 @@ def set_col_widths(ws, widths):
         ws.column_dimensions[col_letter].width = width
 
 
+def add_header_comments(ws, comments, header_row=1):
+    """Attach tooltip comments to header cells."""
+    for col_idx, text in comments.items():
+        cell = ws.cell(row=header_row, column=col_idx)
+        cell.comment = Comment(text, "OMTS")
+
+
 # ── Sheet definitions ────────────────────────────────────────────────────────
 
 def create_metadata_sheet(wb):
@@ -111,6 +119,18 @@ def create_metadata_sheet(wb):
     dv2.add("B5")
 
     set_col_widths(ws, {"A": 22, "B": 30, "C": 70})
+
+    metadata_comments = {
+        2: "Required. ISO 8601 date (YYYY-MM-DD) when this data snapshot was produced.",
+        3: "Node ID of the organization whose perspective this file represents. Must match an id in the Organizations sheet.",
+        4: "Who will see this file: internal (company only), partner (supply-chain partners), or public.",
+        5: "Default data quality level: verified, reported, inferred, or estimated.",
+        6: 'Default description of how data was collected (e.g. "manual-review", "erp-export").',
+        7: "ISO 8601 date when data was last verified.",
+    }
+    for row, text in metadata_comments.items():
+        ws.cell(row=row, column=1).comment = Comment(text, "OMTS")
+
     return ws
 
 
@@ -156,6 +176,25 @@ def create_organizations_sheet(wb):
         "G": 20, "H": 18, "I": 20, "J": 12, "K": 16, "L": 20,
         "M": 12, "N": 16, "O": 16,
     })
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated from name if left blank.",
+        2: "Required. Legal name of the organization.",
+        3: "ISO 3166-1 alpha-2 country code of incorporation.",
+        4: "Organization lifecycle: active, dissolved, merged, or suspended.",
+        5: "Legal Entity Identifier (20 characters, ISO 17442).",
+        6: "D-U-N-S Number (9 digits).",
+        7: "National business registry number (e.g. Companies House number).",
+        8: "GLEIF Registration Authority code (e.g. RA000585 for UK Companies House).",
+        9: "VAT or tax identification number.",
+        10: "ISO 3166-1 alpha-2 country that issued the VAT number.",
+        11: "Your internal system identifier (e.g. SAP vendor number).",
+        12: 'Name of the internal system (e.g. "sap-mm-prod").',
+        13: "General risk classification: critical, high, medium, or low.",
+        14: "Kraljic portfolio classification: strategic, leverage, bottleneck, or non-critical.",
+        15: "Supplier approval status: approved, conditional, pending, blocked, or phase-out.",
+    })
+
     return ws
 
 
@@ -183,6 +222,19 @@ def create_facilities_sheet(wb):
         "A": 20, "B": 30, "C": 18, "D": 40, "E": 14, "F": 14,
         "G": 18, "H": 16, "I": 20,
     })
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated from name if blank.",
+        2: 'Required. Name of the facility (e.g. "Sheffield Plant").',
+        3: "ID of the organization that operates this facility. Must match an id in Organizations.",
+        4: "Street address or location description.",
+        5: "WGS 84 latitude (decimal degrees, e.g. 53.3811).",
+        6: "WGS 84 longitude (decimal degrees, e.g. -1.4701).",
+        7: "Global Location Number (13 digits, GS1).",
+        8: "Your internal site identifier.",
+        9: "Name of the internal system.",
+    })
+
     return ws
 
 
@@ -203,6 +255,15 @@ def create_goods_sheet(wb):
 
     style_header_row(ws, len(headers))
     set_col_widths(ws, {"A": 20, "B": 30, "C": 16, "D": 10, "E": 18})
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated from name if blank.",
+        2: "Required. Name of the product or material.",
+        3: "HS or CN commodity code (e.g. 7318.15 for bolts).",
+        4: "Unit of measure (e.g. kg, mt, pcs).",
+        5: "Global Trade Item Number (GS1).",
+    })
+
     return ws
 
 
@@ -253,6 +314,24 @@ def create_attestations_sheet(wb):
         "G": 14, "H": 16, "I": 12, "J": 20, "K": 14, "L": 14,
         "M": 22, "N": 20,
     })
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated if blank.",
+        2: "Required. Name of the certification or audit.",
+        3: "Required. Type: certification, audit, due_diligence_statement, self_declaration, or other.",
+        4: "Standard or scheme (e.g. SA8000:2014, ISO 14001).",
+        5: "Name of the issuing body.",
+        6: "Required. ISO 8601 date (YYYY-MM-DD) when the attestation takes effect.",
+        7: "ISO 8601 date when the attestation expires.",
+        8: "Result: pass, conditional_pass, fail, pending, or not_applicable.",
+        9: "Lifecycle: active, suspended, revoked, expired, or withdrawn.",
+        10: "External reference number or URL.",
+        11: "Risk severity: critical, high, medium, or low.",
+        12: "Risk likelihood: very_likely, likely, possible, or unlikely.",
+        13: "Node ID of the entity this attestation covers. Creates an attested_by edge.",
+        14: "Scope of the attestation (e.g. \"working conditions\", \"environmental compliance\").",
+    })
+
     return ws
 
 
@@ -287,6 +366,21 @@ def create_consignments_sheet(wb):
         "A": 18, "B": 30, "C": 14, "D": 12, "E": 10, "F": 16,
         "G": 16, "H": 18, "I": 22, "J": 24, "K": 24,
     })
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated if blank.",
+        2: "Required. Description of the consignment or batch.",
+        3: "Lot or batch identifier.",
+        4: "Quantity in the consignment.",
+        5: "Unit of measure (e.g. kg, mt).",
+        6: "ISO 8601 date of production.",
+        7: "ISO 3166-1 alpha-2 country of origin.",
+        8: "ID of the producing facility. Must match an id in Facilities.",
+        9: "Direct (Scope 1) emissions in tonnes CO2e (CBAM).",
+        10: "Indirect (Scope 2) emissions in tonnes CO2e (CBAM).",
+        11: "Source of emissions data: actual, default_eu, or default_country.",
+    })
+
     return ws
 
 
@@ -330,6 +424,25 @@ def create_supply_relationships_sheet(wb):
         "G": 16, "H": 8, "I": 12, "J": 14, "K": 14, "L": 14,
         "M": 16, "N": 22, "O": 16,
     })
+
+    add_header_comments(ws, {
+        1: "Edge identifier. Auto-generated if blank.",
+        2: "Required. Relationship type: supplies, subcontracts, tolls, distributes, brokers, sells_to, operates, produces, composed_of.",
+        3: "Required. Source node ID (the supplier, operator, or facility).",
+        4: "Required. Target node ID (the buyer, facility, or good).",
+        5: "Required. ISO 8601 date when the relationship started.",
+        6: "ISO 8601 date when the relationship ended.",
+        7: "HS/CN code or description of what is supplied.",
+        8: "Supply-chain tier relative to the reporting entity (1 = direct).",
+        9: "Quantity supplied.",
+        10: "Unit for volume (e.g. kg, mt, pcs).",
+        11: "Annual monetary value of the relationship.",
+        12: "ISO 4217 currency code.",
+        13: "Contract or agreement reference number.",
+        14: "Percentage of buyer's demand met by this supplier (0-100).",
+        15: "For distributes edges only: warehousing, transport, fulfillment, or other.",
+    })
+
     return ws
 
 
@@ -372,6 +485,20 @@ def create_corporate_structure_sheet(wb):
         "A": 14, "B": 24, "C": 18, "D": 18, "E": 14, "F": 14,
         "G": 14, "H": 10, "I": 26, "J": 22,
     })
+
+    add_header_comments(ws, {
+        1: "Edge identifier. Auto-generated if blank.",
+        2: "Required. Relationship: ownership, legal_parentage, operational_control, or beneficial_ownership.",
+        3: "Required. The child/subsidiary entity node ID.",
+        4: "Required. The parent entity node ID.",
+        5: "Required. ISO 8601 date when the relationship started.",
+        6: "ISO 8601 date when the relationship ended.",
+        7: "Ownership or control percentage (0-100). For ownership and beneficial_ownership.",
+        8: "TRUE for direct relationships, FALSE for indirect.",
+        9: "Type of control (for operational_control or beneficial_ownership).",
+        10: "Accounting consolidation basis (for legal_parentage): ifrs10, us_gaap_asc810, other, unknown.",
+    })
+
     return ws
 
 
@@ -392,6 +519,15 @@ def create_persons_sheet(wb):
 
     style_header_row(ws, len(headers))
     set_col_widths(ws, {"A": 18, "B": 30, "C": 14, "D": 20, "E": 14})
+
+    add_header_comments(ws, {
+        1: "Graph-local identifier. Auto-generated if blank.",
+        2: "Required. Full name of the individual.",
+        3: "ISO 3166-1 alpha-2 country of residence.",
+        4: 'Role description (e.g. "Director", "UBO").',
+        5: "ISO 3166-1 alpha-2 nationality.",
+    })
+
     return ws
 
 
@@ -416,6 +552,14 @@ def create_same_as_sheet(wb):
                         "Confidence", "Confidence level of the equivalence assertion")
 
     set_col_widths(ws, {"A": 20, "B": 20, "C": 14, "D": 40})
+
+    add_header_comments(ws, {
+        1: "Node ID of the first entity.",
+        2: "Node ID of the second entity (asserted to be the same real-world entity).",
+        3: "Confidence level: definite, probable, or possible.",
+        4: 'Justification for the assertion (e.g. "LEI match", "manual review").',
+    })
+
     return ws
 
 
@@ -453,6 +597,18 @@ def create_identifiers_sheet(wb):
         "A": 18, "B": 12, "C": 24, "D": 20, "E": 14, "F": 14,
         "G": 14, "H": 18,
     })
+
+    add_header_comments(ws, {
+        1: "ID of the node this identifier belongs to. Must match an id in any entity sheet.",
+        2: "Identifier scheme: lei, duns, gln, nat-reg, vat, or internal.",
+        3: "The identifier value.",
+        4: "Issuing authority. Required for nat-reg, vat, and internal schemes.",
+        5: "Access level: public, restricted, or confidential.",
+        6: "ISO 8601 date when the identifier became valid.",
+        7: "ISO 8601 date when the identifier expired.",
+        8: "Verification state: verified, reported, inferred, or unverified.",
+    })
+
     return ws
 
 
@@ -801,6 +957,39 @@ def create_supplier_list_workbook():
         "M": 14, "N": 20, "O": 14, "P": 16, "Q": 12, "R": 18,
         "S": 16, "T": 30,
     })
+
+    # Metadata cell comments
+    ws.cell(row=1, column=1).comment = Comment("Your organization's legal name.", "OMTS")
+    ws.cell(row=1, column=3).comment = Comment(
+        "ISO 8601 date (YYYY-MM-DD) when this supplier list was produced.", "OMTS"
+    )
+    ws.cell(row=2, column=1).comment = Comment(
+        "Who will see this file: internal, partner, or public.", "OMTS"
+    )
+
+    # Column header comments
+    add_header_comments(ws, {
+        1: "Required. Legal name of the supplier organization.",
+        2: "Optional dedup key. Rows sharing the same supplier_id collapse to a single organization node, even if names differ. Use when different business units refer to the same supplier by different names.",
+        3: "ISO 3166-1 alpha-2 country code of incorporation (e.g. GB, DE, CN).",
+        4: "Supply-chain tier: 1 = direct supplier, 2 = sub-supplier, 3 = sub-sub-supplier. Defaults to 1 if blank.",
+        5: "For tier 2/3 suppliers: name or supplier_id of the tier N-1 supplier they supply through. Must match a supplier_name or supplier_id in another row.",
+        6: "Optional. Your internal business unit that manages this supplier relationship. Allows the same supplier to appear on multiple rows with different risk profiles per BU.",
+        7: "HS/CN code or description of what this supplier provides (e.g. 7318.15). Each row represents one supply relationship \u2014 use multiple rows for multiple commodities.",
+        8: "ISO 8601 date (YYYY-MM-DD) when this supply relationship started.",
+        9: "Annual procurement spend for this relationship (numeric).",
+        10: "ISO 4217 currency code for annual_value (e.g. EUR, USD, GBP).",
+        11: "Reference number of the governing contract or master service agreement.",
+        12: "Legal Entity Identifier (20-character alphanumeric, ISO 17442).",
+        13: "D-U-N-S Number (9 digits, Dun & Bradstreet).",
+        14: "VAT or tax identification number.",
+        15: "ISO 3166-1 alpha-2 country that issued the VAT number.",
+        16: "Your internal system identifier for this supplier (e.g. SAP vendor number).",
+        17: "Risk classification for this relationship: critical, high, medium, or low. Stored per-relationship (edge), not per-supplier.",
+        18: "Kraljic portfolio classification: strategic, leverage, bottleneck, or non-critical. Stored per-relationship (edge).",
+        19: "Supplier approval status for this relationship: approved, conditional, pending, blocked, or phase-out.",
+        20: "Free-text notes. Not imported into the OMTS graph \u2014 for human reference only.",
+    }, header_row=HEADER_ROW)
 
     return wb
 
