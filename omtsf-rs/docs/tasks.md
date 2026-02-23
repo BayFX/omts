@@ -1119,7 +1119,7 @@ and senior QA engineer assessments. Tasks ordered by priority.
   - Round-trip test: `omtsf import --format excel example.xlsx | omtsf export --format excel - -o roundtrip.xlsx` → re-import roundtrip.xlsx → validate → diff against original import shows zero structural differences (node/edge counts, identifiers, edge properties match)
   - Integration test: export the SPEC-001 Section 10 example fixture, verify sheet/row counts match expected
 
-### T-079 -- Implement "Supplier List" simplified single-sheet Excel template
+### T-079 -- Implement "Supplier List" simplified single-sheet Excel template ✅
 
 - **Spec Reference:** Expert panel report (`docs/reviews/excel-import-format-panel-report.md` — Recommendation 11), SPEC-001, SPEC-002, SPEC-004
 - **Dependencies:** T-077, T-078
