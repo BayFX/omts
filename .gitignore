@@ -3,3 +3,6 @@ omtsf-rs/target/
 
 # Git worktrees for parallel implementation
 .worktrees/
+
+# Python
+__pycache__/
