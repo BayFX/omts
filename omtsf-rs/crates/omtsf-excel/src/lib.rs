@@ -44,17 +44,57 @@ mod metadata;
 mod nodes;
 mod sheet;
 mod slug;
+mod supplier_list;
 
 pub use error::{ExportError, ImportError};
 pub use export::export_excel;
+pub use export::supplier_list::export_supplier_list;
 
 /// The OMTSF version string embedded in all imported files.
 const OMTSF_VERSION: &str = "1.0.0";
+
+/// Detected variant of an Excel workbook template.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExcelVariant {
+    /// Full multi-sheet template (Organizations, Facilities, etc.)
+    Full,
+    /// Simplified single-sheet "Supplier List" template.
+    SupplierList,
+}
+
+/// Detects which template variant a workbook uses by inspecting sheet names.
+///
+/// - If "Supplier List" sheet exists → `SupplierList`
+/// - If "Organizations" sheet exists → `Full`
+/// - Otherwise → error
+///
+/// # Errors
+///
+/// Returns [`ImportError::MissingSheet`] if neither expected sheet is found.
+pub fn detect_excel_variant<R: Read + Seek>(
+    workbook: &Xlsx<R>,
+) -> Result<ExcelVariant, ImportError> {
+    let names = workbook.sheet_names();
+    if names.iter().any(|s| s == "Supplier List") {
+        Ok(ExcelVariant::SupplierList)
+    } else if names.iter().any(|s| s == "Organizations") {
+        Ok(ExcelVariant::Full)
+    } else {
+        Err(ImportError::MissingSheet {
+            sheet: "Organizations or Supplier List".to_owned(),
+        })
+    }
+}
 
 /// Imports an Excel workbook and returns a valid [`OmtsFile`].
 ///
 /// The reader must be positioned at the start of a valid `.xlsx` file.
 /// A fresh CSPRNG `file_salt` is always generated.
+///
+/// The template variant is auto-detected by inspecting sheet names:
+/// - "Supplier List" sheet → simplified single-sheet import
+/// - "Organizations" sheet → full multi-sheet import
 ///
 /// L1 validation runs on the constructed graph before returning. If any L1
 /// errors are found, [`ImportError::ValidationFailed`] is returned and no
@@ -70,11 +110,20 @@ const OMTSF_VERSION: &str = "1.0.0";
 /// - L1 validation failures
 /// - Excel file I/O errors
 pub fn import_excel<R: Read + Seek>(reader: R) -> Result<OmtsFile, ImportError> {
-    let mut workbook: Xlsx<R> =
+    let workbook: Xlsx<R> =
         open_workbook_from_rs(reader).map_err(|e: calamine::XlsxError| ImportError::ExcelRead {
             detail: e.to_string(),
         })?;
 
+    let variant = detect_excel_variant(&workbook)?;
+    match variant {
+        ExcelVariant::Full => import_full_excel(workbook),
+        ExcelVariant::SupplierList => supplier_list::import_supplier_list(workbook),
+    }
+}
+
+/// Imports a full multi-sheet workbook.
+fn import_full_excel<R: Read + Seek>(mut workbook: Xlsx<R>) -> Result<OmtsFile, ImportError> {
     let sheet_names: Vec<String> = workbook.sheet_names().clone();
 
     let metadata_sheet = get_sheet(&mut workbook, &sheet_names, "Metadata")?;

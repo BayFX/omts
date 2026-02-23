@@ -109,7 +109,21 @@ omtsf path <file> <from> <to>      Find paths between two nodes
 omtsf subgraph <file> [nodes]...   Extract induced subgraph by node IDs and/or selectors
 omtsf query <file>                 Search nodes/edges by type, label, identifier
 omtsf init                         Scaffold a new minimal .omts file
+omtsf import <file>                Import from Excel (.xlsx) to .omts
+omtsf export <file> -o <out>       Export from .omts to Excel (.xlsx)
 ```
+
+### Excel Support
+
+OMTSF provides two Excel template variants for interoperability with spreadsheet-based workflows:
+
+**Rich Template** (multi-sheet) — Full-fidelity round-trip for all node types, edge types, identifiers, and attestations. Suited for data engineers and tooling integration. Twelve sheets mirror the OMTSF graph structure exactly.
+
+**Simplified Template** ("Supplier List", single-sheet) — A flat table of tier-1/2/3 suppliers that auto-generates organization nodes and `supplies` edges on import. Suited for procurement teams filling out supplier data manually. Metadata is embedded in rows 1-2; data rows start at row 5.
+
+On import, the template variant is auto-detected by inspecting sheet names. On export, use `--output-format excel` for the rich template or `--output-format excel-supplier-list` for the simplified template.
+
+Template files are available in `templates/excel/`.
 
 ### Key Capabilities
 
@@ -154,11 +168,13 @@ See [omtsf-rs/README.md](omtsf-rs/README.md) for the full command reference.
 ```
 spec/                 Normative and informative specifications
 schema/               JSON Schema for .omts files
-tests/fixtures/       Validation test fixtures
+tests/fixtures/       Validation test fixtures (.omts)
+templates/excel/      Excel import/export templates
 usecases/             Example use case descriptions
 omtsf-rs/             Rust reference implementation (CLI + library)
   crates/omtsf-core/    Core library (parsing, validation, merge, graph, WASM-safe)
   crates/omtsf-cli/     CLI binary
+  crates/omtsf-excel/   Excel import/export library
   crates/omtsf-wasm/    WASM bindings
   crates/omtsf-bench/   Benchmarks and supply chain generator
 docs/                 Vision, governance, reviews, roadmap

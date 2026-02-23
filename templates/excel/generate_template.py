@@ -837,7 +837,7 @@ def populate_supplier_list_example(wb):
     ws["F6"] = "2024-06-01"
     ws["G6"] = 120000
     ws["H6"] = "EUR"
-    ws["J6"] = "7317ABCDE1234567890"
+    # LEI column J6 intentionally left blank for Nordic Fasteners (no valid LEI available)
     ws["O6"] = "medium"
     ws["P6"] = "leverage"
     ws["Q6"] = "conditional"

@@ -379,6 +379,147 @@ fn query_count(path: &std::path::Path) -> u64 {
     parse_count_line(&stdout, "nodes:")
 }
 
+#[test]
+fn export_supplier_list_exits_0() {
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let out_path = tmp.path().with_extension("xlsx");
+
+    let out = Command::new(omtsf_bin())
+        .args([
+            "export",
+            "--output-format",
+            "excel-supplier-list",
+            omts_fixture("full-featured.omts").to_str().expect("path"),
+            "-o",
+            out_path.to_str().expect("output path"),
+        ])
+        .output()
+        .expect("run omtsf export --output-format excel-supplier-list");
+
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "expected exit 0 for supplier-list export; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn export_supplier_list_round_trip() {
+    // Step 1: import supplier list example
+    let import_tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let omts_path = import_tmp.path().with_extension("omts");
+
+    let import_out = Command::new(omtsf_bin())
+        .args([
+            "import",
+            excel_fixture("omts-supplier-list-example.xlsx")
+                .to_str()
+                .expect("path"),
+            "-o",
+            omts_path.to_str().expect("omts output path"),
+        ])
+        .output()
+        .expect("run omtsf import supplier list");
+
+    assert_eq!(
+        import_out.status.code(),
+        Some(0),
+        "import must succeed; stderr: {}",
+        String::from_utf8_lossy(&import_out.stderr)
+    );
+
+    // Step 2: export as excel-supplier-list
+    let export_tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let xlsx_path = export_tmp.path().with_extension("xlsx");
+
+    let export_out = Command::new(omtsf_bin())
+        .args([
+            "export",
+            "--output-format",
+            "excel-supplier-list",
+            omts_path.to_str().expect("omts path"),
+            "-o",
+            xlsx_path.to_str().expect("xlsx output path"),
+        ])
+        .output()
+        .expect("run omtsf export supplier list");
+
+    assert_eq!(
+        export_out.status.code(),
+        Some(0),
+        "export must succeed; stderr: {}",
+        String::from_utf8_lossy(&export_out.stderr)
+    );
+
+    // Step 3: re-import the exported xlsx
+    let reimport_tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let reimport_omts_path = reimport_tmp.path().with_extension("omts");
+
+    let reimport_out = Command::new(omtsf_bin())
+        .args([
+            "import",
+            xlsx_path.to_str().expect("xlsx path"),
+            "-o",
+            reimport_omts_path.to_str().expect("re-import omts path"),
+        ])
+        .output()
+        .expect("run omtsf re-import supplier list");
+
+    assert_eq!(
+        reimport_out.status.code(),
+        Some(0),
+        "re-import must succeed; stderr: {}",
+        String::from_utf8_lossy(&reimport_out.stderr)
+    );
+
+    // Step 4: validate
+    let validate_out = Command::new(omtsf_bin())
+        .args(["validate", reimport_omts_path.to_str().expect("path")])
+        .output()
+        .expect("run omtsf validate");
+
+    assert_eq!(
+        validate_out.status.code(),
+        Some(0),
+        "validate must succeed on re-imported file; stderr: {}",
+        String::from_utf8_lossy(&validate_out.stderr)
+    );
+
+    // Step 5: assert node counts match
+    let orig_node_count = query_count(&omts_path);
+    let reimport_node_count = query_count(&reimport_omts_path);
+    assert_eq!(
+        orig_node_count, reimport_node_count,
+        "node count must match after round-trip (original={orig_node_count}, re-imported={reimport_node_count})"
+    );
+}
+
+#[test]
+fn export_unknown_format_exits_2() {
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let out_path = tmp.path().with_extension("xlsx");
+
+    let out = Command::new(omtsf_bin())
+        .args([
+            "export",
+            "--output-format",
+            "foobar",
+            omts_fixture("minimal.omts").to_str().expect("path"),
+            "-o",
+            out_path.to_str().expect("output path"),
+        ])
+        .output()
+        .expect("run omtsf export --output-format foobar");
+
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "unknown --output-format should exit 2; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 /// Returns the total edge count across all known edge types.
 fn query_edge_count(path: &std::path::Path) -> u64 {
     let out = Command::new(omtsf_bin())
