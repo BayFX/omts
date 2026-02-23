@@ -10,12 +10,12 @@
   - `erp-integration.md` (SPEC-005, informative)
   - `standards-mapping.md` (SPEC-006, informative)
   - `serialization-bindings.md` (SPEC-007)
-- `/omtsf-rs/` — Rust reference implementation (CLI + library)
-  - `crates/omtsf-core` — Graph model, parsing, validation, merge logic (WASM-compatible, no I/O)
-  - `crates/omtsf-cli` — CLI interface (`omtsf` binary), handles all I/O
-  - `crates/omtsf-excel` — Excel import/export support
-  - `crates/omtsf-wasm` — WASM bindings (thin wrapper around omtsf-core)
-  - `crates/omtsf-bench` — Benchmarks
+- `/omts-rs/` — Rust reference implementation (CLI + library)
+  - `crates/omts-core` — Graph model, parsing, validation, merge logic (WASM-compatible, no I/O)
+  - `crates/omts-cli` — CLI interface (`omts` binary), handles all I/O
+  - `crates/omts-excel` — Excel import/export support
+  - `crates/omts-wasm` — WASM bindings (thin wrapper around omts-core)
+  - `crates/omts-bench` — Benchmarks
   - `docs/` — Technical specification for the implementation (data-model, validation, merge, diff, query, redaction, cli-interface, graph-engine, tasks)
   - `tests/fixtures/` — `.omts` test fixtures for integration tests (JSON, CBOR, Zstd variants)
   - `README.md` — Command overview and build instructions
@@ -38,7 +38,7 @@
 - No `Co-Authored-By` trailer
 - Short commit messages, senior engineer style (e.g., "add expert-panel skill", "fix validation edge case")
 
-## Rust Development (omtsf-rs/)
+## Rust Development (omts-rs/)
 
 ### Quick Reference
 
@@ -50,7 +50,7 @@
 | `just lint` | Run clippy with `-D warnings` |
 | `just test` | Run all tests |
 | `just build` | Build debug binaries |
-| `just wasm-check` | Verify omtsf-core compiles to WASM |
+| `just wasm-check` | Verify omts-core compiles to WASM |
 | `just deny` | Run cargo-deny license/advisory checks |
 | `just ci` | Full pipeline: fmt-check, lint, test, doc, wasm-check, deny |
 | `just pre-commit` | Fast subset: fmt-check, lint, test |
@@ -61,20 +61,20 @@
 - **No `unwrap()` / `expect()` / `panic!()` / `todo!()` / `unimplemented!()`** in production code — use `Result` + `?` instead
 - **Exhaustive matches required** — `wildcard_enum_match_arm` is denied; always match every variant
 - **No `dbg!()` macro** — remove before committing
-- **WASM safety** — `omtsf-core` additionally denies `print_stdout` and `print_stderr`; all I/O belongs in `omtsf-cli`
+- **WASM safety** — `omts-core` additionally denies `print_stdout` and `print_stderr`; all I/O belongs in `omts-cli`
 - Test files may use `#![allow(clippy::expect_used)]` at the file level
 
 ### Where to Put Code
 
 | Crate | Purpose | Notes |
 |-------|---------|-------|
-| `crates/omtsf-core` | Graph model, parsing, validation, merge logic | No I/O, no stdout/stderr, WASM-compatible |
-| `crates/omtsf-cli` | CLI interface (`omtsf` binary) | Uses clap, handles all I/O |
-| `crates/omtsf-excel` | Excel import/export | Depends on omtsf-core |
-| `crates/omtsf-wasm` | WASM bindings | Thin wrapper around omtsf-core |
-| `crates/omtsf-bench` | Benchmarks | Performance testing |
-| `crates/omtsf-core/tests/` | Integration tests for core | `#![allow(clippy::expect_used)]` permitted |
-| `omtsf-rs/tests/fixtures/` | `.omts` test fixture files | JSON/CBOR/Zstd formats |
+| `crates/omts-core` | Graph model, parsing, validation, merge logic | No I/O, no stdout/stderr, WASM-compatible |
+| `crates/omts-cli` | CLI interface (`omts` binary) | Uses clap, handles all I/O |
+| `crates/omts-excel` | Excel import/export | Depends on omts-core |
+| `crates/omts-wasm` | WASM bindings | Thin wrapper around omts-core |
+| `crates/omts-bench` | Benchmarks | Performance testing |
+| `crates/omts-core/tests/` | Integration tests for core | `#![allow(clippy::expect_used)]` permitted |
+| `omts-rs/tests/fixtures/` | `.omts` test fixture files | JSON/CBOR/Zstd formats |
 | `tests/fixtures/` | Shared `.omts` test fixtures | Valid and invalid cases, shared across crates |
 
 ### Code Style

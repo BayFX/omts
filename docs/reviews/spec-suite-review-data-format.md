@@ -8,7 +8,7 @@
 
 ## Assessment
 
-The OMTSF spec suite makes a sensible foundational choice: JSON as the initial serialization format, flat adjacency list as the conceptual model, and a clean separation between graph-local identity and external identity. For an interchange format targeting a heterogeneous ecosystem of ERP systems, procurement tools, and regulatory submissions, the decision to prioritize human readability and tooling ubiquity over raw throughput is defensible at this stage. The format is approachable, debuggable, and requires no specialized libraries to parse -- all critical for early adoption in an ecosystem where the first barrier is getting anyone to produce a file at all.
+The OMTS spec suite makes a sensible foundational choice: JSON as the initial serialization format, flat adjacency list as the conceptual model, and a clean separation between graph-local identity and external identity. For an interchange format targeting a heterogeneous ecosystem of ERP systems, procurement tools, and regulatory submissions, the decision to prioritize human readability and tooling ubiquity over raw throughput is defensible at this stage. The format is approachable, debuggable, and requires no specialized libraries to parse -- all critical for early adoption in an ecosystem where the first barrier is getting anyone to produce a file at all.
 
 However, the spec suite has significant gaps in format-level engineering that will become blocking problems as adoption grows. There is no formal schema definition (no JSON Schema, no Avro IDL, nothing machine-readable), no file integrity mechanism (no checksums, no content hashes, no magic bytes), no canonical serialization rule for deterministic comparison or signing, and no defined path toward a binary or compressed representation for large graphs. The vision document explicitly identifies serialization format as a spec concern and lists "encoding, compression, human-readable vs binary tradeoffs" as a next step, but none of the six specs address it. SPEC-004 defines a SHA-256 hashing procedure but provides incomplete test vectors (the final hash value is missing), which makes independent implementation untestable. The edge property serialization has a subtle inconsistency: spec tables define properties flat on the edge, but the serialization example wraps them in a `properties` object, creating ambiguity for implementors.
 
@@ -20,7 +20,7 @@ The format also lacks any mechanism for streaming, chunked processing, or random
 
 - **JSON as the initial wire format** maximizes tooling compatibility. Every language, every platform, every developer can parse it without dependencies. This is the right choice for a v0.1 format that needs adoption above all.
 - **Flat adjacency list model** (separate node and edge arrays) is structurally simple, well-suited to merge operations, and avoids the deep nesting that plagues tree-based interchange formats.
-- **`omtsf_version` in the file header** enables schema evolution from day one. Parsers can branch on version before attempting to interpret the rest of the document.
+- **`omts_version` in the file header** enables schema evolution from day one. Parsers can branch on version before attempting to interpret the rest of the document.
 - **`file_salt` as a CSPRNG-generated value** in the header is a sound anti-enumeration measure for the boundary reference hashing in SPEC-004. The 32-byte length is appropriate.
 - **Extension mechanism via reverse-domain notation** for custom node types, edge types, and identifier schemes is a proven pattern (Java packages, Android intents, D-Bus interfaces) that avoids namespace collisions without requiring a central registry.
 - **Identifier canonical string format** (SPEC-002, Section 4) with defined delimiter and percent-encoding rules provides a deterministic serialization path for hashing and comparison.
@@ -44,9 +44,9 @@ The format also lacks any mechanism for streaming, chunked processing, or random
 
 - **[Major] No maximum size constraints.** SPEC-002 defines no max length for identifier values, no max cardinality for identifier arrays on a node, and SPEC-001 defines no max count for nodes or edges. While flexibility is good, unbounded sizes create denial-of-service risks for validators processing untrusted input. Implementors need guidance on reasonable limits (even if they are "SHOULD NOT exceed" rather than hard limits).
 
-- **[Minor] No magic bytes or file signature.** The format relies on JSON structure and the `omtsf_version` field for identification. Standard practice for interchange formats is a magic byte sequence at offset 0 (e.g., `OMTS` or a specific byte pattern) so that file type detection tools, operating systems, and streaming parsers can identify the format without parsing JSON. This is a low-effort addition with high practical value.
+- **[Minor] No magic bytes or file signature.** The format relies on JSON structure and the `omts_version` field for identification. Standard practice for interchange formats is a magic byte sequence at offset 0 (e.g., `OMTS` or a specific byte pattern) so that file type detection tools, operating systems, and streaming parsers can identify the format without parsing JSON. This is a low-effort addition with high practical value.
 
-- **[Minor] No `Content-Type` / MIME type registration.** If `.omts` files will be transmitted over HTTP, attached to emails, or stored in content management systems, a registered MIME type (e.g., `application/vnd.omtsf+json`) enables proper handling by intermediaries. This is an IANA registration process that should be initiated before v1.
+- **[Minor] No `Content-Type` / MIME type registration.** If `.omts` files will be transmitted over HTTP, attached to emails, or stored in content management systems, a registered MIME type (e.g., `application/vnd.omts+json`) enables proper handling by intermediaries. This is an IANA registration process that should be initiated before v1.
 
 - **[Minor] `snapshot_date` is date-only, not datetime.** For organizations that produce multiple snapshots per day (plausible for automated ERP exports), date-only granularity is insufficient. An ISO 8601 datetime with timezone (or UTC offset) would future-proof the field.
 
@@ -64,13 +64,13 @@ The format also lacks any mechanism for streaming, chunked processing, or random
 
 5. **[P1] Define a file integrity mechanism.** At minimum, specify that a companion `.omts.sha256` file MAY accompany an `.omts` file containing the hex-encoded SHA-256 hash of the canonical file content. For v1, consider embedding integrity in the format itself (e.g., a `content_hash` field computed over the canonical serialization of nodes and edges, excluding the hash field itself).
 
-6. **[P1] Add magic bytes.** Define the first 4 bytes of a valid `.omts` file. Since the file is JSON and must start with `{`, this could be implemented as a convention: the first key in the JSON object MUST be `"omtsf_version"`, ensuring that the byte sequence `{"omtsf_version"` acts as a de facto magic string. Document this as a normative requirement.
+6. **[P1] Add magic bytes.** Define the first 4 bytes of a valid `.omts` file. Since the file is JSON and must start with `{`, this could be implemented as a convention: the first key in the JSON object MUST be `"omts_version"`, ensuring that the byte sequence `{"omts_version"` acts as a de facto magic string. Document this as a normative requirement.
 
 7. **[P1] Define a compression envelope.** Specify that `.omts.zst` files are zstandard-compressed `.omts` files. Optionally define a framing format (e.g., a small uncompressed header with magic bytes, version, and compression method, followed by the compressed payload). This gives implementors a standard path for large files.
 
 8. **[P2] Add advisory size limits.** State that nodes arrays SHOULD NOT exceed 1,000,000 entries, identifier arrays per node SHOULD NOT exceed 50 entries, and individual string values SHOULD NOT exceed 10,000 UTF-8 bytes. These are not hard limits but give implementors a basis for buffer sizing and DoS protection.
 
-9. **[P2] Register a MIME type.** File an IANA registration for `application/vnd.omtsf+json` (and eventually `application/vnd.omtsf` for a binary variant). This is a bureaucratic process best started early.
+9. **[P2] Register a MIME type.** File an IANA registration for `application/vnd.omts+json` (and eventually `application/vnd.omts` for a binary variant). This is a bureaucratic process best started early.
 
 10. **[P2] Upgrade `snapshot_date` to datetime.** Change the type from ISO 8601 date to ISO 8601 datetime with mandatory UTC offset (e.g., `2026-02-18T14:30:00Z`). Provide a migration note for existing files: date-only values are interpreted as `T00:00:00Z`.
 
@@ -86,6 +86,6 @@ The format also lacks any mechanism for streaming, chunked processing, or random
 
 - **To Enterprise Integration Expert:** Large ERP exports (SAP with 50k+ vendors) will produce `.omts` files in the tens-of-megabytes range as uncompressed JSON. The ERP integration guide (SPEC-005) should note expected file sizes and reference the compression envelope once defined. Also, streaming JSON parsers (e.g., `ijson` in Python, `serde_json::StreamDeserializer` in Rust) can process the flat array structure without loading the entire file into memory, but only if the spec guarantees that `nodes` and `edges` are top-level arrays (not nested). This guarantee exists implicitly but should be stated explicitly for implementors building streaming pipelines.
 
-- **To Standards Expert:** RFC 8785 (JCS) is an IETF-track specification for canonical JSON. Its adoption here would align OMTSF with IETF best practices for JSON-based formats. The IANA MIME type registration should follow RFC 6838 (Media Type Specifications and Registration Procedures).
+- **To Standards Expert:** RFC 8785 (JCS) is an IETF-track specification for canonical JSON. Its adoption here would align OMTS with IETF best practices for JSON-based formats. The IANA MIME type registration should follow RFC 6838 (Media Type Specifications and Registration Procedures).
 
 - **To Open Source Strategy Expert:** A published JSON Schema in the repository is a high-value contribution for the open-source ecosystem. It enables automatic validation in VS Code (via the JSON Language Server), CI/CD pipeline integration, and third-party tooling without depending on the Rust reference implementation. This lowers the barrier to entry for non-Rust ecosystems significantly.

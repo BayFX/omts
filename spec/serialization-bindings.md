@@ -1,6 +1,6 @@
-# OMTSF Specification: Serialization Bindings
+# OMTS Specification: Serialization Bindings
 
-**Spec:** OMTSF-SPEC-007
+**Spec:** OMTS-SPEC-007
 **Status:** Draft
 **Date:** 2026-02-21
 **Revision:** 1
@@ -11,9 +11,9 @@
 
 | Spec | Relationship |
 |------|-------------|
-| OMTSF-SPEC-001 (Graph Data Model) | **Prerequisite.** Defines the abstract graph model serialized by the bindings in this spec. |
-| OMTSF-SPEC-002 (Entity Identification) | Canonical string format (Section 4) is used for hashing operations; encoding-independent by design. |
-| OMTSF-SPEC-004 (Selective Disclosure) | Boundary reference hashing (Section 4) operates on logical strings, not serialized bytes. |
+| OMTS-SPEC-001 (Graph Data Model) | **Prerequisite.** Defines the abstract graph model serialized by the bindings in this spec. |
+| OMTS-SPEC-002 (Entity Identification) | Canonical string format (Section 4) is used for hashing operations; encoding-independent by design. |
+| OMTS-SPEC-004 (Selective Disclosure) | Boundary reference hashing (Section 4) operates on logical strings, not serialized bytes. |
 
 ---
 
@@ -24,7 +24,7 @@ This specification defines two normative serialization encodings for `.omts` fil
 - **JSON** (ECMA-404 / RFC 8259) -- the text-based encoding
 - **CBOR** (RFC 8949) -- the binary encoding
 
-Both encodings carry the same abstract data model defined in OMTSF-SPEC-001 with identical semantics. A valid `.omts` file MUST be encoded in exactly one of these formats, optionally wrapped in a compression layer (Section 6).
+Both encodings carry the same abstract data model defined in OMTS-SPEC-001 with identical semantics. A valid `.omts` file MUST be encoded in exactly one of these formats, optionally wrapped in a compression layer (Section 6).
 
 Implementations MUST support at least the JSON encoding (Section 3). CBOR support (Section 4) and compression (Section 6) are defined for implementations that need compact binary transport.
 
@@ -54,7 +54,7 @@ JSON `.omts` files MUST be encoded as UTF-8 (RFC 3629). A byte order mark (BOM) 
 
 ### 3.2 Edge Property Wrapper
 
-Edge properties defined in OMTSF-SPEC-001, Sections 5, 6, and 7 MUST be nested inside a `"properties"` object on the edge. The structural fields `id`, `type`, `source`, and `target` are top-level fields on the edge object; all other fields are inside `properties`. Example:
+Edge properties defined in OMTS-SPEC-001, Sections 5, 6, and 7 MUST be nested inside a `"properties"` object on the edge. The structural fields `id`, `type`, `source`, and `target` are top-level fields on the edge object; all other fields are inside `properties`. Example:
 
 ```json
 {
@@ -73,11 +73,11 @@ The `data_quality` and `labels` fields follow the same placement convention: top
 
 ### 3.3 First Key Requirement
 
-The first key in the top-level JSON object MUST be `"omtsf_version"`. Consumers MUST NOT reject files where `omtsf_version` is present but not the first key.
+The first key in the top-level JSON object MUST be `"omts_version"`. Consumers MUST NOT reject files where `omts_version` is present but not the first key.
 
 ### 3.4 Date Representation
 
-All date fields MUST be serialized as JSON strings in `YYYY-MM-DD` format, as required by OMTSF-SPEC-001, Section 2.2.
+All date fields MUST be serialized as JSON strings in `YYYY-MM-DD` format, as required by OMTS-SPEC-001, Section 2.2.
 
 ### 3.5 Null vs. Absent
 
@@ -90,7 +90,7 @@ Consumers MUST treat `null` and absent identically for optional fields unless th
 
 ### 3.6 Unknown Field Preservation
 
-Consumers performing round-trip processing MUST preserve unknown fields and their values. Unknown fields MUST NOT cause validation failure. This supports forward compatibility (OMTSF-SPEC-001, Section 2.3).
+Consumers performing round-trip processing MUST preserve unknown fields and their values. Unknown fields MUST NOT cause validation failure. This supports forward compatibility (OMTS-SPEC-001, Section 2.3).
 
 ---
 
@@ -107,7 +107,7 @@ Consumers performing round-trip processing MUST preserve unknown fields and thei
 
 ### 4.2 Type Mapping
 
-| OMTSF Abstract Type | CBOR Encoding |
+| OMTS Abstract Type | CBOR Encoding |
 |---------------------|---------------|
 | string | Text string (major type 3) |
 | integer | Integer (major type 0 or 1) |
@@ -136,7 +136,7 @@ Consumers performing round-trip processing of CBOR files MUST preserve unknown k
 
 ### 4.6 First Key Requirement
 
-The JSON first-key requirement (Section 3.3) does not apply to CBOR. Since CBOR map key order is not significant, there is no requirement on key ordering. The `"omtsf_version"` key MUST be present but MAY appear at any position in the top-level map.
+The JSON first-key requirement (Section 3.3) does not apply to CBOR. Since CBOR map key order is not significant, there is no requirement on key ordering. The `"omts_version"` key MUST be present but MAY appear at any position in the top-level map.
 
 ---
 
@@ -213,10 +213,10 @@ Implementations MUST declare which profile they conform to. An implementation MA
 
 ### 8.1 Identifier and Boundary Reference Hashing
 
-Hash operations defined in other OMTSF specifications operate on **logical strings**, not on serialized bytes:
+Hash operations defined in other OMTS specifications operate on **logical strings**, not on serialized bytes:
 
-- **Boundary reference hashing** (OMTSF-SPEC-004, Section 4) uses the canonical string form of identifiers (OMTSF-SPEC-002, Section 4) concatenated with the file salt. The hash input is independent of whether the file is serialized as JSON or CBOR.
-- **Canonical identifier strings** (OMTSF-SPEC-002, Section 4) are defined as text, not as encoding-specific byte sequences.
+- **Boundary reference hashing** (OMTS-SPEC-004, Section 4) uses the canonical string form of identifiers (OMTS-SPEC-002, Section 4) concatenated with the file salt. The hash input is independent of whether the file is serialized as JSON or CBOR.
+- **Canonical identifier strings** (OMTS-SPEC-002, Section 4) are defined as text, not as encoding-specific byte sequences.
 
 Implementations MUST produce identical hash values regardless of the serialization encoding used for the file. There is no "canonical serialized form" for hashing purposes.
 
@@ -224,7 +224,7 @@ Implementations MUST produce identical hash values regardless of the serializati
 
 The `file_integrity.content_hash` field, when present, contains a SHA-256 hash (hex-encoded, lowercase) computed over the **canonical content bytes** of the file. The canonical content bytes are defined as follows:
 
-1. Parse the file into the abstract data model (OMTSF-SPEC-001).
+1. Parse the file into the abstract data model (OMTS-SPEC-001).
 2. Re-serialize the abstract model to **JSON** using the following canonical rules:
    - Keys sorted lexicographically (UTF-8 byte order) at every nesting level.
    - No whitespace between tokens (compact serialization).

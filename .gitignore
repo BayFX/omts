@@ -1,5 +1,5 @@
 # Build artifacts
-omtsf-rs/target/
+omts-rs/target/
 
 # Git worktrees for parallel implementation
 .worktrees/

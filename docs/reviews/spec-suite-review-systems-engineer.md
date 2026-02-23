@@ -1,7 +1,7 @@
-# Expert Panel Review: OMTSF Specification Suite (R2)
+# Expert Panel Review: OMTS Specification Suite (R2)
 
 **Reviewer:** Systems Engineering Expert, Senior Systems Engineer (Rust)
-**Specs Reviewed:** OMTSF-SPEC-001 through OMTSF-SPEC-006 (all Draft, as of 2026-02-18)
+**Specs Reviewed:** OMTS-SPEC-001 through OMTS-SPEC-006 (all Draft, as of 2026-02-18)
 **Review Date:** 2026-02-18
 **Review Round:** R2 (post-panel-findings remediation)
 
@@ -21,7 +21,7 @@ The remaining gaps are not blocking for a reference implementation but matter fo
 
 - **Edge property wrapper resolved (SPEC-001, Section 2.1).** The `"properties"` wrapper is now normative with a clear serialization example. Structural fields are top-level; domain fields nest inside `properties`. This maps to a clean `serde` model with `#[serde(tag = "type")]` on the edge enum and `#[serde(flatten)]` for properties. No more ambiguity.
 - **Advisory size limits defined (SPEC-001, Section 9.4).** 1M nodes, 5M edges, 50 identifiers/node, 10K string field length. These are generous enough for real workloads and tight enough for parser safety. The 10x rejection threshold for untrusted input is pragmatic.
-- **First-key requirement for file detection (SPEC-001, Section 2.1).** `"omtsf_version"` must be the first JSON key. This enables file type sniffing without full parse -- a `serde_json::StreamDeserializer` can read the first token and bail if it is not `omtsf_version`. Smart and cheap.
+- **First-key requirement for file detection (SPEC-001, Section 2.1).** `"omts_version"` must be the first JSON key. This enables file type sniffing without full parse -- a `serde_json::StreamDeserializer` can read the first token and bail if it is not `omts_version`. Smart and cheap.
 - **Four concrete test vectors in SPEC-004, Section 4.** Multi-identifier, single-identifier, percent-encoded, and random-token paths. The expected SHA-256 outputs are included. This is a conformance test suite for boundary reference hashing out of the box.
 - **Percent-encoding now covers newlines (SPEC-002, Section 4).** Colons, percent signs, `\n`, and `\r` are all encoded. The canonical identifier format is now unambiguous as a hash input, even when values contain the SPEC-004 join delimiter.
 - **Merge conflict record schema defined (SPEC-003, Section 4, step 4).** The `_conflicts` array with `field` and `values[].value`/`values[].source_file` is parseable and deterministic. Implementations can now produce interoperable merged files containing conflicts.
@@ -40,7 +40,7 @@ The remaining gaps are not blocking for a reference implementation but matter fo
 - **[Major] No streaming format for files exceeding advisory limits.** The spec acknowledges 1M nodes / 5M edges as advisory limits. At ~500 bytes per node and ~200 bytes per edge, a max-advisory file is ~1.5 GB of JSON. Standard `serde_json::from_reader` will buffer this entirely; streaming requires `serde_json::StreamDeserializer` or `struson`, but the single-document JSON structure (one root object with `nodes` and `edges` arrays) means you cannot begin processing edges until the entire `nodes` array is parsed. An NDJSON variant or a structure where `nodes` and `edges` are separate top-level arrays in a streaming-friendly position would help.
 - **[Minor] `geo` field on `facility` remains unstructured.** SPEC-001, Section 4.2 allows both `{"lat": ..., "lon": ...}` and GeoJSON geometry in the same `geo` field. In `serde`, this requires `#[serde(untagged)]` deserialization, which tries each variant in order and produces poor error messages on malformed input. A discriminated union with a `type` field, or separate `geo_point` and `geo_polygon` fields, would be more ergonomic for typed deserialization.
 - **[Minor] `consignment` node `quantity` is `number`, not `number | null`.** SPEC-001, Section 4.6 defines `quantity` as `number` (optional). In JSON, a missing field and a `null` field are different. The spec should clarify whether `"quantity": null` is valid or only field omission is permitted. For `serde`, this is `Option<f64>` vs `#[serde(skip_serializing_if = "Option::is_none")]` -- a small but meaningful distinction for round-trip fidelity.
-- **[Minor] No MIME type registration.** Still relevant for HTTP-based tooling and WASM browser integration. `application/vnd.omtsf+json` would enable `Content-Type` negotiation and proper browser handling.
+- **[Minor] No MIME type registration.** Still relevant for HTTP-based tooling and WASM browser integration. `application/vnd.omts+json` would enable `Content-Type` negotiation and proper browser handling.
 
 ---
 
@@ -56,7 +56,7 @@ The remaining gaps are not blocking for a reference implementation but matter fo
 
 5. **[P2] Structure `geo` as a discriminated union.** Either require a `type` field (`"point"` or `"geojson"`) or split into `geo_point` (lat/lon only) and `geo_shape` (GeoJSON). Removes `#[serde(untagged)]` ambiguity.
 
-6. **[P2] Register MIME type `application/vnd.omtsf+json`.** Enables HTTP content negotiation, `wasm-bindgen` fetch integration, and browser-based validation tooling.
+6. **[P2] Register MIME type `application/vnd.omts+json`.** Enables HTTP content negotiation, `wasm-bindgen` fetch integration, and browser-based validation tooling.
 
 ---
 
@@ -68,6 +68,6 @@ The remaining gaps are not blocking for a reference implementation but matter fo
 
 **To Graph Modeling Expert:** The advisory size limits (1M nodes, 5M edges) have direct implications for the union-find data structure in SPEC-003. A `Vec<usize>`-backed union-find with path compression and union-by-rank handles 1M elements in well under a second (benchmarks show ~3.5M operations/second on commodity hardware). The canonical identifier `HashMap<String, usize>` index for the identity predicate will dominate memory at this scale -- roughly 100 bytes per identifier entry (key + hash map overhead), so 50M identifiers (50 per node * 1M nodes at max) would consume ~5 GB. Implementations should use a `StringInterner` or arena allocator to reduce per-string overhead.
 
-**To Enterprise Integration Expert:** The SAP Business Partner mapping in SPEC-005, Section 2.4 is now adequate for implementation. The `BUT0ID` to OMTSF scheme mapping table is directly translatable to a Rust `match` statement on `IDTYPE`. For the reference implementation extractor, I would recommend a `TryFrom<But0idRecord>` impl that produces an `IdentifierRecord` with proper scheme discrimination. The tax number disambiguation table in Section 2.5 is also actionable -- each row maps to a pattern match on `(LAND1, field_name)`.
+**To Enterprise Integration Expert:** The SAP Business Partner mapping in SPEC-005, Section 2.4 is now adequate for implementation. The `BUT0ID` to OMTS scheme mapping table is directly translatable to a Rust `match` statement on `IDTYPE`. For the reference implementation extractor, I would recommend a `TryFrom<But0idRecord>` impl that produces an `IdentifierRecord` with proper scheme discrimination. The tax number disambiguation table in Section 2.5 is also actionable -- each row maps to a pattern match on `(LAND1, field_name)`.
 
-**To Open Source Strategy Expert:** The conformance test vectors in SPEC-004 are the nucleus of a test suite. For Rust, these become `#[test]` functions in the `omtsf-disclosure` crate that parse the test vector inputs and assert SHA-256 output equality. The recommended test suite structure: a `tests/fixtures/` directory with `.omts` files and companion `.expected.json` files describing expected validation outcomes per L1/L2 rule. Any language can consume these fixtures. This pattern is proven by the JSON Schema Test Suite and html5lib-tests projects.
+**To Open Source Strategy Expert:** The conformance test vectors in SPEC-004 are the nucleus of a test suite. For Rust, these become `#[test]` functions in the `omts-disclosure` crate that parse the test vector inputs and assert SHA-256 output equality. The recommended test suite structure: a `tests/fixtures/` directory with `.omts` files and companion `.expected.json` files describing expected validation outcomes per L1/L2 rule. Any language can consume these fixtures. This pattern is proven by the JSON Schema Test Suite and html5lib-tests projects.

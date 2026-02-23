@@ -1,7 +1,7 @@
-# Expert Panel Report: Full OMTSF Specification Suite
+# Expert Panel Report: Full OMTS Specification Suite
 
 **Date:** 2026-02-18
-**Scope:** OMTSF-SPEC-001 through OMTSF-SPEC-006 (all Draft, 2026-02-18)
+**Scope:** OMTS-SPEC-001 through OMTS-SPEC-006 (all Draft, 2026-02-18)
 **Panel Size:** 11 experts
 **Review Round:** Post-revision (prior panel findings addressed)
 
@@ -9,7 +9,7 @@
 
 ## Panel Chair Summary
 
-The OMTSF specification suite was reviewed by an 11-expert panel spanning supply chain operations, procurement, standards development, systems engineering (Rust), graph theory, enterprise integration, regulatory compliance, data serialization, open source strategy, security/privacy, and entity identification. The panel finds that the spec suite has matured substantially from prior review rounds -- 15+ critical and major findings from earlier panels have been resolved -- and now represents a technically sound, domain-informed foundation for supply chain data exchange. The directed labeled property multigraph model, composite identifier strategy with no mandatory scheme, formal merge algebra with algebraic guarantees (commutativity, associativity, idempotency), and layered privacy architecture are each well-designed and mutually reinforcing.
+The OMTS specification suite was reviewed by an 11-expert panel spanning supply chain operations, procurement, standards development, systems engineering (Rust), graph theory, enterprise integration, regulatory compliance, data serialization, open source strategy, security/privacy, and entity identification. The panel finds that the spec suite has matured substantially from prior review rounds -- 15+ critical and major findings from earlier panels have been resolved -- and now represents a technically sound, domain-informed foundation for supply chain data exchange. The directed labeled property multigraph model, composite identifier strategy with no mandatory scheme, formal merge algebra with algebraic guarantees (commutativity, associativity, idempotency), and layered privacy architecture are each well-designed and mutually reinforcing.
 
 Three areas of strong consensus emerged as remaining gaps. First, **the absence of a machine-readable JSON Schema** was flagged as Critical or Major by 4 experts (Standards, Rust Engineer, Data Format, Open Source) and is the single highest-priority artifact for the ecosystem -- it simultaneously enables automated validation, code generation, IDE integration, and conformance testing. Second, **canonical JSON serialization for the `file_integrity` content hash** was independently identified by 3 experts (Rust Engineer, Data Format, Security/Privacy) as required to make the integrity mechanism portable across implementations. Third, **governance and ecosystem infrastructure** -- no CONTRIBUTING.md, no DCO/CLA, no conformance test suite, single-company copyright under MIT -- was flagged as Critical by the Open Source Strategist and Major by the Standards Expert; the spec quality bottleneck has shifted from "is the spec good enough?" to "can anyone outside BayFX participate?"
 
@@ -63,7 +63,7 @@ No CONTRIBUTING.md, no DCO/CLA, no code of conduct, no conformance test suite, n
 
 **Flagged by:** Enterprise Integration, Procurement, Supply Chain
 
-Full-file re-export at enterprise scale (40,000+ vendors) is operationally infeasible. ERP change document tables (SAP CDHDR/CDPOS, Oracle audit columns, D365 change tracking) produce incremental deltas natively. Without a delta envelope, every OMTSF integration requires a custom reconciliation layer, negating standardization benefits.
+Full-file re-export at enterprise scale (40,000+ vendors) is operationally infeasible. ERP change document tables (SAP CDHDR/CDPOS, Oracle audit columns, D365 change tracking) produce incremental deltas natively. Without a delta envelope, every OMTS integration requires a custom reconciliation layer, negating standardization benefits.
 
 ---
 
@@ -73,7 +73,7 @@ Full-file re-export at enterprise scale (40,000+ vendors) is operationally infea
 |---|-------|-----------|---------|
 | C1 | No JSON Schema | Standards, Rust Engineer, Data Format, Open Source | Prose-only specification guarantees cross-implementation divergence. Machine-readable schema is the single highest-priority artifact. |
 | C2 | No CONTRIBUTING.md or DCO/CLA | Open Source | Blocks all external participation. Enterprise legal departments require formal contribution agreements. |
-| C3 | Single-company copyright on specifications | Open Source | BayFX copyright under MIT permits proprietary forking. Specs should use CC-BY-4.0 with "OMTSF Contributors" copyright. |
+| C3 | Single-company copyright on specifications | Open Source | BayFX copyright under MIT permits proprietary forking. Specs should use CC-BY-4.0 with "OMTS Contributors" copyright. |
 | C4 | No conformance test suite | Open Source, Standards | 30+ validation rules with no machine-executable test fixtures. Conformance claims are unverifiable. |
 | C5 | No CBAM embedded emissions data | Regulatory Compliance | CBAM definitive phase began 2026-01-01; first surrender deadline 2027-09-30. No fields for direct/indirect emissions on consignment nodes. |
 | C6 | No supplier-facing data collection guidance | Procurement | Format defines file structure but provides zero guidance on collecting data from suppliers, especially Tier-2+ SMEs. |
@@ -159,7 +159,7 @@ Full-file re-export at enterprise scale (40,000+ vendors) is operationally infea
 |---|---------------|-----------------|
 | P0-1 | **Publish normative JSON Schema (draft 2020-12)** for the `.omts` file format. Include all node types, edge types with `"properties"` wrapper, identifier records with conditional `authority`, and `file_integrity`. Store at `schema/omts-v0.1.0.schema.json`. | Standards, Data Format, Rust Engineer, Open Source |
 | P0-2 | **Create CONTRIBUTING.md with DCO** defining contribution workflow, sign-off requirements, and interaction with TSC governance. | Open Source |
-| P0-3 | **Separate spec and code licensing.** CC-BY-4.0 for specifications in `spec/`, Apache 2.0 for code. Copyright "OMTSF Contributors." | Open Source |
+| P0-3 | **Separate spec and code licensing.** CC-BY-4.0 for specifications in `spec/`, Apache 2.0 for code. Copyright "OMTS Contributors." | Open Source |
 | P0-4 | **Publish conformance test fixtures** for all L1 validation rules. One valid and one invalid `.omts` file per rule, with expected results. | Open Source, Standards |
 | P0-5 | **Add CBAM embedded emissions properties** to `consignment` nodes or define extension. Fields: `direct_emissions_co2e`, `indirect_emissions_co2e`, `emission_factor_source`, `installation_id`. First surrender deadline: 2027-09-30. | Regulatory Compliance |
 | P0-6 | **Create supplier data collection guide** with minimum viable data request template for SME suppliers. | Procurement |
@@ -192,12 +192,12 @@ Full-file re-export at enterprise scale (40,000+ vendors) is operationally infea
 | P1-20 | Add L2 rule encouraging `data_quality` on all nodes and supply edges | Supply Chain |
 | P1-21 | Add sub-national `region` field (ISO 3166-2) to facility nodes | Supply Chain |
 | P1-22 | Publish cost-ordered identifier enrichment path (free vs. paid sources) | Procurement |
-| P1-23 | Define recommended procurement extension namespace (`com.omtsf.procurement`) | Procurement |
+| P1-23 | Define recommended procurement extension namespace (`com.omts.procurement`) | Procurement |
 | P1-24 | Create one-page quick-start guide with minimum viable `.omts` file | Procurement |
 | P1-25 | Publish worked multi-ERP deduplication example | Procurement |
 | P1-26 | Define formal conformance clauses (producer/consumer/validator) | Open Source, Standards |
 | P1-27 | Name adoption wedge and publish roadmap (recommended: German LkSG + automotive) | Open Source |
-| P1-28 | Publish `omtsf-rs` repository (even empty with README and crate structure) | Open Source |
+| P1-28 | Publish `omts-rs` repository (even empty with README and crate structure) | Open Source |
 | P1-29 | Add jurisdiction-aware guidance for LEI lapsed status warnings | Entity Identification |
 | P1-30 | Document GLEIF Level 2 coverage limitations in SPEC-001 Section 5.3 | Entity Identification |
 | P1-31 | Add UEI as extension scheme (`org.sam.uei`); consider fast-tracking to core | Entity Identification |
@@ -209,7 +209,7 @@ Full-file re-export at enterprise scale (40,000+ vendors) is operationally infea
 
 | # | Recommendation | Source Expert(s) |
 |---|---------------|-----------------|
-| P2-1 | Register MIME type `application/vnd.omtsf+json` | Rust Engineer, Data Format |
+| P2-1 | Register MIME type `application/vnd.omts+json` | Rust Engineer, Data Format |
 | P2-2 | Define NDJSON streaming variant for large graphs | Rust Engineer |
 | P2-3 | Structure `geo` as discriminated union | Rust Engineer |
 | P2-4 | Add key distribution guidance for digital signatures | Data Format, Security/Privacy |

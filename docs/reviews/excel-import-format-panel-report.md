@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-22
 **Panel Chair:** Expert Panel Coordinator
-**Topic:** Design of an Excel file format that can be converted to OMTS, and an `omtsf import-excel` command in the Rust reference implementation
+**Topic:** Design of an Excel file format that can be converted to OMTS, and an `omts import-excel` command in the Rust reference implementation
 
 ---
 
@@ -10,7 +10,7 @@
 
 This panel reviewed the design of an Excel file format specification to serve as an import bridge for companies that currently manage supply chain data in spreadsheets. All seven commissioned experts completed their reviews: Supply Chain Expert, Procurement Expert, Graph Modeling Expert, Data Serialization Expert, Rust Engineer, Entity Identification Expert, and ERP Integration Expert.
 
-The panel reached strong consensus on the core architecture: **a multi-sheet Excel workbook** with separate sheets for metadata, node types (organizations, facilities, goods, attestations, consignments), relationships (edges), and identifiers. All seven panelists independently converged on this structure, with the Graph Theorist providing the formal justification (multi-sheet mirrors adjacency-list decomposition), the Procurement Expert grounding it in operational reality, and the Rust Engineer defining the crate boundaries (Excel I/O in `omtsf-cli`, graph construction in `omtsf-core`).
+The panel reached strong consensus on the core architecture: **a multi-sheet Excel workbook** with separate sheets for metadata, node types (organizations, facilities, goods, attestations, consignments), relationships (edges), and identifiers. All seven panelists independently converged on this structure, with the Graph Theorist providing the formal justification (multi-sheet mirrors adjacency-list decomposition), the Procurement Expert grounding it in operational reality, and the Rust Engineer defining the crate boundaries (Excel I/O in `omts-cli`, graph construction in `omts-core`).
 
 The most significant area of consensus was the **separate Identifiers sheet**. Six of seven experts independently recommended this as the correct approach for handling the variable-length identifier array (SPEC-002 Section 3). The Entity Identification Expert provided the definitive argument: fixed identifier columns on node sheets cannot accommodate multiple identifiers of the same scheme (e.g., two `internal` IDs from different ERP systems), and a separate sheet with `node_id` foreign key is the only layout that maps correctly to the SPEC-002 identifier array. The Data Serialization Expert and Procurement Expert additionally recommended embedding common schemes (LEI, DUNS, VAT) as direct columns on node sheets for the 80% simple case, with the Identifiers sheet serving as the general-purpose overflow.
 
@@ -228,7 +228,7 @@ Excel cells may contain formulas whose cached values may be stale if the file wa
 
 2. **Identifier model <-> Template design:** The Entity Identification Expert's recommendation for a separate Identifiers sheet was independently endorsed by the Rust Engineer (for parser type safety), the Graph Theorist (for correct graph modeling), and the ERP Integration Expert (for multi-system identifier handling). The consensus is: embed common schemes as direct columns on node sheets for the 80% case, with the Identifiers sheet for the general case. The import command must merge both sources.
 
-3. **Rust implementation <-> Validation strategy:** The Rust Engineer defined clear crate boundaries: Excel I/O in `omtsf-cli` (or a dedicated `omtsf-excel` crate), graph construction in `omtsf-core` as pure functions. The `calamine` crate handles reading; `rust_xlsxwriter` handles template generation. The ERP Integration Expert endorsed this and added that the two-phase validation (structural pre-conversion + OMTS-spec post-conversion) should reuse existing `omtsf-core` validators.
+3. **Rust implementation <-> Validation strategy:** The Rust Engineer defined clear crate boundaries: Excel I/O in `omts-cli` (or a dedicated `omts-excel` crate), graph construction in `omts-core` as pure functions. The `calamine` crate handles reading; `rust_xlsxwriter` handles template generation. The ERP Integration Expert endorsed this and added that the two-phase validation (structural pre-conversion + OMTS-spec post-conversion) should reuse existing `omts-core` validators.
 
 4. **Regulatory compliance <-> Template defaults:** The Supply Chain Expert emphasized that LkSG and CSDDD compliance workflows start with Excel supplier lists. The simplified single-sheet mode directly serves this use case. The Entity Identification Expert added that `former_identity` edges are essential for compliance continuity across M&A events.
 
@@ -403,11 +403,11 @@ The biggest risk is the validation gap between what Excel can structurally enfor
 
 #### Assessment
 
-From a crate architecture standpoint, the `import-excel` pipeline introduces a new parsing surface that must slot cleanly into the existing workspace without contaminating `omtsf-core`. The correct decomposition is: all Excel I/O belongs in `omtsf-cli` (or a dedicated `omtsf-excel` crate), while the resulting in-memory graph is constructed using the same public types already defined in `omtsf-core`. The parsing logic should produce a typed `ImportResult<OmtsGraph, Vec<ImportDiagnostic>>` -- never a panic, never a `String`-typed error. The Excel dependency (`calamine` for reading) must be confined to the CLI crate and MUST NOT appear in `omtsf-core`'s dependency tree. The `wasm-check` step in `just ci` will catch any accidental bleed immediately.
+From a crate architecture standpoint, the `import-excel` pipeline introduces a new parsing surface that must slot cleanly into the existing workspace without contaminating `omts-core`. The correct decomposition is: all Excel I/O belongs in `omts-cli` (or a dedicated `omts-excel` crate), while the resulting in-memory graph is constructed using the same public types already defined in `omts-core`. The parsing logic should produce a typed `ImportResult<OmtsGraph, Vec<ImportDiagnostic>>` -- never a panic, never a `String`-typed error. The Excel dependency (`calamine` for reading) must be confined to the CLI crate and MUST NOT appear in `omts-core`'s dependency tree. The `wasm-check` step in `just ci` will catch any accidental bleed immediately.
 
 The hardest parsing safety problem is that Excel files are user-authored, untrusted binary blobs. XLSX is a ZIP archive containing XML. Malformed or adversarially crafted files can trigger zip-bomb payloads, unbounded string allocations on merged cells, and formula injection in string fields. The import pipeline must enforce the advisory size limits from SPEC-001 Section 9.4 at read time -- 1M nodes, 5M edges, 10,000 UTF-8 bytes per string field -- before constructing any in-memory structure.
 
-The two-sheet structure maps cleanly onto the OMTS graph model and gives a deterministic two-pass parse: (1) collect all nodes into a `HashMap<LocalId, NodeRecord>`, then (2) resolve each edge's `source`/`target` columns against that map, returning typed `EdgeRefError`s for dangling references. This mirrors the in-memory validation pipeline already present in `omtsf-core`.
+The two-sheet structure maps cleanly onto the OMTS graph model and gives a deterministic two-pass parse: (1) collect all nodes into a `HashMap<LocalId, NodeRecord>`, then (2) resolve each edge's `source`/`target` columns against that map, returning typed `EdgeRefError`s for dangling references. This mirrors the in-memory validation pipeline already present in `omts-core`.
 
 #### Strengths
 

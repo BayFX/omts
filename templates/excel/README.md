@@ -72,7 +72,7 @@ Yorkshire Steel Works | 2    | Bolt Supplies Ltd
 ### Conversion
 
 ```bash
-omtsf import-supplier-list omts-supplier-list-example.xlsx -o output.omts
+omts import-supplier-list omts-supplier-list-example.xlsx -o output.omts
 ```
 
 ## Full Import Template
@@ -114,7 +114,7 @@ Every entity sheet has an `id` column. If left blank, the importer auto-generate
 ### Conversion
 
 ```bash
-omtsf import-excel omts-import-example.xlsx -o output.omts
+omts import-excel omts-import-example.xlsx -o output.omts
 ```
 
 ## Common conventions

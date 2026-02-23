@@ -1,0 +1,569 @@
+{
+  "omts_version": "1.0.0",
+  "snapshot_date": "2026-02-19",
+  "file_salt": "8080808080808080808080808080808080808080808080808080808080808080",
+  "nodes": [
+    {
+      "id": "org-0",
+      "type": "organization",
+      "name": "Org 0",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-1",
+      "type": "organization",
+      "name": "Org 1",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-2",
+      "type": "organization",
+      "name": "Org 2",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-3",
+      "type": "organization",
+      "name": "Org 3",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-4",
+      "type": "organization",
+      "name": "Org 4",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-5",
+      "type": "organization",
+      "name": "Org 5",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-6",
+      "type": "organization",
+      "name": "Org 6",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-7",
+      "type": "organization",
+      "name": "Org 7",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-8",
+      "type": "organization",
+      "name": "Org 8",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-9",
+      "type": "organization",
+      "name": "Org 9",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-10",
+      "type": "organization",
+      "name": "Org 10",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-11",
+      "type": "organization",
+      "name": "Org 11",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-12",
+      "type": "organization",
+      "name": "Org 12",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-13",
+      "type": "organization",
+      "name": "Org 13",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-14",
+      "type": "organization",
+      "name": "Org 14",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-15",
+      "type": "organization",
+      "name": "Org 15",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-16",
+      "type": "organization",
+      "name": "Org 16",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-17",
+      "type": "organization",
+      "name": "Org 17",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-18",
+      "type": "organization",
+      "name": "Org 18",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-19",
+      "type": "organization",
+      "name": "Org 19",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-20",
+      "type": "organization",
+      "name": "Org 20",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-21",
+      "type": "organization",
+      "name": "Org 21",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-22",
+      "type": "organization",
+      "name": "Org 22",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-23",
+      "type": "organization",
+      "name": "Org 23",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-24",
+      "type": "organization",
+      "name": "Org 24",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-25",
+      "type": "organization",
+      "name": "Org 25",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-26",
+      "type": "organization",
+      "name": "Org 26",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-27",
+      "type": "organization",
+      "name": "Org 27",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-28",
+      "type": "organization",
+      "name": "Org 28",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-29",
+      "type": "organization",
+      "name": "Org 29",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-30",
+      "type": "organization",
+      "name": "Org 30",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-31",
+      "type": "organization",
+      "name": "Org 31",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-32",
+      "type": "organization",
+      "name": "Org 32",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-33",
+      "type": "organization",
+      "name": "Org 33",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-34",
+      "type": "organization",
+      "name": "Org 34",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-35",
+      "type": "organization",
+      "name": "Org 35",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-36",
+      "type": "organization",
+      "name": "Org 36",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-37",
+      "type": "organization",
+      "name": "Org 37",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-38",
+      "type": "organization",
+      "name": "Org 38",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-39",
+      "type": "organization",
+      "name": "Org 39",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-40",
+      "type": "organization",
+      "name": "Org 40",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-41",
+      "type": "organization",
+      "name": "Org 41",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-42",
+      "type": "organization",
+      "name": "Org 42",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-43",
+      "type": "organization",
+      "name": "Org 43",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-44",
+      "type": "organization",
+      "name": "Org 44",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-45",
+      "type": "organization",
+      "name": "Org 45",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-46",
+      "type": "organization",
+      "name": "Org 46",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-47",
+      "type": "organization",
+      "name": "Org 47",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-48",
+      "type": "organization",
+      "name": "Org 48",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-49",
+      "type": "organization",
+      "name": "Org 49",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    },
+    {
+      "id": "org-50",
+      "type": "organization",
+      "name": "Org 50",
+      "identifiers": [
+        {
+          "scheme": "duns",
+          "value": "999888777"
+        }
+      ]
+    }
+  ],
+  "edges": []
+}

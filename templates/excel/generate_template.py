@@ -620,7 +620,7 @@ def create_readme_sheet(wb):
         ("OMTS Excel Import Template", ""),
         ("", ""),
         ("This workbook is designed for import into the OMTS format using:", ""),
-        ("    omtsf import-excel <this-file.xlsx> -o output.omts", ""),
+        ("    omts import-excel <this-file.xlsx> -o output.omts", ""),
         ("", ""),
         ("SHEET OVERVIEW", ""),
         ("Metadata", "File-level settings: snapshot date, reporting entity, disclosure scope."),

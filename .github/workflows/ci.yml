@@ -35,26 +35,26 @@ jobs:
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: omtsf-rs
+          workspaces: omts-rs
 
       - name: Check formatting
         if: matrix.toolchain == 'stable'
-        working-directory: omtsf-rs
+        working-directory: omts-rs
         run: cargo fmt --all -- --check
 
       - name: Lint
-        working-directory: omtsf-rs
+        working-directory: omts-rs
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Test
-        working-directory: omtsf-rs
+        working-directory: omts-rs
         run: cargo test --locked --workspace
 
       - name: WASM compile check
-        working-directory: omtsf-rs
-        run: cargo check --target wasm32-unknown-unknown -p omtsf-core
+        working-directory: omts-rs
+        run: cargo check --target wasm32-unknown-unknown -p omts-core
 
       - name: Doc build
         if: matrix.toolchain == 'stable'
-        working-directory: omtsf-rs
+        working-directory: omts-rs
         run: cargo doc --workspace --no-deps

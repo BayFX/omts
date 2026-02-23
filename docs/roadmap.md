@@ -1,4 +1,4 @@
-# OMTSF Reference Implementation Roadmap
+# OMTS Reference Implementation Roadmap
 
 **Status:** Draft
 **Date:** 2026-02-18
@@ -7,13 +7,13 @@
 
 ## Overview
 
-The OMTSF specification suite defines the file format, identity model, merge semantics, and privacy controls for supply chain graph exchange. A reference implementation is essential for validating the specification, enabling adoption, and providing a foundation for downstream tooling.
+The OMTS specification suite defines the file format, identity model, merge semantics, and privacy controls for supply chain graph exchange. A reference implementation is essential for validating the specification, enabling adoption, and providing a foundation for downstream tooling.
 
-The planned reference implementation is **`omtsf-rs`**, a Rust crate providing core OMTSF functionality with WebAssembly (WASM) bindings for browser and Node.js deployment.
+The planned reference implementation is **`omts-rs`**, a Rust crate providing core OMTS functionality with WebAssembly (WASM) bindings for browser and Node.js deployment.
 
 ## Repository
 
-**Planned repository:** `omtsf-rs` (to be created)
+**Planned repository:** `omts-rs` (to be created)
 
 **Language:** Rust (stable toolchain)
 
@@ -30,7 +30,7 @@ The planned reference implementation is **`omtsf-rs`**, a Rust crate providing c
 - Validate all L1 rules from SPEC-001 (L1-GDM-01 through L1-GDM-04, graph type constraints), SPEC-002 (L1-EID-01 through L1-EID-11), and SPEC-004 (L1-SDI-01 through L1-SDI-03)
 - Validate against the JSON Schema (`schema/omts-v0.1.0.schema.json`)
 - Output structured validation results (JSON) with rule identifiers
-- CLI binary: `omtsf validate <file.omts>`
+- CLI binary: `omts validate <file.omts>`
 
 **Key crate dependencies:**
 - `serde`, `serde_json` — JSON parsing with `#[serde(tag = "type")]` for node/edge types
@@ -48,7 +48,7 @@ The planned reference implementation is **`omtsf-rs`**, a Rust crate providing c
 - Merge-group size warnings (Section 4.1 advisory limits)
 - Conflict detection and `_conflicts` array generation
 - Merge provenance (`merge_metadata`) generation
-- CLI: `omtsf merge <file1.omts> <file2.omts> -o <merged.omts>`
+- CLI: `omts merge <file1.omts> <file2.omts> -o <merged.omts>`
 
 ### Phase 3: WASM Bindings
 
@@ -56,7 +56,7 @@ The planned reference implementation is **`omtsf-rs`**, a Rust crate providing c
 
 **Scope:**
 - `wasm-bindgen` bindings for validator and merge engine
-- npm package: `@omtsf/core`
+- npm package: `@omts/core`
 - Browser-compatible: validate and merge `.omts` files client-side
 - TypeScript type definitions generated from JSON Schema
 

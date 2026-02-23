@@ -1,4 +1,4 @@
-# Expert Panel Report: OMTSF Vision Document
+# Expert Panel Report: OMTS Vision Document
 
 **Date:** 2026-02-17
 **Document Reviewed:** `docs/vision.md`
@@ -8,7 +8,7 @@
 
 ## Panel Chair Summary
 
-The OMTSF vision document presents a well-motivated, architecturally sound foundation for an open supply chain data interchange format. All eleven panelists agree that the problem diagnosis is correct -- supply chain data is trapped in proprietary silos, and a portable, vendor-neutral file format is the right intervention. The core design decisions -- a flat adjacency list of typed nodes and typed edges, goods as first-class graph objects, strict validation, local-only processing, and self-contained files -- received universal praise. These choices reflect genuine insight into both the technical requirements of graph serialization and the operational realities of multi-party supply chain data exchange.
+The OMTS vision document presents a well-motivated, architecturally sound foundation for an open supply chain data interchange format. All eleven panelists agree that the problem diagnosis is correct -- supply chain data is trapped in proprietary silos, and a portable, vendor-neutral file format is the right intervention. The core design decisions -- a flat adjacency list of typed nodes and typed edges, goods as first-class graph objects, strict validation, local-only processing, and self-contained files -- received universal praise. These choices reflect genuine insight into both the technical requirements of graph serialization and the operational realities of multi-party supply chain data exchange.
 
 However, the panel identified a critical structural gap that threatens the viability of the entire project: **the vision defers entity identification to the spec phase, but entity identity is the load-bearing foundation on which every other design decision rests**. Nine of eleven panelists independently flagged this as a critical or high-priority concern. Without a defined identifier strategy, the merge semantics cannot be specified, the graph model is incomplete, ERP integration is blocked, and regulatory compliance is unachievable. This is the single most important finding of this review.
 
@@ -142,7 +142,7 @@ Issues rated **[Major]** by at least one expert.
 | P0-8 | **Define magic bytes and file header structure.** 4-8 byte magic sequence, format version, encoding type, flags field. Cheap now, expensive to change later. | Data Format Expert |
 | P0-9 | **Commit to dual-encoding strategy.** Human-readable (JSON) + binary (CBOR or MessagePack). File header encoding type field distinguishes them. | Data Format Expert |
 | P0-10 | **Define schema evolution rules before defining the schema.** Field identification (name vs. number), optionality rules, unknown field handling. | Data Format Expert |
-| P0-11 | **Publish explicit standards mapping.** For each OMTSF concept, document corresponding GS1, UN/CEFACT, and ISO construct. State whether OMTSF reuses, extends, or diverges. | Standards Expert |
+| P0-11 | **Publish explicit standards mapping.** For each OMTS concept, document corresponding GS1, UN/CEFACT, and ISO construct. State whether OMTS reuses, extends, or diverges. | Standards Expert |
 | P0-12 | **Define supplier authoring strategy.** Document how small suppliers without ERPs produce valid files. WASM-powered web form outputting `.omts`. | Procurement Expert |
 | P0-13 | **Include Rust implementation team in serialization format decision.** Joint decision matrix: JSON, CBOR, MessagePack, FlatBuffers, rkyv across readability, zero-copy, WASM size, streaming. | Systems Engineering Expert |
 
@@ -190,7 +190,7 @@ Issues rated **[Major]** by at least one expert.
 | P2-13 | Specify optional encryption envelope (age or COSE). | Security & Privacy Expert |
 | P2-14 | Add per-node provenance metadata for post-merge auditability. | Security & Privacy Expert |
 | P2-15 | Define canonical entity reference format (`lei:XXX`, `duns:YYY`, `gb-coh:ZZZ`). | Entity Identification Expert |
-| P2-16 | Register IANA media types (`application/vnd.omtsf+json`, `application/vnd.omtsf+cbor`). | Data Format Expert |
+| P2-16 | Register IANA media types (`application/vnd.omts+json`, `application/vnd.omts+cbor`). | Data Format Expert |
 
 ---
 
@@ -222,7 +222,7 @@ The most valuable insights from a multi-expert review are the interdependencies 
 
 #### Assessment
 
-The OMTSF vision accurately diagnoses the core problem I have spent the better part of two decades fighting: supply chain data is fragmented, proprietary, and functionally opaque beyond tier-1. The decision to build a file format rather than yet another platform is strategically sound. In my experience leading transparency programs at a Fortune 100 manufacturer, every platform project eventually hit the same wall -- suppliers refused to onboard to another portal. A portable file that can be emailed, version-controlled, or dropped into a regulatory submission sidesteps that adoption barrier entirely. The flat graph model (typed nodes, typed edges, goods as first-class objects) is the right foundational abstraction for supply networks.
+The OMTS vision accurately diagnoses the core problem I have spent the better part of two decades fighting: supply chain data is fragmented, proprietary, and functionally opaque beyond tier-1. The decision to build a file format rather than yet another platform is strategically sound. In my experience leading transparency programs at a Fortune 100 manufacturer, every platform project eventually hit the same wall -- suppliers refused to onboard to another portal. A portable file that can be emailed, version-controlled, or dropped into a regulatory submission sidesteps that adoption barrier entirely. The flat graph model (typed nodes, typed edges, goods as first-class objects) is the right foundational abstraction for supply networks.
 
 However, the vision as written reflects a clean, structural view of supply chains that does not yet grapple with the messiness of real-world supply data. Supply chains are not static graphs -- they are temporal, probabilistic, and riddled with incomplete information. The vision must acknowledge this uncertainty at the model level, not just as a tooling concern, or the format risks being too idealized for practitioners to trust.
 
@@ -294,9 +294,9 @@ That said, the vision is written from an engineering-architecture perspective. W
 
 #### Assessment
 
-The existing standards landscape is fragmented: GS1 EPCIS 2.0 handles event-level traceability but not network topology; UN/CEFACT defines document semantics but not graph interchange; ISO 28000-series covers security management but not structural data exchange. There is indeed a gap for a lightweight, graph-based, file-level supply network interchange format. The vision correctly positions OMTSF in that gap.
+The existing standards landscape is fragmented: GS1 EPCIS 2.0 handles event-level traceability but not network topology; UN/CEFACT defines document semantics but not graph interchange; ISO 28000-series covers security management but not structural data exchange. There is indeed a gap for a lightweight, graph-based, file-level supply network interchange format. The vision correctly positions OMTS in that gap.
 
-However, the vision document is conspicuously silent on how OMTSF relates to the standards that already occupy adjacent territory. A format that does not explicitly define its relationship to GS1 identification keys, to LEI for legal entities, and to EPCIS event semantics will either reinvent those vocabularies poorly, or leave each implementer to map ad hoc.
+However, the vision document is conspicuously silent on how OMTS relates to the standards that already occupy adjacent territory. A format that does not explicitly define its relationship to GS1 identification keys, to LEI for legal entities, and to EPCIS event semantics will either reinvent those vocabularies poorly, or leave each implementer to map ad hoc.
 
 #### Strengths
 - Correct problem identification -- gap between event-level and network topology exchange
@@ -361,7 +361,7 @@ Where the vision needs more specificity is at the boundary between "data model" 
 
 #### Assessment
 
-The OMTSF vision articulates a sound core insight: supply chain networks are graphs, and graph exchange requires a well-defined serialization format with formal identity and merge semantics. The decision to model goods as first-class nodes is the single most important graph-modeling choice in the document. It transforms the data model from a simple bipartite graph into a richer structure where a facility node can participate in multiple distinct commodity subgraphs.
+The OMTS vision articulates a sound core insight: supply chain networks are graphs, and graph exchange requires a well-defined serialization format with formal identity and merge semantics. The decision to model goods as first-class nodes is the single most important graph-modeling choice in the document. It transforms the data model from a simple bipartite graph into a richer structure where a facility node can participate in multiple distinct commodity subgraphs.
 
 However, the vision document leaves critical graph-modeling questions unresolved: multigraph support, edge identity, and the formal type system. The document is silent on whether two edges of the same type can exist between the same node pair, and whether edges are identified by endpoints or by independent IDs.
 
@@ -397,7 +397,7 @@ However, the vision document leaves critical graph-modeling questions unresolved
 
 The data *is* trapped. I have seen procurement teams at Fortune 500 manufacturers maintain their tier-2 and tier-3 supplier maps in Excel files emailed between sourcing managers -- not because they lack systems, but because no system speaks the same language. The vision correctly identifies that the missing piece is an interchange format, not another platform.
 
-That said, the vision underestimates the gravity of the ERP integration challenge. If OMTSF cannot be populated from the messy reality of ERP master data -- through IDocs, OData feeds, BAPI extracts, or flat-file exports -- then it will remain an elegant specification that no one uses.
+That said, the vision underestimates the gravity of the ERP integration challenge. If OMTS cannot be populated from the messy reality of ERP master data -- through IDocs, OData feeds, BAPI extracts, or flat-file exports -- then it will remain an elegant specification that no one uses.
 
 #### Strengths
 - Goods as first-class nodes maps to material master / vendor master separation

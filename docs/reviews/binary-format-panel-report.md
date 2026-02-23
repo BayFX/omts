@@ -8,9 +8,9 @@
 
 ## Panel Chair Summary
 
-Seven domain experts reviewed the proposal to add a compact binary serialization format alongside JSON for `.omts` files. The panel reached **strong consensus** on the fundamental question: OMTSF should support a binary encoding, and **CBOR (RFC 8949)** is the right choice. Every expert who expressed a preference independently converged on CBOR over MessagePack, citing its IETF standardization, self-describing tag (55799 / `0xd9d9f7`), deterministic encoding profiles (CDE/dCBOR), and mature Rust ecosystem via `ciborium`.
+Seven domain experts reviewed the proposal to add a compact binary serialization format alongside JSON for `.omts` files. The panel reached **strong consensus** on the fundamental question: OMTS should support a binary encoding, and **CBOR (RFC 8949)** is the right choice. Every expert who expressed a preference independently converged on CBOR over MessagePack, citing its IETF standardization, self-describing tag (55799 / `0xd9d9f7`), deterministic encoding profiles (CDE/dCBOR), and mature Rust ecosystem via `ciborium`.
 
-The panel identified **one critical architectural blocker** that every technical expert independently flagged: the Rust reference implementation's deep coupling to `serde_json::Value` (243 occurrences across 22 source files in `omtsf-core`). This must be resolved before binary format work can proceed. The panel also reached strong consensus that the specification itself must be refactored to separate the abstract data model from JSON-specific serialization conventions — the current wording ("An .omts file is a JSON document") creates a normative contradiction if a second encoding is added.
+The panel identified **one critical architectural blocker** that every technical expert independently flagged: the Rust reference implementation's deep coupling to `serde_json::Value` (243 occurrences across 22 source files in `omts-core`). This must be resolved before binary format work can proceed. The panel also reached strong consensus that the specification itself must be refactored to separate the abstract data model from JSON-specific serialization conventions — the current wording ("An .omts file is a JSON document") creates a normative contradiction if a second encoding is added.
 
 The most significant area of **disagreement** was timing. The Data Format Expert, Rust Engineer, and Graph Modeling Expert favored implementing binary support now (pre-1.0) to avoid JSON-specific technical debt. The Open Source Strategist and ERP Integration Expert strongly argued for deferring mandatory implementation until post-1.0 to avoid fragmenting a nascent ecosystem. The Standards Expert offered a middle path: define the binary binding now in an informative annex, promote to normative after JSON stabilizes. The Security Expert prioritized deterministic encoding guarantees regardless of timing. The synthesis recommendation is to **design and specify now, implement in the reference CLI now, but make binary conformance optional for third-party producers until 1.0**.
 
@@ -36,7 +36,7 @@ These findings were independently raised by 3+ experts:
 
 1. **CBOR (RFC 8949) is the right binary encoding.** (All 7 experts) CBOR's IETF standardization, JSON-superset data model, self-describing tag 55799, deterministic encoding profiles, and Rust ecosystem support (`ciborium`) make it the clear choice over MessagePack, Protobuf, or FlatBuffers. The unknown-field preservation requirement eliminates schema-required formats.
 
-2. **`serde_json::Value` coupling is the primary technical blocker.** (Data Format, Rust Engineer, Graph Modeling) The 243 occurrences of `serde_json::Value`/`Map` in `omtsf-core` make direct CBOR serialization impossible. A format-neutral intermediate value type is required.
+2. **`serde_json::Value` coupling is the primary technical blocker.** (Data Format, Rust Engineer, Graph Modeling) The 243 occurrences of `serde_json::Value`/`Map` in `omts-core` make direct CBOR serialization impossible. A format-neutral intermediate value type is required.
 
 3. **The spec must separate abstract data model from serialization binding.** (Standards, Data Format, Security) SPEC-001 Section 2 stating "An .omts file is a JSON document" and Section 2.1's JSON-specific first-key requirement create normative contradictions with a second encoding. The spec needs refactoring.
 
@@ -46,7 +46,7 @@ These findings were independently raised by 3+ experts:
 
 6. **JSON must remain a first-class citizen.** (ERP Integration, Open Source, Standards) ERP systems and integration middleware have excellent JSON support but poor/no CBOR support. JSON should remain the default and the minimum conformance requirement.
 
-7. **The `convert` command is the natural home for format conversion.** (All experts referencing CLI) Extending the existing `omtsf convert` with `--to json` and `--to cbor` flags fits the existing architecture.
+7. **The `convert` command is the natural home for format conversion.** (All experts referencing CLI) Extending the existing `omts convert` with `--to json` and `--to cbor` flags fits the existing architecture.
 
 ---
 
@@ -55,7 +55,7 @@ These findings were independently raised by 3+ experts:
 ### C1: `serde_json::Value` pervasiveness blocks binary format support
 **Flagged by:** Data Format Expert, Rust Engineer, Graph Modeling Expert
 
-The `omtsf-core` crate uses `serde_json::Map<String, serde_json::Value>` for unknown-field catch-all (`extra` fields) and stores `geo`, `governance_structure`, and `control_type` as `serde_json::Value`. Ciborium's deserializer cannot produce `serde_json::Value` — it produces `ciborium::Value`. This means you cannot deserialize a CBOR file directly into the current `OmtsFile` type.
+The `omts-core` crate uses `serde_json::Map<String, serde_json::Value>` for unknown-field catch-all (`extra` fields) and stores `geo`, `governance_structure`, and `control_type` as `serde_json::Value`. Ciborium's deserializer cannot produce `serde_json::Value` — it produces `ciborium::Value`. This means you cannot deserialize a CBOR file directly into the current `OmtsFile` type.
 
 **Resolution:** Introduce a format-neutral value type (`ExtValue` enum) that both `serde_json::Value` and `ciborium::Value` can convert to/from. This is the largest refactor and must be completed before any binary format work.
 
@@ -121,8 +121,8 @@ The `extra` catch-all can contain deeply nested structures. Binary parsers must 
 
 - **Compression should be orthogonal to encoding.** Binary and compression are independent layers. Consider `.omts.zst` (zstd-compressed JSON) as a pragmatic intermediate step. (Data Format, Open Source Strategist)
 - **Endianness specification needed.** Standardize on little-endian. (Graph Modeling Expert)
-- **File extension / MIME type strategy.** Need `application/vnd.omtsf+json` and `application/vnd.omtsf+cbor` media types, or decide if `.omts` covers both with magic-byte discrimination. (Standards Expert)
-- **Floating-point width in CBOR.** CBOR has half/single/double float. Must specify which representation to use for OMTSF numeric fields. (Security Expert)
+- **File extension / MIME type strategy.** Need `application/vnd.omts+json` and `application/vnd.omts+cbor` media types, or decide if `.omts` covers both with magic-byte discrimination. (Standards Expert)
+- **Floating-point width in CBOR.** CBOR has half/single/double float. Must specify which representation to use for OMTS numeric fields. (Security Expert)
 - **EDI coexistence.** Binary .omts should not be positioned as competing with EDI for transactional exchange. (ERP Integration Expert)
 - **I/O path must skip UTF-8 validation for binary.** The current `read_input` pipeline assumes UTF-8. Binary input must bypass this. (Rust Engineer)
 
@@ -134,7 +134,7 @@ The `extra` catch-all can contain deeply nested structures. Binary parsers must 
 
 | # | Recommendation | Source Expert(s) |
 |---|---------------|-----------------|
-| 1 | **Introduce a format-neutral value type in `omtsf-core`.** Replace `serde_json::Map<String, serde_json::Value>` with a custom `ExtValue` enum that both JSON and CBOR can serialize to/from. This unblocks all binary format work. | Data Format, Rust Engineer |
+| 1 | **Introduce a format-neutral value type in `omts-core`.** Replace `serde_json::Map<String, serde_json::Value>` with a custom `ExtValue` enum that both JSON and CBOR can serialize to/from. This unblocks all binary format work. | Data Format, Rust Engineer |
 | 2 | **Refactor SPEC-001 into abstract data model + serialization bindings.** Extract encoding-independent sections. Move JSON-specific rules to a binding annex. Add a CBOR binding annex. | Standards, Data Format |
 | 3 | **Choose CBOR (RFC 8949) as the binary encoding.** Use `ciborium` crate in Rust. Leverage self-describing tag 55799 (`0xd9d9f7`) for format detection. | All 7 experts |
 | 4 | **Define format auto-detection in the spec.** First 3 bytes `0xd9 0xd9 0xf7` = CBOR. First non-whitespace byte `{` = JSON. | Data Format, Rust Engineer, Standards |
@@ -145,12 +145,12 @@ The `extra` catch-all can contain deeply nested structures. Binary parsers must 
 | # | Recommendation | Source Expert(s) |
 |---|---------------|-----------------|
 | 6 | **Define conformance profiles per encoding.** JSON-only = minimum conformance. JSON+CBOR = full conformance. Producers MAY emit JSON only. Reference CLI and validators MUST support both. | Standards, ERP Integration, Open Source |
-| 7 | **Extend `omtsf convert` command.** Add `--to json` (default) and `--to cbor` flags. Auto-detect input format. Refuse binary output to TTY without `--force`. | Rust Engineer, Data Format, ERP Integration |
+| 7 | **Extend `omts convert` command.** Add `--to json` (default) and `--to cbor` flags. Auto-detect input format. Refuse binary output to TTY without `--force`. | Rust Engineer, Data Format, ERP Integration |
 | 8 | **Refactor CLI I/O to return raw bytes.** Move UTF-8 validation into the JSON path only, allowing binary files through the same size-checked pipeline. | Rust Engineer |
 | 9 | **Add round-trip property tests.** JSON → typed → CBOR → typed → JSON must preserve structural equality. Cover numeric edge cases, null vs absent, extension fields. | Rust Engineer, Graph Modeling |
 | 10 | **Mandate deterministic CBOR encoding profile.** If content hashing over serialized bytes is ever needed, require CBOR CDE (RFC 8949 Section 4.2). For now, decouple hashing from encoding (see P0-5). | Security, Standards |
 | 11 | **Add nesting depth and allocation limits to advisory limits.** Recommend max nesting depth of 64 for binary parsers. | Security |
-| 12 | **Plan IANA media type registration.** `application/vnd.omtsf+json` and `application/vnd.omtsf+cbor`. | Standards |
+| 12 | **Plan IANA media type registration.** `application/vnd.omts+json` and `application/vnd.omts+cbor`. | Standards |
 
 ### P2 — Future / post-1.0
 
@@ -173,7 +173,7 @@ These interdependencies are the most valuable insights from the multi-expert rev
 
 2. **Adoption ↔ Conformance (Open Source × ERP × Standards):** Tiering conformance (JSON = minimum, CBOR = optional) prevents the binary format from becoming an adoption barrier for ERP extractors while giving analytics platforms the compact encoding they need.
 
-3. **Architecture ↔ Spec (Rust Engineer × Data Format × Standards):** The `serde_json::Value` refactor in `omtsf-core` is both an implementation task and a spec task. The spec must stop assuming JSON as the sole encoding; the implementation must stop using JSON-native types as the internal representation. These must proceed in lockstep.
+3. **Architecture ↔ Spec (Rust Engineer × Data Format × Standards):** The `serde_json::Value` refactor in `omts-core` is both an implementation task and a spec task. The spec must stop assuming JSON as the sole encoding; the implementation must stop using JSON-native types as the internal representation. These must proceed in lockstep.
 
 4. **Security ↔ Implementation (Security × Rust Engineer):** Rust's memory safety eliminates buffer overflow risks, but algorithmic complexity attacks (deep nesting, huge arrays) remain. The advisory size limits must be extended to cover nesting depth, and the binary parser must be fuzzed.
 
@@ -191,7 +191,7 @@ The proposal to add a binary encoding alongside JSON for `.omts` files is sound 
 
 However, the current implementation has a deep structural coupling to `serde_json` that will require careful architectural work. The `extra` fields on `OmtsFile`, `Node`, `Edge`, and `EdgeProperties` are typed as `serde_json::Map<String, serde_json::Value>` — a type that is not directly serializable to non-JSON serde formats without a conversion layer. This means the binary format cannot be a simple "swap `serde_json::to_writer` for `ciborium::into_writer`" — the intermediate representation itself is JSON-native.
 
-My recommended approach is CBOR (RFC 8949) as the binary encoding, with a fixed file header that distinguishes formats, optional zstd compression as a separate layer, and a phased refactoring of `omtsf-core` to use a format-neutral value type internally.
+My recommended approach is CBOR (RFC 8949) as the binary encoding, with a fixed file header that distinguishes formats, optional zstd compression as a separate layer, and a phased refactoring of `omts-core` to use a format-neutral value type internally.
 
 #### Strengths
 - CBOR's data model is a superset of JSON's (RFC 8949 Section 6.1), making round-trip fidelity straightforward
@@ -203,12 +203,12 @@ My recommended approach is CBOR (RFC 8949) as the binary encoding, with a fixed 
 #### Concerns
 - **[Critical]** `serde_json::Value` pervasion — 243 occurrences across 22 source files. Ciborium's serializer does not understand `serde_json::Value`'s internal representation.
 - **[Major]** `#[serde(flatten)]` compatibility with CBOR — undertested edge cases with ciborium
-- **[Major]** Header design — "first key must be `omtsf_version`" doesn't apply to binary
+- **[Major]** Header design — "first key must be `omts_version`" doesn't apply to binary
 - **[Minor]** Compression should be orthogonal to encoding
 - **[Minor]** MessagePack lacks IETF standardization; CBOR is preferred
 
 #### Recommendations
-1. (P0) Introduce format-neutral value type in omtsf-core
+1. (P0) Introduce format-neutral value type in omts-core
 2. (P0) Define file header in spec: first bytes `0xd9d9f7` = CBOR, `{` = JSON
 3. (P1) Add compression envelope (separate layer)
 4. (P1) Extend convert command with `--format json|cbor`
@@ -221,7 +221,7 @@ My recommended approach is CBOR (RFC 8949) as the binary encoding, with a fixed 
 
 #### Assessment
 
-From a systems engineering perspective, adding a binary format is technically achievable but involves a significant architectural challenge: the deep entanglement of `serde_json::Value` throughout `omtsf-core`. These are not incidental — they are structural. Every `Node`, `Edge`, `EdgeProperties`, and `OmtsFile` struct uses `#[serde(flatten)] pub extra: serde_json::Map<String, serde_json::Value>` for unknown-field preservation.
+From a systems engineering perspective, adding a binary format is technically achievable but involves a significant architectural challenge: the deep entanglement of `serde_json::Value` throughout `omts-core`. These are not incidental — they are structural. Every `Node`, `Edge`, `EdgeProperties`, and `OmtsFile` struct uses `#[serde(flatten)] pub extra: serde_json::Map<String, serde_json::Value>` for unknown-field preservation.
 
 The good news is that CBOR is semantically a superset of JSON's data model and is self-describing — meaning serde's `#[serde(flatten)]` will work with `ciborium` since it relies on `deserialize_any`. CBOR also has an IETF-standardized magic number (tag 55799) making format auto-detection trivial. However, the `serde_json::Value` type in the flatten catch-all is a blocker: ciborium's deserializer will not produce `serde_json::Value`.
 
@@ -229,7 +229,7 @@ I recommend CBOR (ciborium) for its IETF pedigree, self-describing nature, and e
 
 #### Strengths
 - Serde-first architecture — all types already derive Serialize/Deserialize
-- Clean I/O boundary — omtsf-core operates on &str/&[u8], CLI owns I/O
+- Clean I/O boundary — omts-core operates on &str/&[u8], CLI owns I/O
 - Existing `convert` command is the natural extension point
 - CBOR's self-describe tag provides unambiguous 3-byte detection
 - ciborium is compatible with no_std+alloc for WASM
@@ -256,9 +256,9 @@ I recommend CBOR (ciborium) for its IETF pedigree, self-describing nature, and e
 
 #### Assessment
 
-From a graph data modeling perspective, introducing a compact binary format is well-motivated. The flat adjacency list structure — nodes as a list, edges as a list with source/target references — maps cleanly to a record-oriented binary layout. Given OMTSF's advisory limits of 1M nodes and 5M edges, a JSON file at that scale could easily reach hundreds of megabytes, making binary encoding a practical necessity.
+From a graph data modeling perspective, introducing a compact binary format is well-motivated. The flat adjacency list structure — nodes as a list, edges as a list with source/target references — maps cleanly to a record-oriented binary layout. Given OMTS's advisory limits of 1M nodes and 5M edges, a JSON file at that scale could easily reach hundreds of megabytes, making binary encoding a practical necessity.
 
-However, OMTSF's forward-compatibility requirement (unknown field preservation) is the dominant constraint on format choice. The flat adjacency-list model carries heterogeneous property schemas (7 node types, 16+ edge types), and unknown fields must survive round-trip. This eliminates schema-required formats (Protobuf, FlatBuffers) and points toward schemaless binary encodings (CBOR, MessagePack).
+However, OMTS's forward-compatibility requirement (unknown field preservation) is the dominant constraint on format choice. The flat adjacency-list model carries heterogeneous property schemas (7 node types, 16+ edge types), and unknown fields must survive round-trip. This eliminates schema-required formats (Protobuf, FlatBuffers) and points toward schemaless binary encodings (CBOR, MessagePack).
 
 #### Strengths
 - Flat adjacency list is binary-friendly — naturally record-oriented
@@ -309,7 +309,7 @@ What concerns me most is the current spec's tight coupling between the data mode
 
 #### Recommendations
 1. (P0) Refactor SPEC-001 into abstract model + serialization bindings
-2. (P0) Define media type registration strategy (application/vnd.omtsf+json and +cbor)
+2. (P0) Define media type registration strategy (application/vnd.omts+json and +cbor)
 3. (P0) Define canonical encoding for hash computation (encoding-independent)
 4. (P1) Define conformance profiles per encoding
 5. (P1) Adopt CBOR (RFC 8949)
@@ -322,7 +322,7 @@ What concerns me most is the current spec's tight coupling between the data mode
 
 #### Assessment
 
-From a security and privacy standpoint, introducing a binary format intersects directly with OMTSF's most security-critical operations: boundary reference hashing, selective disclosure enforcement, and privacy-preserving redaction. The current JSON format benefits from human inspectability — essential for AMLD-sensitive beneficial ownership data and GDPR-constrained person nodes.
+From a security and privacy standpoint, introducing a binary format intersects directly with OMTS's most security-critical operations: boundary reference hashing, selective disclosure enforcement, and privacy-preserving redaction. The current JSON format benefits from human inspectability — essential for AMLD-sensitive beneficial ownership data and GDPR-constrained person nodes.
 
 My primary concern is the integrity chain. SPEC-004's boundary reference computation depends on canonical identifier strings being byte-deterministic. CBOR has multiple valid byte representations for the same logical value; only strict adherence to a deterministic encoding profile eliminates this ambiguity. From a parser security perspective, binary formats historically carry a larger attack surface, though Rust's memory safety mitigates the most dangerous class of vulnerabilities.
 
@@ -396,7 +396,7 @@ The right strategy is to *design* the binary format now (so the data model does 
 
 #### Strengths
 - Data model is serialization-agnostic by design
-- `omtsf_version` enables format negotiation without major version bump
+- `omts_version` enables format negotiation without major version bump
 - WASM target benefits from smaller wire sizes
 - CLI already has a `convert` command
 - Extension mechanism (reverse-domain notation) translates to any encoding

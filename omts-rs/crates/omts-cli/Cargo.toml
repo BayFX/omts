@@ -1,0 +1,27 @@
+[package]
+name = "omts-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+description = "CLI for the Open Multi-Tier Supply-Chain"
+license = "Apache-2.0"
+
+[[bin]]
+name = "omts"
+path = "src/main.rs"
+
+[dependencies]
+omts-core = { path = "../omts-core", version = "0.1.0" }
+omts-excel = { path = "../omts-excel", version = "0.1.0" }
+clap = { version = "4", features = ["derive", "env"] }
+libc = { version = "0.2", optional = false }
+petgraph = "0.7"
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"
+serde_json = "1"
+omts-core = { path = "../omts-core", version = "0.1.0" }
+
+[lints]
+workspace = true

@@ -1,6 +1,6 @@
 # Spec Implementation Plan
 
-You are the **Implementation Architect** orchestrating a 3-phase pipeline that translates OMTSF specification requirements into implementation specs and ordered tasks for the Rust reference implementation. Your job is to dispatch extraction agents, feed their output to spec-writing agents, and produce a final task plan.
+You are the **Implementation Architect** orchestrating a 3-phase pipeline that translates OMTS specification requirements into implementation specs and ordered tasks for the Rust reference implementation. Your job is to dispatch extraction agents, feed their output to spec-writing agents, and produce a final task plan.
 
 ## Scope
 
@@ -22,7 +22,7 @@ Before dispatching any agents, read ALL of the following files and keep their co
 - `spec/serialization-bindings.md` (SPEC-007)
 
 **Implementation context:**
-- `omtsf-rs/docs/overview.md`
+- `omts-rs/docs/overview.md`
 
 **Persona files (for Phase 2):**
 - `.claude/commands/personas/rust-engineer.md`
@@ -57,7 +57,7 @@ Launch the following agents in parallel using the **Task** tool with `subagent_t
 ### Agent 1A — Data Model & Identifiers
 
 ```
-You are a specification analyst. Your task is to extract all implementable requirements from the OMTSF data model and entity identification specifications.
+You are a specification analyst. Your task is to extract all implementable requirements from the OMTS data model and entity identification specifications.
 
 Read the following specs carefully:
 
@@ -110,7 +110,7 @@ Every node type, edge type, header field, identifier type, and label type define
 ### Agent 1B — Merge & Graph Algorithms
 
 ```
-You are a specification analyst. Your task is to extract all implementable requirements related to merge semantics and graph algorithms from the OMTSF specifications.
+You are a specification analyst. Your task is to extract all implementable requirements related to merge semantics and graph algorithms from the OMTS specifications.
 
 Read the following specs carefully:
 
@@ -168,7 +168,7 @@ A structured requirements extraction document with these sections:
 ### Agent 1C — Selective Disclosure & Privacy
 
 ```
-You are a specification analyst. Your task is to extract all implementable requirements related to selective disclosure and privacy from the OMTSF specifications.
+You are a specification analyst. Your task is to extract all implementable requirements related to selective disclosure and privacy from the OMTS specifications.
 
 Read the following specs carefully:
 
@@ -205,7 +205,7 @@ A structured requirements extraction document with these sections:
 - Special handling for person-type nodes
 - Redaction requirements for personal data
 - Identifier anonymization rules
-- What constitutes personal data in the OMTSF context
+- What constitutes personal data in the OMTS context
 
 ### Edge Handling During Redaction
 - What happens to edges when a node is redacted
@@ -228,7 +228,7 @@ A structured requirements extraction document with these sections:
 ### Agent 1D — Standards & Integration
 
 ```
-You are a specification analyst. Your task is to extract integration-relevant patterns and reference data from the OMTSF informative specifications. This extraction informs test fixtures and graph queries but does not directly produce code requirements.
+You are a specification analyst. Your task is to extract integration-relevant patterns and reference data from the OMTS informative specifications. This extraction informs test fixtures and graph queries but does not directly produce code requirements.
 
 Read the following specs carefully:
 
@@ -244,7 +244,7 @@ A structured extraction document with these sections:
 
 ### ERP Integration Patterns
 - Import/export workflows described in the spec
-- Field mapping tables (OMTSF fields ↔ ERP fields)
+- Field mapping tables (OMTS fields ↔ ERP fields)
 - Data transformation rules for common ERP systems
 - Batch processing patterns
 
@@ -279,13 +279,13 @@ A structured extraction document with these sections:
 After ALL Phase 1 agents complete, collect their outputs. Then launch the following agents in parallel using the **Task** tool with `subagent_type: "general-purpose"`. Each agent receives:
 
 1. The relevant Phase 1 extraction output(s)
-2. The contents of `omtsf-rs/docs/overview.md`
+2. The contents of `omts-rs/docs/overview.md`
 3. A persona definition (primarily Rust Engineer, with Graph Theorist or Security & Privacy Expert where noted)
 4. Instructions to write a spec file to a specific path
 
-Each agent **writes its output file directly** to `omtsf-rs/docs/` using the Write tool. Do not rewrite agent output. Agents must write ONLY their assigned markdown spec file — no Rust source code, no Cargo files, no files outside `omtsf-rs/docs/`.
+Each agent **writes its output file directly** to `omts-rs/docs/` using the Write tool. Do not rewrite agent output. Agents must write ONLY their assigned markdown spec file — no Rust source code, no Cargo files, no files outside `omts-rs/docs/`.
 
-### Agent 2A → `omtsf-rs/docs/data-model.md`
+### Agent 2A → `omts-rs/docs/data-model.md`
 
 Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
@@ -294,17 +294,17 @@ Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
 ## Your Assignment
 
-Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF Rust data model.
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTS Rust data model.
 
 **Requirements Extraction (from spec analysis):**
 {Agent 1A output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/data-model.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/data-model.md`. The document must cover:
 
 ### Rust Type Definitions
 - Complete type hierarchy: `OmtsFile`, `Header`, `Node`, `Edge`, `Identifier`, `Label`, etc.
@@ -337,7 +337,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/data-mode
 - Target 1500-2500 words.
 ```
 
-### Agent 2B → `omtsf-rs/docs/validation.md`
+### Agent 2B → `omts-rs/docs/validation.md`
 
 Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
@@ -346,17 +346,17 @@ Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
 ## Your Assignment
 
-Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF validation engine.
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTS validation engine.
 
 **Requirements Extraction (from spec analysis):**
 {Agent 1A output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/validation.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/validation.md`. The document must cover:
 
 ### Rule Registry Architecture
 - How validation rules are registered, organized, and dispatched
@@ -392,7 +392,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/validatio
 - Target 1500-2500 words.
 ```
 
-### Agent 2C → `omtsf-rs/docs/merge.md`
+### Agent 2C → `omts-rs/docs/merge.md`
 
 Receives: Agent 1A + 1B output, overview.md, Rust Engineer persona + Graph Theorist persona.
 
@@ -403,7 +403,7 @@ Receives: Agent 1A + 1B output, overview.md, Rust Engineer persona + Graph Theor
 
 ## Your Assignment
 
-Using the requirements extractions below and the implementation overview, write the technical specification for the OMTSF merge engine. You combine the perspectives of a Rust systems engineer (for API design and implementation strategy) and a graph theorist (for algorithmic correctness and formal properties).
+Using the requirements extractions below and the implementation overview, write the technical specification for the OMTS merge engine. You combine the perspectives of a Rust systems engineer (for API design and implementation strategy) and a graph theorist (for algorithmic correctness and formal properties).
 
 **Data Model & Identifier Requirements:**
 {Agent 1A output}
@@ -412,11 +412,11 @@ Using the requirements extractions below and the implementation overview, write 
 {Agent 1B output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/merge.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/merge.md`. The document must cover:
 
 ### Union-Find for Identity Resolution
 - Data structure choice and justification
@@ -455,7 +455,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/merge.md`
 - Target 1500-2500 words.
 ```
 
-### Agent 2D → `omtsf-rs/docs/redaction.md`
+### Agent 2D → `omts-rs/docs/redaction.md`
 
 Receives: Agent 1A + 1C output, overview.md, Rust Engineer persona + Security & Privacy Expert persona.
 
@@ -466,7 +466,7 @@ Receives: Agent 1A + 1C output, overview.md, Rust Engineer persona + Security & 
 
 ## Your Assignment
 
-Using the requirements extractions below and the implementation overview, write the technical specification for the OMTSF selective disclosure / redaction engine. You combine the perspectives of a Rust systems engineer (for implementation) and a security architect (for privacy correctness).
+Using the requirements extractions below and the implementation overview, write the technical specification for the OMTS selective disclosure / redaction engine. You combine the perspectives of a Rust systems engineer (for implementation) and a security architect (for privacy correctness).
 
 **Data Model & Identifier Requirements:**
 {Agent 1A output}
@@ -475,11 +475,11 @@ Using the requirements extractions below and the implementation overview, write 
 {Agent 1C output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/redaction.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/redaction.md`. The document must cover:
 
 ### Boundary Reference Hashing
 - Exact algorithm implementation (hash function, input preparation, output format)
@@ -516,7 +516,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/redaction
 - Target 1500-2500 words.
 ```
 
-### Agent 2E → `omtsf-rs/docs/graph-engine.md`
+### Agent 2E → `omts-rs/docs/graph-engine.md`
 
 Receives: Agent 1B output, overview.md, Rust Engineer persona + Graph Theorist persona.
 
@@ -527,21 +527,21 @@ Receives: Agent 1B output, overview.md, Rust Engineer persona + Graph Theorist p
 
 ## Your Assignment
 
-Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF graph engine.
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTS graph engine.
 
 **Merge & Graph Algorithm Requirements:**
 {Agent 1B output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/graph-engine.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/graph-engine.md`. The document must cover:
 
 ### petgraph Wrapper
 - Which petgraph graph type to use (`DiGraph`, `StableDiGraph`, etc.) and why
-- Node/edge weight types (how OMTSF nodes/edges map to petgraph weights)
+- Node/edge weight types (how OMTS nodes/edges map to petgraph weights)
 - Index stability guarantees (important for merge and redaction operations)
 - Construction from deserialized `OmtsFile`
 
@@ -562,7 +562,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/graph-eng
 - Output as a valid `OmtsFile` (with correct header, node/edge references)
 
 ### Cycle Detection
-- Whether cycles are valid in OMTSF graphs (recycling chains)
+- Whether cycles are valid in OMTS graphs (recycling chains)
 - Cycle detection algorithm
 - Reporting format for detected cycles
 
@@ -573,7 +573,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/graph-eng
 - Target 1500-2500 words.
 ```
 
-### Agent 2F → `omtsf-rs/docs/diff.md`
+### Agent 2F → `omts-rs/docs/diff.md`
 
 Receives: Agent 1A + 1B output, overview.md, Rust Engineer persona.
 
@@ -582,7 +582,7 @@ Receives: Agent 1A + 1B output, overview.md, Rust Engineer persona.
 
 ## Your Assignment
 
-Using the requirements extractions below and the implementation overview, write the technical specification for the OMTSF diff engine.
+Using the requirements extractions below and the implementation overview, write the technical specification for the OMTS diff engine.
 
 **Data Model & Identifier Requirements:**
 {Agent 1A output}
@@ -591,11 +591,11 @@ Using the requirements extractions below and the implementation overview, write 
 {Agent 1B output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/diff.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/diff.md`. The document must cover:
 
 ### Node and Edge Matching
 - Reuse of merge identity predicates for matching nodes across two files
@@ -625,7 +625,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/diff.md`.
 - Target 1000-1800 words.
 ```
 
-### Agent 2G → `omtsf-rs/docs/cli-interface.md`
+### Agent 2G → `omts-rs/docs/cli-interface.md`
 
 Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
@@ -634,17 +634,17 @@ Receives: Agent 1A output, overview.md, Rust Engineer persona.
 
 ## Your Assignment
 
-Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF CLI interface.
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTS CLI interface.
 
 **Data Model & Identifier Requirements:**
 {Agent 1A output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/cli-interface.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/cli-interface.md`. The document must cover:
 
 ### Command Specifications
 For each of the 10 commands listed in the overview (`validate`, `merge`, `redact`, `inspect`, `diff`, `convert`, `reach`, `path`, `subgraph`, `init`), specify:
@@ -682,7 +682,7 @@ Complete table mapping every error condition to a specific exit code.
 - Target 1500-2500 words.
 ```
 
-### Agent 2H → `omtsf-rs/docs/serialization.md`
+### Agent 2H → `omts-rs/docs/serialization.md`
 
 Receives: Agent 1A output, overview.md, Rust Engineer persona + Data Serialization Expert persona.
 
@@ -693,20 +693,20 @@ Receives: Agent 1A output, overview.md, Rust Engineer persona + Data Serializati
 
 ## Your Assignment
 
-Using the requirements extraction below and the implementation overview, write the technical specification for the OMTSF serialization layer (multi-encoding support).
+Using the requirements extraction below and the implementation overview, write the technical specification for the OMTS serialization layer (multi-encoding support).
 
 **Data Model & Identifier Requirements:**
 {Agent 1A output}
 
 **Implementation Overview:**
-{contents of omtsf-rs/docs/overview.md}
+{contents of omts-rs/docs/overview.md}
 
 **Serialization Bindings Spec:**
 {contents of spec/serialization-bindings.md}
 
 ## What You Must Produce
 
-Write a technical specification document and save it to `omtsf-rs/docs/serialization.md`. The document must cover:
+Write a technical specification document and save it to `omts-rs/docs/serialization.md`. The document must cover:
 
 ### Encoding Detection
 - Magic byte inspection algorithm per SPEC-007 Section 2
@@ -716,7 +716,7 @@ Write a technical specification document and save it to `omtsf-rs/docs/serializa
 
 ### CBOR Serialization
 - Crate selection (ciborium vs. alternatives) with justification
-- Type mapping from OMTSF abstract types to CBOR major types
+- Type mapping from OMTS abstract types to CBOR major types
 - Self-describing tag 55799 handling (encode with, decode with or without)
 - Date encoding as text strings (not CBOR tags)
 - Unknown field preservation through CBOR round-trip
@@ -764,7 +764,7 @@ You are a senior engineering manager planning the implementation of a Rust proje
 
 ## Your Assignment
 
-Read all implementation spec files from `omtsf-rs/docs/`:
+Read all implementation spec files from `omts-rs/docs/`:
 - `overview.md`
 - `data-model.md`
 - `validation.md`
@@ -775,13 +775,13 @@ Read all implementation spec files from `omtsf-rs/docs/`:
 - `cli-interface.md`
 - `serialization.md` (if present)
 
-Also read the existing task list at `omtsf-rs/docs/tasks.md`.
+Also read the existing task list at `omts-rs/docs/tasks.md`.
 
 **CRITICAL: Existing tasks are immutable.** You MUST NOT modify, reorder, renumber, or delete any existing tasks. Your job is to identify work that is NOT covered by existing tasks and APPEND new tasks to the file. New task IDs continue from the highest existing ID (e.g., if the last existing task is T-048, new tasks start at T-049).
 
 If all spec requirements are already covered by existing tasks, append nothing and report that the task list is up to date.
 
-This is your ONLY output — do not create any Rust source files or any files outside `omtsf-rs/docs/`.
+This is your ONLY output — do not create any Rust source files or any files outside `omts-rs/docs/`.
 
 ## What You Must Produce
 
@@ -795,7 +795,7 @@ For each task:
 - **Dependencies:** Task IDs that must be completed first (e.g., "T-001, T-003")
 - **Complexity:** S (< 1 day), M (1-2 days), L (3-5 days), XL (> 5 days)
 - **Acceptance Criteria:** 2-4 bullet points defining "done" for this task
-- **Crate:** Which crate this task primarily affects (`omtsf-core` or `omtsf-cli`)
+- **Crate:** Which crate this task primarily affects (`omts-core` or `omts-cli`)
 
 ### Ordering Principles
 1. **Foundation first:** Data model types before anything that uses them
@@ -830,7 +830,7 @@ Group tasks into these phases:
 
 ## Important Execution Notes
 
-- **Output boundary: This skill produces ONLY markdown files in `omtsf-rs/docs/`.** No Rust source code, no Cargo.toml files, no files outside that directory. Agents must not create any `.rs` files, modify any `Cargo.toml`, or scaffold any crate structure. Code blocks in spec documents are illustrative — they show proposed type signatures and API sketches, not compilable source files.
+- **Output boundary: This skill produces ONLY markdown files in `omts-rs/docs/`.** No Rust source code, no Cargo.toml files, no files outside that directory. Agents must not create any `.rs` files, modify any `Cargo.toml`, or scaffold any crate structure. Code blocks in spec documents are illustrative — they show proposed type signatures and API sketches, not compilable source files.
 - Launch ALL agents within each phase in parallel using multiple Task tool calls in a single message.
 - Wait for ALL agents in a phase to complete before starting the next phase.
 - Read ALL files (specs, overview, personas) BEFORE dispatching Phase 1 agents, so you can include the content in each agent's prompt.

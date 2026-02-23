@@ -1,15 +1,15 @@
 # Expert Panel Report: Full Application Review
 
 **Date:** 2026-02-23
-**Scope:** Complete OMTSF project — 7 specification documents, Rust reference implementation (5 crates, ~52K lines), JSON Schema, Excel templates, governance, and project architecture
+**Scope:** Complete OMTS project — 7 specification documents, Rust reference implementation (5 crates, ~52K lines), JSON Schema, Excel templates, governance, and project architecture
 
 ---
 
 ## Panel Chair Summary
 
-This panel convened all eleven domain experts to review the complete OMTSF project at a point of significant maturity: seven specification documents (four normative, two informative, one serialization binding), a production-quality Rust implementation with 1,035+ tests and benchmarks scaling to 2.2M elements, Excel import/export templates, and governance infrastructure. The project has advanced substantially from earlier reviews — the reference implementation is no longer a roadmap item but a working system with 13 CLI commands, three serialization formats (JSON, CBOR, zstd-compressed), and a validated graph engine.
+This panel convened all eleven domain experts to review the complete OMTS project at a point of significant maturity: seven specification documents (four normative, two informative, one serialization binding), a production-quality Rust implementation with 1,035+ tests and benchmarks scaling to 2.2M elements, Excel import/export templates, and governance infrastructure. The project has advanced substantially from earlier reviews — the reference implementation is no longer a roadmap item but a working system with 13 CLI commands, three serialization formats (JSON, CBOR, zstd-compressed), and a validated graph engine.
 
-The panel reaches broad consensus on four points. First, OMTSF addresses a genuine gap: no open, vendor-neutral file format exists for exchanging supply chain graph data across organizational boundaries, and regulatory pressure (CSDDD, EUDR, LkSG, CBAM) makes this gap urgent. Second, the core design decisions are sound — the composite identifier model, the flat adjacency list serialization, the three-level validation architecture, and the commutative/associative/idempotent merge algebra are all well-grounded in their respective domains. Third, the Rust implementation demonstrates disciplined engineering: workspace-wide safety lints, newtype-driven domain modeling, comprehensive test coverage, and benchmarked performance. Fourth, the project is ready for external adoption pilots but not yet for production regulatory use, primarily due to gaps in attestation integrity, merge safety thresholds, and WASM bindings.
+The panel reaches broad consensus on four points. First, OMTS addresses a genuine gap: no open, vendor-neutral file format exists for exchanging supply chain graph data across organizational boundaries, and regulatory pressure (CSDDD, EUDR, LkSG, CBAM) makes this gap urgent. Second, the core design decisions are sound — the composite identifier model, the flat adjacency list serialization, the three-level validation architecture, and the commutative/associative/idempotent merge algebra are all well-grounded in their respective domains. Third, the Rust implementation demonstrates disciplined engineering: workspace-wide safety lints, newtype-driven domain modeling, comprehensive test coverage, and benchmarked performance. Fourth, the project is ready for external adoption pilots but not yet for production regulatory use, primarily due to gaps in attestation integrity, merge safety thresholds, and WASM bindings.
 
 The panel identifies areas of disagreement primarily around severity: whether the empty WASM crate is a Critical blocker (Systems Engineering Expert) or a Major gap that can be addressed post-pilot (Open Source Strategy Expert), and whether the `tier` property should be a graph-computed value (Supply Chain Expert, Graph Modeling Expert) or remain a producer-supplied field with merge conflict handling (Entity Identification Expert). The regulatory experts converge on the need for cryptographically bound attestations before EUDR/CSDDD compliance use, while the Data Format Expert notes the underlying content hash specification is itself ambiguous.
 
@@ -39,9 +39,9 @@ The panel identifies areas of disagreement primarily around severity: whether th
 
 **2. The merge algebra is formally sound.** The Graph Modeling Expert and Entity ID Expert both confirm the commutativity, associativity, and idempotency properties are correctly specified and implemented. The union-find with deterministic tie-breaking satisfies the mathematical requirements.
 
-**3. The "data stays local" architecture is credible.** The Security & Privacy Expert, Systems Engineering Expert, and Procurement Expert all affirm that the CLI/WASM architecture genuinely avoids remote data transmission. The `omtsf-core` crate's compiler-enforced I/O prohibition provides structural enforcement.
+**3. The "data stays local" architecture is credible.** The Security & Privacy Expert, Systems Engineering Expert, and Procurement Expert all affirm that the CLI/WASM architecture genuinely avoids remote data transmission. The `omts-core` crate's compiler-enforced I/O prohibition provides structural enforcement.
 
-**4. The regulatory alignment is well-timed but incomplete.** The Regulatory Compliance Expert, Supply Chain Expert, and Standards Expert converge on the assessment that OMTSF maps to current regulatory requirements (CSDDD, EUDR, LkSG, CBAM, AMLD) but lacks the cryptographic attestation binding needed for regulatory-grade evidence.
+**4. The regulatory alignment is well-timed but incomplete.** The Regulatory Compliance Expert, Supply Chain Expert, and Standards Expert converge on the assessment that OMTS maps to current regulatory requirements (CSDDD, EUDR, LkSG, CBAM, AMLD) but lacks the cryptographic attestation binding needed for regulatory-grade evidence.
 
 **5. The Excel templates are the highest-leverage adoption bridge.** The Procurement Expert, Open Source Strategy Expert, and Enterprise Integration Expert all identify Excel import/export as the feature most likely to drive initial adoption among non-technical users.
 
@@ -53,7 +53,7 @@ The panel identifies areas of disagreement primarily around severity: whether th
 
 ### C1. WASM crate is empty — no browser/JS API surface
 **Flagged by:** Systems Engineering Expert
-**Detail:** `omtsf-wasm/src/lib.rs` is zero bytes. No `wasm-bindgen` exports exist. The `just wasm-check` target only verifies `omtsf-core` compilation, not consumer-facing WASM APIs. Browser and JS integrators have no surface to call.
+**Detail:** `omts-wasm/src/lib.rs` is zero bytes. No `wasm-bindgen` exports exist. The `just wasm-check` target only verifies `omts-core` compilation, not consumer-facing WASM APIs. Browser and JS integrators have no surface to call.
 
 ### C2. `on_path` bitset assumes dense NodeIndex space — correctness bug
 **Flagged by:** Graph Modeling Expert
@@ -61,7 +61,7 @@ The panel identifies areas of disagreement primarily around severity: whether th
 
 ### C3. No normative mechanism for third-party attestation binding
 **Flagged by:** Regulatory Compliance Expert, Standards Expert
-**Detail:** EUDR Article 4(1) requires due diligence statements submitted to TRACES. OMTSF can represent a DDS as an attestation node, but there is no cryptographic binding to the TRACES reference or issuing authority. The W3C VC reference in SPEC-006 is informative only. Without normative signed attestation support, OMTSF files cannot serve as regulatory evidence.
+**Detail:** EUDR Article 4(1) requires due diligence statements submitted to TRACES. OMTS can represent a DDS as an attestation node, but there is no cryptographic binding to the TRACES reference or issuing authority. The W3C VC reference in SPEC-006 is informative only. Without normative signed attestation support, OMTS files cannot serve as regulatory evidence.
 
 ### C4. Merge-group safety limits lack concrete thresholds
 **Flagged by:** Entity Identification Expert, Graph Modeling Expert
@@ -69,7 +69,7 @@ The panel identifies areas of disagreement primarily around severity: whether th
 
 ### C5. No explicit relationship to UN/CEFACT Transparency Protocol (UNTP)
 **Flagged by:** Standards Expert
-**Detail:** UNTP Digital Product Passport and UNECE Recommendation No. 49 target the same domain with overlapping vocabulary. If UNTP becomes the regulatory baseline for EUDR/CSDDD machine-readable reporting, OMTSF risks orphan status without a defined mapping.
+**Detail:** UNTP Digital Product Passport and UNECE Recommendation No. 49 target the same domain with overlapping vocabulary. If UNTP becomes the regulatory baseline for EUDR/CSDDD machine-readable reporting, OMTS risks orphan status without a defined mapping.
 
 ### C6. DUNS HQ vs. Branch disambiguation is advisory only
 **Flagged by:** Entity Identification Expert
@@ -202,7 +202,7 @@ The panel identifies areas of disagreement primarily around severity: whether th
 | # | Recommendation | Originating Expert(s) |
 |---|---------------|----------------------|
 | 1 | **Fix `on_path` allocation bug** — use `node_bound()` not `node_count()` in `dfs_paths` | Graph Modeling |
-| 2 | **Implement `omtsf-wasm`** with `wasm-bindgen` exports for parse, validate, merge, query | Systems Engineering |
+| 2 | **Implement `omts-wasm`** with `wasm-bindgen` exports for parse, validate, merge, query | Systems Engineering |
 | 3 | **Fix regex initialization in newtypes.rs** — use `regex_lite` or compile-time assertion | Systems Engineering |
 | 4 | **Define canonical serialized form for `content_hash`** — specify exact byte sequence hashed | Data Format |
 | 5 | **Add CSPRNG requirement for `file_salt`** to SPEC-007 (currently only in SPEC-001/004) | Data Format |
@@ -307,9 +307,9 @@ The panel identifies areas of disagreement primarily around severity: whether th
 
 #### Assessment
 
-Having spent 18 years trying to answer "who, at tier N, is actually making that part, and how confident are you in that data?" across automotive, electronics, and FMCG, OMTSF is the first open format that treats the supply network as what it is — a directed graph with uncertain, time-varying, multi-source data — rather than as a flat vendor list with columns. The graph model, the merge algebra, and the data quality metadata together form a foundation more coherent than anything currently standardized by GS1, GLEIF, or the ISO supply chain working groups for structural network representation.
+Having spent 18 years trying to answer "who, at tier N, is actually making that part, and how confident are you in that data?" across automotive, electronics, and FMCG, OMTS is the first open format that treats the supply network as what it is — a directed graph with uncertain, time-varying, multi-source data — rather than as a flat vendor list with columns. The graph model, the merge algebra, and the data quality metadata together form a foundation more coherent than anything currently standardized by GS1, GLEIF, or the ISO supply chain working groups for structural network representation.
 
-The format is well-timed. CSDDD compliance obligations begin in 2028 for the largest companies. EUDR large-operator obligations took effect December 2025. LkSG has been in force since 2023. Every one of these requires companies to know their supply chain beyond tier 1. OMTSF provides the data exchange layer those programs need.
+The format is well-timed. CSDDD compliance obligations begin in 2028 for the largest companies. EUDR large-operator obligations took effect December 2025. LkSG has been in force since 2023. Every one of these requires companies to know their supply chain beyond tier 1. OMTS provides the data exchange layer those programs need.
 
 The primary concern is not the model itself but populating it with trustworthy multi-tier data. The spec is well-constructed for a world where tier-2+ suppliers voluntarily share data; the real world involves coercion, commercial confidentiality, and systematic misreporting. The format needs stronger normative guidance on how to signal incomplete visibility.
 
@@ -349,7 +349,7 @@ The primary concern is not the model itself but populating it with trustworthy m
 
 #### Assessment
 
-Managing 4,000+ direct suppliers across SAP, Coupa, and Jaggaer, the problem OMTSF targets — fragmented supplier data with no neutral exchange format — is one I live daily. The Excel interface is the feature I would lead with in any internal pitch. The supplier list template covers every field category managers actually care about. The deduplication logic solves the multi-purchasing-org problem. The CLI is clean enough for procurement analysts without training.
+Managing 4,000+ direct suppliers across SAP, Coupa, and Jaggaer, the problem OMTS targets — fragmented supplier data with no neutral exchange format — is one I live daily. The Excel interface is the feature I would lead with in any internal pitch. The supplier list template covers every field category managers actually care about. The deduplication logic solves the multi-purchasing-org problem. The CLI is clean enough for procurement analysts without training.
 
 The ERP integration guide demonstrates genuine SAP implementation experience. However, most organizations will start with internal-only files that cannot cross-file merge, and the enrichment path requires third-party data services that many mid-market suppliers will not have.
 
@@ -388,7 +388,7 @@ The ERP integration guide demonstrates genuine SAP implementation experience. Ho
 
 #### Assessment
 
-OMTSF is one of the more technically coherent pre-standardization supply chain data formats at this maturity stage. The composite identifier model directly addresses the persistent failure of assuming one authoritative identifier exists. The ISO 6523 ICD mapping table is the right cross-walk for PEPPOL/EDI ecosystems. The GQL alignment positions OMTSF for query tooling interoperability.
+OMTS is one of the more technically coherent pre-standardization supply chain data formats at this maturity stage. The composite identifier model directly addresses the persistent failure of assuming one authoritative identifier exists. The ISO 6523 ICD mapping table is the right cross-walk for PEPPOL/EDI ecosystems. The GQL alignment positions OMTS for query tooling interoperability.
 
 The principal concern is that the specification has not engaged with UN/CEFACT UNTP, which is producing Digital Product Passport vocabulary with substantial overlap. Without explicit positioning, there is risk of divergence at the moment regulators are choosing reference models.
 
@@ -427,7 +427,7 @@ The principal concern is that the specification has not engaged with UN/CEFACT U
 
 The implementation is well-architected with disciplined, idiomatic Rust throughout. Workspace-wide lint enforcement is the strictest I have seen in a production Rust library. The `DynValue` custom type for format-neutral serialization is a genuinely good design decision. The split-weight graph design is explicitly cache-aware.
 
-One structural concern stands out: the `omtsf-wasm` crate is effectively empty. Everything else is production-quality, but shipping with a dead WASM entry point means browser/JS consumers have no API surface today.
+One structural concern stands out: the `omts-wasm` crate is effectively empty. Everything else is production-quality, but shipping with a dead WASM entry point means browser/JS consumers have no API surface today.
 
 #### Strengths
 - Workspace lint configuration is exemplary
@@ -450,7 +450,7 @@ One structural concern stands out: the `omtsf-wasm` crate is effectively empty. 
 - **[Minor]** `DynValue::Object` BTreeMap claims insertion-order preservation
 
 #### Recommendations
-1. (P0) Implement `omtsf-wasm` with `wasm-bindgen` exports
+1. (P0) Implement `omts-wasm` with `wasm-bindgen` exports
 2. (P0) Fix regex initialization with `regex_lite`
 3. (P1) Refactor merge pipeline to avoid pre-cloning
 4. (P1) Convert `all_paths` DFS to iterative
@@ -464,7 +464,7 @@ One structural concern stands out: the `omtsf-wasm` crate is effectively empty. 
 
 #### Assessment
 
-OMTSF is built on a formally sound graph-theoretic foundation. The directed labeled property multigraph is the correct primitive. The merge semantics demonstrate genuine theoretical rigor — identity predicates over algebraic identifier tuples, transitive closure via union-find with inverse-Ackermann complexity, deterministic tie-breaking for commutativity.
+OMTS is built on a formally sound graph-theoretic foundation. The directed labeled property multigraph is the correct primitive. The merge semantics demonstrate genuine theoretical rigor — identity predicates over algebraic identifier tuples, transitive closure via union-find with inverse-Ackermann complexity, deterministic tie-breaking for commutativity.
 
 The implementation makes competent engineering choices. The split-weight design and hand-rolled BFS/DFS with edge-type filtering are sound. However, the `on_path` bitset has a correctness bug with `StableDiGraph` after node removals.
 
@@ -543,9 +543,9 @@ The Oracle and D365 mappings read as desk research rather than implementation ex
 
 #### Assessment
 
-OMTSF is the most structurally coherent open format for regulatory compliance data I have encountered. The `attestation` nodes as first-class graph citizens, the `consignment` emissions fields matching CBAM Annex III, and the AMLD UBO representation are all legally literate. CSDDD's Omnibus delay to 2028 gives OMTSF more runway. CBAM entered its definitive phase January 2026 with the emissions model already aligned.
+OMTS is the most structurally coherent open format for regulatory compliance data I have encountered. The `attestation` nodes as first-class graph citizens, the `consignment` emissions fields matching CBAM Annex III, and the AMLD UBO representation are all legally literate. CSDDD's Omnibus delay to 2028 gives OMTS more runway. CBAM entered its definitive phase January 2026 with the emissions model already aligned.
 
-The primary concern is the evidentiary layer. A format is only as useful as the assurance that data has not been falsified. Without cryptographic attestation binding, an OMTSF file cannot serve as regulatory evidence in a customs investigation.
+The primary concern is the evidentiary layer. A format is only as useful as the assurance that data has not been falsified. Without cryptographic attestation binding, an OMTS file cannot serve as regulatory evidence in a customs investigation.
 
 #### Strengths
 - CSDDD value chain mapping is excellent with tier + reporting_entity + corporate hierarchy
@@ -658,7 +658,7 @@ The adoption flywheel has moving parts but has not been set in motion. What rema
 
 #### Assessment
 
-OMTSF's privacy architecture reflects deliberate, threat-model-aware design. The three-level sensitivity taxonomy applied uniformly across identifiers and edge properties provides a coherent information classification lattice. Person node hard-omit from public files (not boundary-ref'd) demonstrates genuine privacy-by-design thinking. The boundary reference hash construction is sound for its stated purpose.
+OMTS's privacy architecture reflects deliberate, threat-model-aware design. The three-level sensitivity taxonomy applied uniformly across identifiers and edge properties provides a coherent information classification lattice. Person node hard-omit from public files (not boundary-ref'd) demonstrates genuine privacy-by-design thinking. The boundary reference hash construction is sound for its stated purpose.
 
 The primary concern is at the producer boundary: no mechanism prevents a misconfigured producer from generating a public file with incorrectly tagged identifiers. The sensitivity override mechanism allows reclassification without attestation of authorization.
 

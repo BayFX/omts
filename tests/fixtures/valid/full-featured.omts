@@ -1,5 +1,5 @@
 {
-  "omtsf_version": "0.1.0",
+  "omts_version": "0.1.0",
   "snapshot_date": "2026-02-18",
   "file_salt": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
   "disclosure_scope": "partner",

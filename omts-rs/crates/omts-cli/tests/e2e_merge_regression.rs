@@ -1,0 +1,523 @@
+//! Merge regression tests covering edge-case scenarios from the merge spec.
+//!
+//! Each test pair is a fixture designed to exercise a specific merge behaviour:
+//! disjoint graphs, full overlap, partial overlap, transitive chains, and
+//! ANNULLED LEI handling.
+#![allow(clippy::expect_used)]
+
+use std::io::Write as _;
+use std::path::PathBuf;
+use std::process::Command;
+
+/// Path to the compiled `omts` binary.
+fn omts_bin() -> PathBuf {
+    let mut path = std::env::current_exe().expect("current exe");
+    path.pop();
+    if path.ends_with("deps") {
+        path.pop();
+    }
+    path.push("omts");
+    path
+}
+
+/// Path to a shared fixture file.
+fn fixture(name: &str) -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("../../tests/fixtures");
+    path.push(name);
+    path
+}
+
+/// Run `omts merge` on two fixtures and return the parsed JSON value.
+fn run_merge(file_a: &str, file_b: &str) -> serde_json::Value {
+    let out = Command::new(omts_bin())
+        .args([
+            "merge",
+            fixture(file_a).to_str().expect("path"),
+            fixture(file_b).to_str().expect("path"),
+        ])
+        .output()
+        .expect("run omts merge");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "merge must exit 0; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    serde_json::from_str(stdout.trim()).expect("merge output must be valid JSON")
+}
+
+/// Run `omts merge` on two fixtures and return both the parsed JSON value and
+/// the raw stderr bytes.
+fn run_merge_with_stderr(file_a: &str, file_b: &str) -> (serde_json::Value, String) {
+    let out = Command::new(omts_bin())
+        .args([
+            "merge",
+            fixture(file_a).to_str().expect("path"),
+            fixture(file_b).to_str().expect("path"),
+        ])
+        .output()
+        .expect("run omts merge");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "merge must exit 0; stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    let value = serde_json::from_str(stdout.trim()).expect("merge output must be valid JSON");
+    (value, stderr)
+}
+
+/// Write a `serde_json::Value` to a temporary file and validate it with
+/// `omts validate --level 1`. Returns true if validation exits 0.
+fn validate_value(value: &serde_json::Value) -> bool {
+    let json_str = serde_json::to_string(value).expect("serialize to JSON");
+    let mut tmp = tempfile::NamedTempFile::new().expect("temp file");
+    tmp.write_all(json_str.as_bytes()).expect("write JSON");
+
+    let out = Command::new(omts_bin())
+        .args([
+            "validate",
+            "--level",
+            "1",
+            tmp.path().to_str().expect("path"),
+        ])
+        .output()
+        .expect("run omts validate");
+    out.status.code() == Some(0)
+}
+
+/// Merging two files with no overlapping nodes (no shared LEI/DUNS etc.)
+/// preserves all nodes from both files in the output.
+#[test]
+fn merge_disjoint_preserves_all_nodes() {
+    let value = run_merge("merge-disjoint-a.omts", "merge-disjoint-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        5,
+        "disjoint merge must retain all 5 nodes; nodes: {nodes:?}"
+    );
+}
+
+/// Disjoint merge must preserve all edges from both inputs.
+#[test]
+fn merge_disjoint_preserves_all_edges() {
+    let value = run_merge("merge-disjoint-a.omts", "merge-disjoint-b.omts");
+    let edges = value["edges"].as_array().expect("edges array");
+    assert_eq!(
+        edges.len(),
+        3,
+        "disjoint merge must retain all 3 edges; edges: {edges:?}"
+    );
+}
+
+/// Disjoint merge output passes L1 validation.
+#[test]
+fn merge_disjoint_output_passes_validate() {
+    let value = run_merge("merge-disjoint-a.omts", "merge-disjoint-b.omts");
+    assert!(
+        validate_value(&value),
+        "disjoint merge output must pass L1 validation"
+    );
+}
+
+/// Merging two files where all nodes share the same LEIs produces a merged
+/// file where each entity group is a single canonical node.
+#[test]
+fn merge_full_overlap_deduplicates_nodes() {
+    let value = run_merge("merge-full-overlap-a.omts", "merge-full-overlap-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        2,
+        "full-overlap merge must deduplicate to 2 nodes; nodes: {nodes:?}"
+    );
+}
+
+/// Full-overlap merged output passes L1 validation.
+#[test]
+fn merge_full_overlap_output_passes_validate() {
+    let value = run_merge("merge-full-overlap-a.omts", "merge-full-overlap-b.omts");
+    assert!(
+        validate_value(&value),
+        "full-overlap merge output must pass L1 validation"
+    );
+}
+
+/// Merging from two sources, the merged node accumulates all unique identifiers
+/// from both inputs (identifier set-union).
+#[test]
+fn merge_full_overlap_accumulates_identifiers() {
+    let value = run_merge("merge-full-overlap-a.omts", "merge-full-overlap-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+
+    // Find the Epsilon node: in file-a it had only LEI 5493006MHB84DD0ZWV18,
+    // in file-b it gained DUNS 555666777. After merge, both should be present.
+    let epsilon = nodes
+        .iter()
+        .find(|n| {
+            n["identifiers"]
+                .as_array()
+                .map(|ids| {
+                    ids.iter().any(|id| {
+                        id["scheme"].as_str() == Some("lei")
+                            && id["value"].as_str() == Some("5493006MHB84DD0ZWV18")
+                    })
+                })
+                .unwrap_or(false)
+        })
+        .expect("epsilon node (with BIS LEI) must be present after merge");
+
+    let ids = epsilon["identifiers"]
+        .as_array()
+        .expect("identifiers array");
+    let has_lei = ids.iter().any(|id| id["scheme"].as_str() == Some("lei"));
+    let has_duns = ids.iter().any(|id| id["scheme"].as_str() == Some("duns"));
+
+    assert!(has_lei, "merged epsilon node must have LEI identifier");
+    assert!(
+        has_duns,
+        "merged epsilon node must have DUNS identifier from file-b"
+    );
+}
+
+/// Merging files with partial overlap: some nodes share identifiers, some are
+/// unique. The merged output contains one canonical node for each entity group.
+#[test]
+fn merge_partial_overlap_correct_node_count() {
+    let value = run_merge("merge-partial-a.omts", "merge-partial-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        3,
+        "partial overlap must yield 3 distinct entities; nodes: {nodes:?}"
+    );
+}
+
+/// Partial-overlap merged output passes L1 validation.
+#[test]
+fn merge_partial_overlap_output_passes_validate() {
+    let value = run_merge("merge-partial-a.omts", "merge-partial-b.omts");
+    assert!(
+        validate_value(&value),
+        "partial-overlap merge output must pass L1 validation"
+    );
+}
+
+/// Merging files that form a transitive supply chain produces a connected graph
+/// covering all tiers. The shared tier-2 node (by DUNS) is merged.
+#[test]
+fn merge_transitive_chain_merges_shared_tier() {
+    let value = run_merge("merge-transitive-a.omts", "merge-transitive-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        3,
+        "transitive chain must merge shared tier-2 node; nodes: {nodes:?}"
+    );
+}
+
+/// Transitive chain merged output passes L1 validation.
+#[test]
+fn merge_transitive_chain_output_passes_validate() {
+    let value = run_merge("merge-transitive-a.omts", "merge-transitive-b.omts");
+    assert!(
+        validate_value(&value),
+        "transitive chain merge output must pass L1 validation"
+    );
+}
+
+/// The merged transitive chain has edges spanning all three tiers.
+#[test]
+fn merge_transitive_chain_has_full_supply_chain() {
+    let value = run_merge("merge-transitive-a.omts", "merge-transitive-b.omts");
+    let edges = value["edges"].as_array().expect("edges array");
+    assert_eq!(
+        edges.len(),
+        2,
+        "merged transitive chain must have 2 supply edges; edges: {edges:?}"
+    );
+    for edge in edges {
+        assert_eq!(
+            edge["type"].as_str(),
+            Some("supplies"),
+            "all transitive chain edges must be 'supplies'"
+        );
+    }
+}
+
+/// Merging files where some nodes carry an ANNULLED LEI. Annulled LEI nodes
+/// are not used for identity matching, so each keeps its own identity group.
+#[test]
+fn merge_annulled_lei_nodes_not_merged_by_lei() {
+    let value = run_merge("merge-annulled-lei-a.omts", "merge-annulled-lei-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+
+    // Annulled LEIs are excluded from the identity index, so without other
+    // matching identifiers, the two annulled nodes form separate groups.
+    assert_eq!(
+        nodes.len(),
+        3,
+        "annulled LEI nodes must not be merged by their annulled LEI; nodes: {nodes:?}"
+    );
+}
+
+/// ANNULLED LEI merged output passes L1 validation.
+#[test]
+fn merge_annulled_lei_output_passes_validate() {
+    let value = run_merge("merge-annulled-lei-a.omts", "merge-annulled-lei-b.omts");
+    assert!(
+        validate_value(&value),
+        "annulled-LEI merge output must pass L1 validation"
+    );
+}
+
+/// The live entity (valid LEI) is properly deduplicated and accumulates
+/// identifiers from both files (LEI from file-a, DUNS from file-b).
+#[test]
+fn merge_annulled_lei_live_entity_merged_correctly() {
+    let value = run_merge("merge-annulled-lei-a.omts", "merge-annulled-lei-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+
+    // Find the live entity: it has a valid (non-annulled) LEI and should also
+    // carry the DUNS from file-b after merging.
+    let live_node = nodes.iter().find(|n| {
+        n["identifiers"]
+            .as_array()
+            .map(|ids| {
+                ids.iter().any(|id| {
+                    id["scheme"].as_str() == Some("lei")
+                        && id["value"].as_str() == Some("5493006MHB84DD0ZWV18")
+                        && id.get("entity_status").is_none()
+                })
+            })
+            .unwrap_or(false)
+    });
+
+    assert!(
+        live_node.is_some(),
+        "live entity with valid LEI must exist in merged output"
+    );
+
+    let live_ids = live_node
+        .expect("live node")
+        .get("identifiers")
+        .and_then(|v| v.as_array())
+        .expect("live node has identifiers");
+
+    let has_duns = live_ids
+        .iter()
+        .any(|id| id["scheme"].as_str() == Some("duns"));
+    assert!(
+        has_duns,
+        "live entity must carry DUNS from file-b after merge"
+    );
+}
+
+/// With the default `Definite` threshold, `same_as` edges marked `"definite"`
+/// cause their endpoints to merge into one canonical node.
+#[test]
+fn merge_same_as_definite_confidence_triggers_merge() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // File A has 4 nodes: definite pair (merged → 1) + probable pair (not merged → 2)
+    // File B has 2 nodes: possible pair (not merged → 2)
+    // Total after merge: 1 + 2 + 2 = 5 nodes.
+    assert_eq!(
+        nodes.len(),
+        5,
+        "definite threshold: definite pair merges, probable/possible pairs remain separate; \
+         nodes: {nodes:?}"
+    );
+}
+
+/// With the default `Definite` threshold, `same_as` edges marked `"probable"`
+/// or `"possible"` do NOT cause their endpoints to merge.
+#[test]
+fn merge_same_as_below_threshold_not_merged() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // Probable and possible pairs each contribute 2 nodes (not merged).
+    let duns_values: Vec<&str> = nodes
+        .iter()
+        .flat_map(|n| {
+            n["identifiers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|id| id["scheme"].as_str() == Some("duns"))
+                .filter_map(|id| id["value"].as_str())
+        })
+        .collect();
+    // DUNS 600000003/600000004 (probable) and 600000005/600000006 (possible)
+    // must both still be present as separate nodes.
+    assert!(
+        duns_values.contains(&"600000003"),
+        "probable pair node 1 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000004"),
+        "probable pair node 2 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000005"),
+        "possible pair node 1 must remain as separate entity"
+    );
+    assert!(
+        duns_values.contains(&"600000006"),
+        "possible pair node 2 must remain as separate entity"
+    );
+}
+
+/// `same_as` merge output passes L1 validation.
+#[test]
+fn merge_same_as_output_passes_validate() {
+    let value = run_merge(
+        "merge-same-as-confidence-a.omts",
+        "merge-same-as-confidence-b.omts",
+    );
+    assert!(
+        validate_value(&value),
+        "same_as confidence merge output must pass L1 validation"
+    );
+}
+
+/// Two nodes with the same LEI but non-overlapping validity periods are
+/// temporally incompatible and must NOT be merged into one canonical node.
+#[test]
+fn merge_temporal_incompatibility_prevents_merge() {
+    let value = run_merge("merge-temporal-a.omts", "merge-temporal-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    assert_eq!(
+        nodes.len(),
+        2,
+        "temporally incompatible LEI holders must remain as separate nodes; nodes: {nodes:?}"
+    );
+}
+
+/// Temporal incompatibility merge output passes L1 validation.
+#[test]
+fn merge_temporal_output_passes_validate() {
+    let value = run_merge("merge-temporal-a.omts", "merge-temporal-b.omts");
+    assert!(
+        validate_value(&value),
+        "temporal incompatibility merge output must pass L1 validation"
+    );
+}
+
+/// When a merge group exceeds the configured limit (default 50), the pipeline
+/// still succeeds (exit 0) and emits a warning to stderr.
+#[test]
+fn merge_oversized_group_emits_warning_and_succeeds() {
+    let (_value, stderr) =
+        run_merge_with_stderr("merge-oversized-a.omts", "merge-oversized-b.omts");
+    assert!(
+        stderr.contains("warning:"),
+        "oversized merge group must produce a warning on stderr; stderr: {stderr:?}"
+    );
+    assert!(
+        stderr.to_lowercase().contains("exceeding"),
+        "warning must mention exceeding the limit; stderr: {stderr:?}"
+    );
+}
+
+/// Oversized merge group output passes L1 validation despite the warning.
+#[test]
+fn merge_oversized_group_output_passes_validate() {
+    let (value, _stderr) =
+        run_merge_with_stderr("merge-oversized-a.omts", "merge-oversized-b.omts");
+    assert!(
+        validate_value(&value),
+        "oversized merge group output must pass L1 validation"
+    );
+}
+
+/// When two files both use the same node ID string (e.g. `"org-a"`) for
+/// different entities, the merge must treat them as separate nodes because the
+/// IDs are file-local and each file's ID map is resolved independently.
+#[test]
+fn merge_colliding_node_ids_kept_separate() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+    // Both files have 2 nodes each with distinct identifiers → 4 separate entities.
+    assert_eq!(
+        nodes.len(),
+        4,
+        "colliding file-local IDs must each resolve to separate merged nodes; nodes: {nodes:?}"
+    );
+}
+
+/// After merging files with colliding node IDs, all four distinct identifiers
+/// are present in the merged output.
+#[test]
+fn merge_colliding_node_ids_all_identifiers_present() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    let nodes = value["nodes"].as_array().expect("nodes array");
+
+    let all_ids: Vec<(&str, &str)> = nodes
+        .iter()
+        .flat_map(|n| {
+            n["identifiers"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|id| {
+                    let scheme = id["scheme"].as_str()?;
+                    let value = id["value"].as_str()?;
+                    Some((scheme, value))
+                })
+        })
+        .collect();
+
+    assert!(
+        all_ids.contains(&("lei", "HWUPKR0MPOU8FGXBT394")),
+        "Alpha Industries LEI from file-a must be present"
+    );
+    assert!(
+        all_ids.contains(&("duns", "200100300")),
+        "Beta Manufacturing DUNS from file-a must be present"
+    );
+    assert!(
+        all_ids.contains(&("lei", "5493006MHB84DD0ZWV18")),
+        "Acorn Logistics LEI from file-b must be present"
+    );
+    assert!(
+        all_ids.contains(&("duns", "400500600")),
+        "Bridge Supplies DUNS from file-b must be present"
+    );
+}
+
+/// Colliding file-local node IDs merge output passes L1 validation.
+#[test]
+fn merge_colliding_node_ids_output_passes_validate() {
+    let value = run_merge("merge-colliding-ids-a.omts", "merge-colliding-ids-b.omts");
+    assert!(
+        validate_value(&value),
+        "colliding-IDs merge output must pass L1 validation"
+    );
+}
+
+/// Any merged output must carry `merge_metadata` per the spec.
+#[test]
+fn merge_output_contains_merge_metadata() {
+    let value = run_merge("merge-a.omts", "merge-b.omts");
+    assert!(
+        value.get("merge_metadata").is_some(),
+        "merged output must contain merge_metadata"
+    );
+    let meta = &value["merge_metadata"];
+    assert!(
+        meta.get("merged_at").is_some() || meta.get("source_files").is_some(),
+        "merge_metadata must have at least one provenance field; meta: {meta:?}"
+    );
+}
