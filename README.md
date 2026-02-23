@@ -123,7 +123,7 @@ OMTSF provides two Excel template variants for interoperability with spreadsheet
 
 On import, the template variant is auto-detected by inspecting sheet names. On export, use `--output-format excel` for the rich template or `--output-format excel-supplier-list` for the simplified template.
 
-Template files are available in `templates/excel/`.
+Template files and a detailed column reference are in [`templates/excel/`](templates/excel/README.md).
 
 ### Key Capabilities
 
