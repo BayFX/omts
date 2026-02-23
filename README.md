@@ -97,20 +97,63 @@ The canonical tooling for working with `.omts` files is a Rust library and CLI. 
 
 ### CLI Commands
 
+| Command | Description |
+|---------|-------------|
+| `omtsf validate <file>` | Validate against the spec (L1/L2/L3) |
+| `omtsf merge <file>...` | Merge two or more files into a single graph |
+| `omtsf redact <file> --scope <s>` | Redact for a target disclosure scope |
+| `omtsf diff <a> <b>` | Structural diff between two files |
+| `omtsf inspect <file>` | Print summary statistics |
+| `omtsf convert <file>` | Re-serialize, convert between JSON/CBOR, compress with zstd |
+| `omtsf query <file>` | Search nodes/edges by type, label, identifier, jurisdiction, name |
+| `omtsf reach <file> <node>` | List all reachable nodes from a source (upstream/downstream) |
+| `omtsf path <file> <from> <to>` | Find paths between two nodes |
+| `omtsf subgraph <file> [nodes]...` | Extract induced subgraph by node IDs and/or selectors |
+| `omtsf import <file>` | Import from Excel (`.xlsx`) to `.omts` |
+| `omtsf export <file> -o <out>` | Export from `.omts` to Excel (`.xlsx`) |
+| `omtsf init` | Scaffold a new minimal `.omts` file |
+
+All commands that read `.omts` files accept `-` to read from stdin. Use `-f json` for machine-readable output or `-f human` (default) for colored terminal output.
+
+#### Import and Export
+
+`import` reads an Excel workbook (auto-detecting the template variant) and produces a valid `.omts` file. `export` writes an `.omts` graph to Excel in either the full multi-sheet template (`--output-format excel`) or the simplified single-sheet supplier list (`--output-format excel-supplier-list`).
+
+```bash
+omtsf import suppliers.xlsx -o supply-chain.omts
+omtsf export supply-chain.omts -o full-export.xlsx
+omtsf export supply-chain.omts --output-format excel-supplier-list -o suppliers.xlsx
 ```
-omtsf validate <file>              Validate against the spec (L1/L2/L3)
-omtsf merge <file>...              Merge two or more files into a single graph
-omtsf redact <file> --scope <s>    Redact for a target disclosure scope
-omtsf diff <a> <b>                 Structural diff between two files
-omtsf inspect <file>               Print summary statistics
-omtsf convert <file>               Re-serialize (normalize whitespace/key ordering)
-omtsf reach <file> <node>          List all reachable nodes from a source
-omtsf path <file> <from> <to>      Find paths between two nodes
-omtsf subgraph <file> [nodes]...   Extract induced subgraph by node IDs and/or selectors
-omtsf query <file>                 Search nodes/edges by type, label, identifier
-omtsf init                         Scaffold a new minimal .omts file
-omtsf import <file>                Import from Excel (.xlsx) to .omts
-omtsf export <file> -o <out>       Export from .omts to Excel (.xlsx)
+
+#### Query and Subgraph
+
+`query` finds nodes and edges matching property predicates. `subgraph` extracts the matched nodes (plus their interconnecting edges) as a new `.omts` file. Both commands share a common selector syntax.
+
+```bash
+omtsf query supply-chain.omts --node-type organization --jurisdiction DE
+omtsf query supply-chain.omts --label risk-tier=high --count
+omtsf subgraph supply-chain.omts --identifier lei --expand 1 -o subset.omts
+```
+
+Selectors: `--node-type`, `--edge-type`, `--label KEY[=VALUE]`, `--identifier SCHEME[:VALUE]`, `--jurisdiction CC`, `--name PATTERN`.
+
+#### Graph Traversal
+
+`reach` lists all nodes reachable from a starting node (configurable direction and depth). `path` finds simple paths between two nodes (shortest first).
+
+```bash
+omtsf reach supply-chain.omts org-acme --direction both --depth 3
+omtsf path supply-chain.omts org-acme fac-plant-01
+```
+
+#### Merge, Redact, and Convert
+
+`merge` combines files from different sources using composite external identifiers for entity resolution. `redact` strips sensitive data for a target disclosure scope (`public`, `partner`, `internal`). `convert` normalizes or transcodes between JSON and CBOR with optional zstd compression.
+
+```bash
+omtsf merge supplier-a.omts supplier-b.omts > combined.omts
+omtsf redact combined.omts --scope public > shareable.omts
+omtsf convert combined.omts --to cbor --compress > compact.omts.cbor
 ```
 
 ### Excel Support
@@ -131,9 +174,10 @@ Template files and a detailed column reference are in [`templates/excel/`](templ
 - **Merge with entity resolution.** Combines files from different sources using composite external identifiers. Handles overlapping and disjoint graphs.
 - **Selective redaction.** Replaces sensitive nodes with boundary references at `public` or `partner` disclosure scopes. Person nodes and confidential identifiers are stripped automatically.
 - **Graph queries.** Reachability analysis, shortest path, all-paths enumeration, ego graphs, and induced subgraph extraction. Supports edge-type filtering and directional traversal.
+- **Selector-based queries.** Query nodes and edges by type, label, identifier, jurisdiction, or name pattern. Extract subchains by selector match with configurable neighborhood expansion.
 - **Structural diff.** Compares two files and reports added, removed, and modified nodes and edges. Supports type-based and field-based filtering.
+- **Excel import/export.** Round-trip between `.omts` and Excel workbooks. Full multi-sheet template for data engineers; simplified single-sheet supplier list for procurement teams. Template variant is auto-detected on import.
 - **CBOR and compression.** CBOR encoding produces files 21% smaller than JSON and decodes 26-36% faster. Zstd compression supported. Automatic encoding detection on load.
-- **Selector-based queries.** Query nodes and edges by type, label, identifier, or jurisdiction. Extract subchains by selector match with configurable expansion hops.
 - **WASM-compatible core.** The `omtsf-core` library has no I/O dependencies and compiles to `wasm32-unknown-unknown` for client-side browser tooling.
 
 ### Performance
