@@ -16,13 +16,17 @@ pub enum ImportFormat {
 
 /// Output format for the `export` subcommand.
 ///
-/// Currently only `excel` is supported. Additional formats (e.g. CSV, Parquet)
-/// may be added in future releases.
+/// Currently `excel` (full multi-sheet) and `excel-supplier-list` (simplified
+/// single-sheet) are supported. Additional formats (e.g. CSV, Parquet) may be
+/// added in future releases.
 #[non_exhaustive]
 #[derive(Clone, Debug, ValueEnum)]
 pub enum ExportFormat {
-    /// Microsoft Excel `.xlsx` format.
+    /// Microsoft Excel `.xlsx` format (full multi-sheet template).
     Excel,
+    /// Microsoft Excel `.xlsx` Supplier List format (simplified single-sheet).
+    #[value(name = "excel-supplier-list")]
+    ExcelSupplierList,
 }
 
 /// A CLI argument that is either a filesystem path or the stdin sentinel `"-"`.

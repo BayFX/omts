@@ -32,6 +32,7 @@ mod metadata;
 mod nodes;
 mod readme;
 mod style;
+pub mod supplier_list;
 
 /// Exports an [`OmtsFile`] to Excel `.xlsx` format.
 ///
