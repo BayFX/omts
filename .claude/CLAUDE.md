@@ -9,12 +9,29 @@
   - `selective-disclosure.md` (SPEC-004)
   - `erp-integration.md` (SPEC-005, informative)
   - `standards-mapping.md` (SPEC-006, informative)
+  - `serialization-bindings.md` (SPEC-007)
 - `/omtsf-rs/` — Rust reference implementation (CLI + library)
-  - `docs/` — Technical specification for the implementation
+  - `crates/omtsf-core` — Graph model, parsing, validation, merge logic (WASM-compatible, no I/O)
+  - `crates/omtsf-cli` — CLI interface (`omtsf` binary), handles all I/O
+  - `crates/omtsf-excel` — Excel import/export support
+  - `crates/omtsf-wasm` — WASM bindings (thin wrapper around omtsf-core)
+  - `crates/omtsf-bench` — Benchmarks
+  - `docs/` — Technical specification for the implementation (data-model, validation, merge, diff, query, redaction, cli-interface, graph-engine, tasks)
+  - `tests/fixtures/` — `.omts` test fixtures for integration tests (JSON, CBOR, Zstd variants)
   - `README.md` — Command overview and build instructions
-- `/docs/` — Reviews, vision, and auxiliary project documentation
-  - `vision.md`
+- `/schema/` — JSON Schema definitions
+  - `omts-v0.1.0.schema.json`
+- `/templates/excel/` — Excel import templates and examples
+  - `omts-import-template.xlsx`, `omts-import-example.xlsx`
+  - `omts-supplier-list-template.xlsx`, `omts-supplier-list-example.xlsx`
+  - `generate_template.py` — Python script to regenerate templates
+- `/tests/fixtures/` — Shared `.omts` test fixture files (valid and invalid cases)
+- `/docs/` — Reviews, vision, roadmap, and auxiliary project documentation
+  - `vision.md`, `roadmap.md`
   - `reviews/` — Expert panel reviews
+  - `governance/` — TSC charter and governance docs
+- `/usecases/` — Use case documentation
+- `/.github/workflows/ci.yml` — CI pipeline
 
 ## Git Commits
 
@@ -53,9 +70,12 @@
 |-------|---------|-------|
 | `crates/omtsf-core` | Graph model, parsing, validation, merge logic | No I/O, no stdout/stderr, WASM-compatible |
 | `crates/omtsf-cli` | CLI interface (`omtsf` binary) | Uses clap, handles all I/O |
+| `crates/omtsf-excel` | Excel import/export | Depends on omtsf-core |
 | `crates/omtsf-wasm` | WASM bindings | Thin wrapper around omtsf-core |
+| `crates/omtsf-bench` | Benchmarks | Performance testing |
 | `crates/omtsf-core/tests/` | Integration tests for core | `#![allow(clippy::expect_used)]` permitted |
-| `tests/fixtures/` | `.omts` test fixture files | JSON format, shared across crates |
+| `omtsf-rs/tests/fixtures/` | `.omts` test fixture files | JSON/CBOR/Zstd formats |
+| `tests/fixtures/` | Shared `.omts` test fixtures | Valid and invalid cases, shared across crates |
 
 ### Code Style
 

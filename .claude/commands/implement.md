@@ -70,9 +70,17 @@ Use `TaskCreate` to add each selected implementation task to the shared list. Th
 
 ## Execution Protocol
 
+**Important:** All paths in this document use `$REPO_ROOT` to refer to the repository root directory (the directory containing this `.claude/` folder). Before starting, resolve it:
+
+```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+```
+
+Use `$REPO_ROOT` as the prefix for all file operations, worktree paths, and agent prompts throughout this protocol.
+
 ### Step 1: Read the Backlog
 
-Read `/home/cc/omtsf/omtsf-rs/docs/tasks.md` to load the full task list. For each task, parse:
+Read `$REPO_ROOT/omtsf-rs/docs/tasks.md` to load the full task list. For each task, parse:
 - Task ID (T-001 through T-057)
 - Title
 - Phase
@@ -85,7 +93,7 @@ Read `/home/cc/omtsf/omtsf-rs/docs/tasks.md` to load the full task list. For eac
 
 Determine which tasks are already complete by reading `tasks.md`:
 
-1. Read `/home/cc/omtsf/omtsf-rs/docs/tasks.md` and check each task heading for the `✅` marker. A task is complete if its heading contains `✅` (e.g., `### T-044 -- End-to-end pipeline tests ✅`).
+1. Read `$REPO_ROOT/omtsf-rs/docs/tasks.md` and check each task heading for the `✅` marker. A task is complete if its heading contains `✅` (e.g., `### T-044 -- End-to-end pipeline tests ✅`).
 2. Tasks WITHOUT `✅` in their heading are incomplete and may be candidates for implementation.
 3. Check for existing feature branches (`git branch --list 'impl/T-*'`) — these are in-progress work from a previous run.
 
@@ -120,7 +128,7 @@ For each wave, repeat the following cycle:
 For each task in the wave, create an isolated worktree from `main`:
 
 ```bash
-cd /home/cc/omtsf
+cd $REPO_ROOT
 git worktree add .worktrees/T-{id} -b impl/T-{id} main
 ```
 
@@ -182,18 +190,18 @@ For each review result (received via teammate messages):
 **On APPROVE:**
 1. Rebase on latest `main` (in case other merges happened this wave):
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id} && git rebase main
+   cd $REPO_ROOT/.worktrees/T-{id} && git rebase main
    ```
 2. Merge to `main` from the main worktree:
    ```bash
-   cd /home/cc/omtsf && git merge --no-ff impl/T-{id} -m "T-{id}: {task title}"
+   cd $REPO_ROOT && git merge --no-ff impl/T-{id} -m "T-{id}: {task title}"
    ```
 3. Clean up:
    ```bash
    git worktree remove .worktrees/T-{id}
    git branch -d impl/T-{id}
    ```
-4. **Mark task as complete in `tasks.md`**: Edit `/home/cc/omtsf/omtsf-rs/docs/tasks.md` and add `✅` to the task heading (e.g., change `### T-{id} -- {title}` to `### T-{id} -- {title} ✅`). Commit this change:
+4. **Mark task as complete in `tasks.md`**: Edit `$REPO_ROOT/omtsf-rs/docs/tasks.md` and add `✅` to the task heading (e.g., change `### T-{id} -- {title}` to `### T-{id} -- {title} ✅`). Commit this change:
    ```bash
    git add omtsf-rs/docs/tasks.md && git commit -m "mark T-{id} as complete in tasks.md"
    ```
@@ -273,17 +281,17 @@ You are a teammate on the "implement" team. Use `SendMessage` to communicate wit
 
 Read these files carefully — they are your primary source of truth for this task:
 {List of absolute paths to spec docs in the worktree, e.g.:
-- /home/cc/omtsf/.worktrees/T-{id}/omtsf-rs/docs/data-model.md
-- /home/cc/omtsf/.worktrees/T-{id}/omtsf-rs/docs/validation.md
+- $REPO_ROOT/.worktrees/T-{id}/omtsf-rs/docs/data-model.md
+- $REPO_ROOT/.worktrees/T-{id}/omtsf-rs/docs/validation.md
 }
 
 ## Working Directory
 
-Your worktree is at: `/home/cc/omtsf/.worktrees/T-{id}/`
-The Rust workspace is at: `/home/cc/omtsf/.worktrees/T-{id}/omtsf-rs/`
+Your worktree is at: `$REPO_ROOT/.worktrees/T-{id}/`
+The Rust workspace is at: `$REPO_ROOT/.worktrees/T-{id}/omtsf-rs/`
 
 **ALL file operations MUST use absolute paths under your worktree.**
-Do NOT modify files in `/home/cc/omtsf/omtsf-rs/` — that is the main worktree.
+Do NOT modify files in `$REPO_ROOT/omtsf-rs/` — that is the main worktree.
 
 ## Workspace Rules
 
@@ -307,7 +315,7 @@ These rules are enforced by CI and the Review Architect. Violations will be reje
 1. **Read first**: Read existing source files in your worktree to understand what's already implemented. Understand the module structure before adding to it.
 2. **Implement**: Write code following the spec docs precisely. If the spec is ambiguous, make a reasonable choice and document it in your completion report.
 3. **Test**: Add tests as specified in the acceptance criteria. Place unit tests in the source file (`#[cfg(test)] mod tests`). Place integration tests in `crates/omtsf-core/tests/` or `tests/`.
-4. **Verify**: Run from `/home/cc/omtsf/.worktrees/T-{id}/omtsf-rs/`:
+4. **Verify**: Run from `$REPO_ROOT/.worktrees/T-{id}/omtsf-rs/`:
    ```bash
    cargo fmt --all
    cargo clippy --workspace --all-targets -- -D warnings
@@ -316,7 +324,7 @@ These rules are enforced by CI and the Review Architect. Violations will be reje
    Fix any failures. Do not report completion until all three pass.
 5. **Commit**: Stage and commit all changes:
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id}
+   cd $REPO_ROOT/.worktrees/T-{id}
    git add -A
    git commit -m "T-{id}: {task title}"
    ```
@@ -364,7 +372,7 @@ The Review Architect has requested the following changes:
 
 ## Your Worktree
 
-`/home/cc/omtsf/.worktrees/T-{id}/`
+`$REPO_ROOT/.worktrees/T-{id}/`
 
 Your previous implementation is already in this worktree. Make ONLY the changes requested by the reviewer. Do not refactor or reorganize anything the reviewer didn't mention.
 
@@ -380,14 +388,14 @@ Re-read the relevant spec docs if the reviewer flags a spec compliance issue:
 3. Make the fixes
 4. Verify:
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id}/omtsf-rs
+   cd $REPO_ROOT/.worktrees/T-{id}/omtsf-rs
    cargo fmt --all
    cargo clippy --workspace --all-targets -- -D warnings
    cargo test --workspace
    ```
 5. Commit:
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id}
+   cd $REPO_ROOT/.worktrees/T-{id}
    git add -A
    git commit -m "T-{id}: address review feedback"
    ```
@@ -456,13 +464,13 @@ Read these files — they define what the implementation SHOULD do:
 {List of absolute paths to spec docs in the worktree}
 
 Also read the project guidelines:
-- `/home/cc/omtsf/.worktrees/T-{id}/.claude/CLAUDE.md`
+- `$REPO_ROOT/.worktrees/T-{id}/.claude/CLAUDE.md`
 
 ## Review Process
 
 1. Read the full diff:
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id} && git diff main..HEAD
+   cd $REPO_ROOT/.worktrees/T-{id} && git diff main..HEAD
    ```
 
 2. Read each modified/created file in full — diffs miss important context like module structure and imports.
@@ -471,7 +479,7 @@ Also read the project guidelines:
 
 4. Run verification in the worktree:
    ```bash
-   cd /home/cc/omtsf/.worktrees/T-{id}/omtsf-rs
+   cd $REPO_ROOT/.worktrees/T-{id}/omtsf-rs
    cargo fmt --all -- --check
    cargo clippy --workspace --all-targets -- -D warnings
    cargo test --workspace
@@ -530,7 +538,7 @@ Send a message to the teamlead with this EXACT format:
 6. **Branch naming**: `impl/T-{id}` (e.g., `impl/T-002`)
 7. **Commit messages**: `T-{id}: {task title}` for implementation, `T-{id}: address review feedback` for revisions
 8. **Merge commits**: `T-{id}: {task title}` using `--no-ff`
-9. **Worktree location**: `/home/cc/omtsf/.worktrees/T-{id}/` — always clean up after merge or skip
+9. **Worktree location**: `$REPO_ROOT/.worktrees/T-{id}/` — always clean up after merge or skip
 10. **Fully autonomous**: Merge approved branches without asking the user. The Review Architect is the quality gate.
 11. **No spec modification**: Agents must never modify files in `omtsf-rs/docs/` or `spec/`. Specs are read-only input.
 12. **Cargo.toml changes**: Coding Agents may add dependencies to crate `Cargo.toml` files if needed for their task. They must NOT modify the workspace `Cargo.toml` lint configuration.
