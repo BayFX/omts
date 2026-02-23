@@ -282,6 +282,80 @@ pub fn build_graph(file: &OmtsFile) -> Result<OmtsGraph, GraphBuildError> {
     })
 }
 
+/// Creates an [`OmtsGraph`] with non-dense node indices for use in query tests.
+///
+/// Adds three nodes to a `StableDiGraph`, removes the first (index 0), then
+/// wraps the result in an `OmtsGraph`.  After removal:
+/// - `node_count() == 2`
+/// - `node_bound() == 3`
+/// - live nodes have indices 1 ("gap-a") and 2 ("gap-b") with a supplies edge
+///   between them.
+///
+/// This helper exercises the code path where a node's `NodeIndex::index()`
+/// value equals or exceeds `node_count()`, which is the scenario that exposed
+/// the `on_path` allocation bug in `dfs_paths`.
+#[cfg(test)]
+pub(crate) fn build_graph_with_gap() -> OmtsGraph {
+    use crate::enums::{EdgeType, EdgeTypeTag, NodeType, NodeTypeTag};
+
+    let mut graph: StableDiGraph<NodeWeight, EdgeWeight> = StableDiGraph::new();
+
+    // Sacrificial node at index 0 — removed below to introduce the gap.
+    let sacrifice = graph.add_node(NodeWeight {
+        local_id: "_sacrifice".to_owned(),
+        node_type: NodeTypeTag::Known(NodeType::Organization),
+        data_index: 0,
+    });
+
+    // Real nodes land at indices 1 and 2.
+    let idx_a = graph.add_node(NodeWeight {
+        local_id: "gap-a".to_owned(),
+        node_type: NodeTypeTag::Known(NodeType::Organization),
+        data_index: 0,
+    });
+    let idx_b = graph.add_node(NodeWeight {
+        local_id: "gap-b".to_owned(),
+        node_type: NodeTypeTag::Known(NodeType::Organization),
+        data_index: 1,
+    });
+
+    let edge_idx = graph.add_edge(
+        idx_a,
+        idx_b,
+        EdgeWeight {
+            local_id: "gap-e-ab".to_owned(),
+            edge_type: EdgeTypeTag::Known(EdgeType::Supplies),
+            data_index: 0,
+        },
+    );
+
+    // Remove the sacrifice — node_count() drops to 2 but node_bound() stays at 3.
+    graph.remove_node(sacrifice);
+
+    let mut id_to_index = HashMap::new();
+    id_to_index.insert("gap-a".to_owned(), idx_a);
+    id_to_index.insert("gap-b".to_owned(), idx_b);
+
+    let mut nodes_by_type: HashMap<NodeTypeTag, Vec<NodeIndex>> = HashMap::new();
+    nodes_by_type
+        .entry(NodeTypeTag::Known(NodeType::Organization))
+        .or_default()
+        .extend([idx_a, idx_b]);
+
+    let mut edges_by_type: HashMap<EdgeTypeTag, Vec<EdgeIndex>> = HashMap::new();
+    edges_by_type
+        .entry(EdgeTypeTag::Known(EdgeType::Supplies))
+        .or_default()
+        .push(edge_idx);
+
+    OmtsGraph {
+        graph,
+        id_to_index,
+        nodes_by_type,
+        edges_by_type,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
