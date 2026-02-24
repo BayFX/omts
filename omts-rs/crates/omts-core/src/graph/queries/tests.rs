@@ -400,6 +400,28 @@ fn test_query_error_display() {
     assert!(msg.contains("missing-node"));
 }
 
+/// [`all_paths`] does not panic when node indices are non-dense.
+///
+/// Regression test for the `on_path` bitset allocation bug: if `on_path` is
+/// sized by `node_count()` instead of `node_bound()`, nodes with indices ≥
+/// `node_count()` cause an out-of-bounds access.
+#[test]
+fn test_all_paths_non_dense_node_indices_no_panic() {
+    // Build a graph where node_count() == 2 but node_bound() == 3.
+    // gap-a is at NodeIndex(1), gap-b is at NodeIndex(2).
+    let g = crate::graph::build_graph_with_gap();
+    let paths = all_paths(
+        &g,
+        "gap-a",
+        "gap-b",
+        DEFAULT_MAX_DEPTH,
+        Direction::Forward,
+        None,
+    )
+    .expect("should succeed");
+    assert_eq!(paths.len(), 1);
+}
+
 /// [`Direction::Both`] allows traversal in both forward and backward directions.
 #[test]
 fn test_shortest_path_both_direction_disconnected_without_both() {

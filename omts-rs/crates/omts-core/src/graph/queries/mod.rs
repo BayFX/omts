@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use petgraph::stable_graph::NodeIndex;
-use petgraph::visit::EdgeRef;
+use petgraph::visit::{EdgeRef, NodeIndexable};
 
 use crate::enums::EdgeTypeTag;
 use crate::graph::OmtsGraph;
@@ -346,7 +346,7 @@ fn dfs_paths(
         edge_filter,
     };
     let mut path: Vec<NodeIndex> = vec![from];
-    let mut on_path: Vec<bool> = vec![false; graph.graph().node_count()];
+    let mut on_path: Vec<bool> = vec![false; graph.graph().node_bound()];
     on_path[from.index()] = true;
     let mut nbuf: Vec<NodeIndex> = Vec::new();
 
