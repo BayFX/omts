@@ -1214,7 +1214,7 @@ Findings from the full-app expert panel review (2026-02-23). Tasks cover both
 Rust-specific bugs/improvements and spec-alignment changes required by updated
 specifications (SPEC-001 through SPEC-007, revision 2).
 
-### T-080 -- Fix `on_path` bitset allocation bug in `dfs_paths`
+### T-080 -- Fix `on_path` bitset allocation bug in `dfs_paths` ✅
 
 - **Source:** Expert panel C2 (Graph Modeling Expert)
 - **Dependencies:** T-020
@@ -1422,3 +1422,107 @@ specifications (SPEC-001 through SPEC-007, revision 2).
   - Test: same file in JSON and CBOR produce identical content hash
   - Test: modifying a node name changes the hash
   - `omts convert` with `--hash` flag (or similar) includes computed content hash in output
+
+---
+
+## Phase 15: Use Case Panel Findings — Critical Issues
+
+Findings from the use case validity expert panel review (2026-02-25). Seven experts
+reviewed the six use cases in `usecases/README.md` for feasibility, regulatory accuracy,
+and spec alignment. These tasks address the critical issues identified. Full report:
+`docs/reviews/usecases-validity-panel-report.md`.
+
+### T-095 -- Add supplier data collection use case
+
+- **Source:** Use case panel C1 (Procurement, Supply Chain)
+- **Dependencies:** None (spec/docs change)
+- **Complexity:** M
+- **Crate:** N/A (spec)
+- **Issue:** UC1/UC2/UC5 assume the buyer already has geo coordinates, sub-supplier identifiers, and installation-level emissions data. The hard part — collecting this from suppliers — is unaddressed. A new use case should show the buyer→supplier→buyer round-trip for populating `.omts` files with data originating outside the buyer's ERP.
+- **Acceptance Criteria:**
+  - New use case added to `usecases/README.md` showing a buyer sending a partially populated `.omts` file to a supplier, the supplier enriching it (facility geo, sub-suppliers, certifications), and the buyer merging the returned file
+  - References SPEC-003 merge semantics and SPEC-005 enrichment lifecycle (Section 6)
+  - Addresses both the buyer-side and supplier-side workflows
+
+### T-096 -- Define identity bridge pattern for informal entities
+
+- **Source:** Use case panel C2 (Entity Identification)
+- **Dependencies:** None (spec change)
+- **Complexity:** L
+- **Crate:** N/A (spec)
+- **Issue:** EUDR-relevant entities (cocoa cooperatives, smallholder plantations, artisanal operations) often have no formal registration, no LEI, no DUNS. `internal` identifiers never trigger cross-file merge (SPEC-003 Section 2), so these entities cannot be merged across files. No guidance exists for handling informally registered entities.
+- **Acceptance Criteria:**
+  - SPEC-002 gains an informative annex or section defining an identity bridge pattern for informal entities
+  - Options evaluated: (a) `nat-reg` equivalent for informal registrations (e.g., Ghana Dept. of Cooperatives), (b) geo-based identity supplement where facility coordinates serve as secondary identity signal, (c) explicit guidance to use `same_as` edges with `possible` confidence for informally identified entities
+  - UC1 (EUDR) updated to reference the chosen pattern
+  - Pattern is compatible with the existing merge identity predicate
+
+### T-097 -- Add verification_status guidance for beneficial ownership data
+
+- **Source:** Use case panel C3 (Entity Identification)
+- **Dependencies:** None (spec change)
+- **Complexity:** S
+- **Crate:** N/A (spec)
+- **Issue:** As of early 2026, multiple EU member states have suspended or restricted public access to UBO registers (Italy, Slovakia, Czechia; 11 states face infringement proceedings). UC4 presents a clean beneficial ownership graph but understates the unreliability of underlying data.
+- **Acceptance Criteria:**
+  - UC4 updated to include explicit guidance that `beneficial_ownership` edges SHOULD carry `verification_status` and `verification_date` properties
+  - Note added that `reported` or `unverified` status is acceptable and expected given registry fragmentation
+  - Note added that absence of `beneficial_ownership` edges does NOT imply absence of beneficial owners
+  - SPEC-001 Section 5.5 checked for consistency with this guidance
+
+### T-098 -- Add structural re-identification risk section to SPEC-004
+
+- **Source:** Use case panel C4 (Security & Privacy)
+- **Dependencies:** None (spec change)
+- **Complexity:** L
+- **Crate:** N/A (spec)
+- **Issue:** SPEC-004 protects against identifier-based enumeration via salted hashing but does not address structural de-anonymization attacks. Edge types, commodity codes, and degree sequences on edges connected to `boundary_ref` nodes create quasi-identifier fingerprints exploitable with auxiliary knowledge. No threat model section exists.
+- **Acceptance Criteria:**
+  - New section in SPEC-004 documenting the graph de-anonymization threat model
+  - References known literature on structural de-anonymization (degree-sequence attacks, seed-based de-anonymization)
+  - Recommends mitigations: edge generalization, degree-sequence padding with dummy `boundary_ref` nodes, edge-level redaction for highly distinctive topologies
+  - Explicit warning that boundary reference hashing alone does not guarantee anonymity against adversaries with structural auxiliary knowledge
+  - UC6 updated to reference this section
+
+### T-099 -- Define file-level digital signature mechanism in SPEC-007
+
+- **Source:** Use case panel C5 (Security & Privacy)
+- **Dependencies:** T-094 (content hash)
+- **Complexity:** L
+- **Crate:** N/A (spec first, then implementation)
+- **Issue:** Content hashes (SPEC-007 Section 8.2) provide tamper detection but not authentication — an adversary can modify a file and recompute the hash. No file-level signature mechanism exists. For UC4 (UBO evidence) and UC1 (EUDR DDS), file-level signatures are essential for evidentiary integrity. The optional W3C VC linking (SPEC-004 Section 6.1) covers individual attestation nodes but not the file as a whole.
+- **Acceptance Criteria:**
+  - New section in SPEC-007 defining a file-level digital signature mechanism
+  - Supports detached signatures (e.g., JWS detached payload per RFC 7797 for JSON, COSE Sign1 for CBOR)
+  - Signature covers content hash, `file_salt`, and `disclosure_scope` at minimum
+  - Mechanism is optional (files remain valid without signatures)
+  - Design compatible with both JSON and CBOR encodings
+
+### T-100 -- Add identifier coverage prerequisites to UC3
+
+- **Source:** Use case panel C6 (ERP Integration, Procurement)
+- **Dependencies:** None (docs change)
+- **Complexity:** S
+- **Crate:** N/A (spec/docs)
+- **Issue:** In production ERPs, external identifier coverage is sparse: SAP BUT0ID <40%, Oracle DUNSNumber ~20%, D365 even lower. If most organization nodes carry only `internal` identifiers, the merge engine has nothing to merge on. UC3 does not acknowledge this prerequisite.
+- **Acceptance Criteria:**
+  - UC3 updated with an "Identifier Coverage Prerequisites" subsection
+  - Includes realistic coverage rate estimates (DUNS ~20-30%, VAT ~40-60%, LEI <5% for non-financial suppliers)
+  - Defines the enrichment workflow (SPEC-005 Section 6) as a mandatory prerequisite before merge
+  - Estimates realistic merge rates at each enrichment level (internal-only → partial → full)
+  - References data quality pre-processing: VAT format normalization, DUNS check-digit validation
+
+### T-101 -- Design delta/patch envelope for incremental updates
+
+- **Source:** Use case panel C7 (ERP Integration)
+- **Dependencies:** T-008
+- **Complexity:** XL
+- **Crate:** N/A (spec first)
+- **Issue:** A conglomerate with 40,000+ vendors across three ERPs cannot regenerate complete `.omts` files on every vendor record change. Without a delta specification, UC3 requires full re-export and full re-merge on every change — computationally expensive and operationally impractical. SAP CDHDR/CDPOS, Oracle LAST_UPDATE_DATE, and D365 change tracking all provide incremental deltas natively.
+- **Acceptance Criteria:**
+  - Specification section (in SPEC-001 or new SPEC) defining a delta/patch file variant
+  - Delta file carries: added nodes/edges, removed node/edge IDs, modified node/edge properties
+  - Delta file references the base snapshot via `previous_snapshot_ref`
+  - Delta application is deterministic: `apply(snapshot, delta) = new_snapshot`
+  - Design accounts for ERP-native delta sources (SAP change documents, Oracle audit columns, D365 change tracking)
+  - Validator can check delta structural validity (e.g., removed IDs must exist in referenced base)

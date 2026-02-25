@@ -30,7 +30,7 @@
   - `vision.md`, `roadmap.md`
   - `reviews/` — Expert panel reviews
   - `governance/` — TSC charter and governance docs
-- `/usecases/` — Use case documentation
+  - `usecases/` — Use case documentation
 - `/.github/workflows/ci.yml` — CI pipeline
 
 ## Git Commits

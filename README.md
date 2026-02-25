@@ -1,19 +1,15 @@
 # OMTS: Open Multi-Tier Supply Format
 
-An open exchange format for supply chain graph data. OMTS represents supply networks as directed graphs of typed nodes and typed edges, serialized as self-contained `.omts` (JSON) files that can be validated, merged, redacted, and shared across organizational boundaries.
+A graph-based file format for encoding multi-tier supply chain networks. An `.omts` file stores organizations, facilities, goods, persons, attestations, and consignments as typed nodes, connected by typed edges representing supply relationships, corporate hierarchy, operations, and attestations. Files can be validated against a formal schema, merged across organizational boundaries using composite external identifiers, queried for upstream/downstream reachability, and selectively redacted before sharing.
+
+OMTS is designed for tier-n supply chain visibility: store a complete supplier graph from tier 1 through tier n, query reachability and paths between any two entities, merge partial graphs from different parties into a unified view, and extract subgraphs by selector or neighborhood.
 
 **Version:** 0.0.1 (draft)
 **License:** Specs [CC-BY-4.0](spec/LICENSE) | Code [Apache-2.0](LICENSE)
 
-## The Problem
+### Example
 
-Supply chain data is trapped. Every organization holds a partial view of a shared network, encoded in proprietary formats, internal schemas, and spreadsheets. There is no common way to export a supply network and hand it to another party such that both sides can read, validate, and merge it without manual translation.
-
-Regulations increasingly require multi-tier visibility. EUDR, LkSG/CSDDD, CBAM, and beneficial ownership directives all demand structured proof of what is upstream. The tooling to analyze supply chains exists. The missing piece is a file format that lets the data reach it.
-
-## What OMTS Is
-
-An `.omts` file is a self-contained JSON document describing a supply chain as a graph. Nodes represent the entities (organizations, facilities, goods, persons, attestations, consignments) and edges represent the relationships between them: who supplies whom, who owns whom, what certifications cover which facilities, and how goods flow through the network.
+An `.omts` file is a self-contained JSON document. Nodes are entities, edges are relationships:
 
 ```json
 {
@@ -42,17 +38,6 @@ The format is designed around five principles:
 - **The format is the contract.** If two systems both produce valid `.omts` files, those files are compatible. No bilateral mapping tables, no integration projects.
 - **Data stays local.** Validation, analysis, and transformation all run locally. Supply chain data never needs to leave the machine.
 - **The spec is open and vendor-neutral.** No single company owns the format. The specification and reference implementation are open source.
-
-## How It Can Be Used
-
-OMTS addresses real regulatory and operational scenarios:
-
-- **EUDR due diligence.** Model origin cooperatives, plantations with geolocation, and Due Diligence Statements as attestation nodes. Prove deforestation-free sourcing with a single file.
-- **LkSG/CSDDD multi-tier mapping.** Document supplier hierarchies across tiers with risk assessments attached as attestation nodes.
-- **Multi-ERP consolidation.** Export supplier masters from SAP, Oracle, and Dynamics as `.omts` files. Merge them using composite identifiers (LEI, DUNS, VAT numbers) to produce a single deduplicated supplier graph.
-- **Beneficial ownership transparency.** Map corporate structures with ownership percentages, legal parentage, and person nodes for UBOs, governed by privacy rules.
-- **CBAM embedded emissions.** Track installation-level emissions data on consignment nodes linked to producing facilities.
-- **Selective disclosure.** Share supply chain structure with auditors or partners while redacting commercially sensitive identities behind salted-hash boundary references.
 
 ## The Data Model
 
@@ -214,7 +199,6 @@ spec/                 Normative and informative specifications
 schema/               JSON Schema for .omts files
 tests/fixtures/       Validation test fixtures (.omts)
 templates/excel/      Excel import/export templates
-usecases/             Example use case descriptions
 omts-rs/             Rust reference implementation (CLI + library)
   crates/omts-core/    Core library (parsing, validation, merge, graph, WASM-safe)
   crates/omts-cli/     CLI binary
@@ -222,7 +206,23 @@ omts-rs/             Rust reference implementation (CLI + library)
   crates/omts-wasm/    WASM bindings
   crates/omts-bench/   Benchmarks and supply chain generator
 docs/                 Vision, governance, reviews, roadmap
+  usecases/            Use case documentation
 ```
+
+## Background
+
+Supply chain data is typically spread across proprietary formats, internal schemas, and spreadsheets, with each organization holding a partial view of the network. There is no standard way to export a supply network and hand it to another party such that both sides can read, validate, and merge it without manual translation.
+
+Regulations like EUDR, LkSG/CSDDD, CBAM, and beneficial ownership directives require structured multi-tier visibility into upstream supply chains. OMTS provides a common file format to support this.
+
+### Use Cases
+
+- **EUDR due diligence.** Model origin cooperatives, plantations with geolocation, and Due Diligence Statements as attestation nodes.
+- **LkSG/CSDDD multi-tier mapping.** Document supplier hierarchies across tiers with risk assessments attached as attestation nodes.
+- **Multi-ERP consolidation.** Export supplier masters from SAP, Oracle, and Dynamics as `.omts` files. Merge them using composite identifiers (LEI, DUNS, VAT numbers) to produce a single deduplicated supplier graph.
+- **Beneficial ownership transparency.** Map corporate structures with ownership percentages, legal parentage, and person nodes for UBOs, governed by privacy rules.
+- **CBAM embedded emissions.** Track installation-level emissions data on consignment nodes linked to producing facilities.
+- **Selective disclosure.** Share supply chain structure with auditors or partners while redacting commercially sensitive identities behind salted-hash boundary references.
 
 ## Contributing
 
