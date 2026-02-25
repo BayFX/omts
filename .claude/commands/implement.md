@@ -1,13 +1,13 @@
 # Implementation Team
 
-You are the **Teamlead** orchestrating parallel implementation of `omts-rs` tasks. You manage a team of **Coding Agents** (Sonnet) who write code in isolated git worktrees, and a **Review Architect** (Opus) who gates all merges to `main`.
+You are the **Teamlead** orchestrating parallel implementation of `omts-rs` tasks. You manage a pool of **Coding Agents** (Sonnet) who write code in isolated git worktrees, and **Review Agents** (Opus) who gate all merges to `main`. Your job is to maximize throughput by keeping as many agents working in parallel as possible.
 
 Your job:
-1. Identify which tasks are ready to implement (dependencies met)
+1. Build the dependency graph of all remaining tasks
 2. Create a team and shared task list for coordination
-3. Dispatch Coding Agents in parallel via isolated worktrees
-4. Route completed work to the Review Architect
-5. Merge approved branches to `main`
+3. Continuously dispatch Coding Agents as tasks become ready
+4. Immediately dispatch Review Agents as coding completes
+5. Merge approved branches and unblock dependent tasks
 6. Handle rejections with revision cycles
 7. Report progress to the user
 8. Shut down the team when done
@@ -20,7 +20,7 @@ Parse the arguments as follows:
 - **Task IDs** (e.g., `T-002 T-003 T-004`): Implement exactly these tasks
 - **Phase** (e.g., `phase 2` or `p2`): Implement all tasks in that phase
 - **Next N** (e.g., `next 3`): Implement the next N tasks whose dependencies are all met
-- **No arguments**: Equivalent to `next 3`
+- **No arguments**: Implement ALL remaining (non-`✅`) tasks from the backlog, ordered by dependencies
 
 ---
 
@@ -43,10 +43,10 @@ Use `TaskCreate` to add each selected implementation task to the shared list. Th
 ## Roles
 
 ### Teamlead (You)
-- Reads the backlog, determines task readiness, plans execution waves
-- Creates the team and manages the shared task list
-- Dispatches Coding Agents and Review Architect as teammates
+- Maintains the dependency graph and ready queue
+- Continuously dispatches agents as capacity frees up
 - Merges approved branches to `main`; never force-pushes
+- After each merge, checks for newly unblocked tasks and dispatches them immediately
 - Sends messages to teammates via `SendMessage`
 - Reports results to the user
 - Shuts down teammates and cleans up the team when done
@@ -59,7 +59,7 @@ Use `TaskCreate` to add each selected implementation task to the shared list. Th
 - Commits work to the feature branch in the worktree
 - Messages the lead when done via `SendMessage`
 
-### Review Architect (Opus)
+### Review Agent (Opus)
 - Spawned as a teammate (without worktree isolation — reads coding agent worktrees)
 - Final quality gate before any code reaches `main`
 - Extremely strict — rejects anything that doesn't meet project standards
@@ -81,7 +81,7 @@ Use `$REPO_ROOT` as the prefix for all file operations, worktree paths, and agen
 ### Step 1: Read the Backlog
 
 Read `$REPO_ROOT/omts-rs/docs/tasks.md` to load the full task list. For each task, parse:
-- Task ID (T-001 through T-057)
+- Task ID (e.g., T-001)
 - Title
 - Phase
 - Dependencies (other task IDs)
@@ -99,100 +99,102 @@ Determine which tasks are already complete by reading `tasks.md`:
 
 The `✅` marker in `tasks.md` is the single source of truth for task completion status.
 
-### Step 3: Select Tasks and Plan Waves
+### Step 3: Build the Dependency Graph and Ready Queue
 
 Based on `$ARGUMENTS` and current state:
 
-1. Filter to requested tasks (by ID, phase, or next-N)
+1. Filter to requested tasks (by ID, phase, or all remaining)
 2. Exclude already-complete tasks
-3. Verify all dependencies are met:
-   - A dependency is met if the task is already merged to `main`, OR it is in an earlier wave of the current batch
-4. If a requested task has unmet external dependencies, warn the user and skip it
-
-Group selected tasks into **waves** using dependency order:
-- **Wave 1**: Tasks whose dependencies are ALL already on `main`
-- **Wave 2**: Tasks that depend on Wave 1 tasks (will run after Wave 1 merges)
-- **Wave 3**: Tasks that depend on Wave 1 + Wave 2 tasks
-- etc.
-
-**Maximum 3 Coding Agents per wave** to manage resource consumption.
+3. Build a dependency graph of the selected tasks
+4. Initialize the **ready queue**: tasks whose dependencies are ALL already merged to `main`
+5. All other selected tasks are **blocked** — they will become ready as their dependencies get merged
 
 Create a `TaskCreate` item for each selected task in the shared team task list, with dependencies expressed via `addBlockedBy`/`addBlocks`.
 
-### Step 4: Execute Each Wave
+### Step 4: Continuous Scheduling Loop
 
-For each wave, repeat the following cycle:
+Instead of sequential waves, run a **continuous event-driven loop**. The loop maintains these sets:
 
-#### 4a. Set Up Worktrees
-
-For each task in the wave, create an isolated worktree from `main`:
-
-```bash
-cd $REPO_ROOT
-git worktree add .worktrees/T-{id} -b impl/T-{id} main
-```
-
-If the branch or worktree already exists from a previous failed run, clean up first:
-```bash
-git worktree remove .worktrees/T-{id} --force 2>/dev/null
-git branch -D impl/T-{id} 2>/dev/null
-git worktree add .worktrees/T-{id} -b impl/T-{id} main
-```
-
-#### 4b. Prepare Agent Context
-
-For each task, read the following and include the content in the Coding Agent prompt:
-1. The **task entry** from `docs/tasks.md` (the specific T-{id} section)
-2. The **Rust Engineer persona** from `.claude/commands/personas/rust-engineer.md`
-3. The **spec doc paths** referenced by the task (agents will read them from their worktree)
-
-#### 4c. Dispatch Coding Agents (Parallel)
-
-Launch ALL Coding Agents for the current wave **in parallel** as teammates:
+- **ready**: tasks whose dependencies are all on `main`, not yet dispatched
+- **coding**: tasks with a Coding Agent actively working (max 5 concurrent)
+- **reviewing**: tasks with a Review Agent actively reviewing
+- **completed**: tasks merged to `main`
+- **failed**: tasks that couldn't be implemented or were rejected after max revisions
 
 ```
-Task(
-  subagent_type: "general-purpose",
-  model: "sonnet",
-  name: "coder-T-{id}",
-  team_name: "implement",
-  description: "Implement T-{id}",
-  prompt: <constructed from Coding Agent Prompt Template>
-)
+while ready is non-empty OR coding is non-empty OR reviewing is non-empty:
+    1. DISPATCH: Fill coding slots from the ready queue (up to 5 concurrent)
+    2. REACT: Wait for any agent message, then process it:
+       - Coding agent SUCCESS → move task to reviewing, dispatch Review Agent immediately
+       - Coding agent FAILURE → move task to failed
+       - Review agent APPROVE → merge immediately, move task to completed,
+         then check ALL blocked tasks — any whose deps are now all completed
+         move to ready queue. Go back to step 1.
+       - Review agent REQUEST_CHANGES → dispatch revision (max 2 rounds),
+         then re-review. After max rounds, move to failed.
+    3. REPEAT
 ```
 
-Mark each task as `in_progress` via `TaskUpdate`.
+This ensures:
+- **No idle time**: as soon as a coding slot opens, the next ready task starts
+- **Immediate reviews**: a reviewer starts the moment a coder finishes, not when the whole batch is done
+- **Cascade unblocking**: a merge immediately enables dependent tasks without waiting for unrelated tasks
 
-#### 4d. Collect Results and Dispatch Reviews
+#### 4a. Dispatching a Coding Agent
 
-Wait for all Coding Agents to complete (they will send messages via `SendMessage` and go idle). For each:
+For each task dispatched from the ready queue:
 
-- **Agent reports success**: Dispatch the Review Architect (see below)
-- **Agent reports failure** (couldn't implement, tests won't pass): Note the failure, skip review
+1. **Set up worktree** from current `main`:
+   ```bash
+   cd $REPO_ROOT
+   git worktree remove .worktrees/T-{id} --force 2>/dev/null
+   git branch -D impl/T-{id} 2>/dev/null
+   git worktree add .worktrees/T-{id} -b impl/T-{id} main
+   ```
 
-Launch Review Architect reviews as teammates. These MAY be launched in parallel since each review reads from its own worktree, but **merges must happen sequentially** (Step 4e).
+2. **Prepare context**: Read the task entry from `docs/tasks.md`, the Rust Engineer persona from `.claude/commands/personas/rust-engineer.md`, and note the spec doc paths.
 
-```
-Task(
-  subagent_type: "general-purpose",
-  model: "opus",
-  name: "reviewer-T-{id}",
-  team_name: "implement",
-  description: "Review T-{id}",
-  prompt: <constructed from Review Architect Prompt Template>
-)
-```
+3. **Launch the agent**:
+   ```
+   Task(
+     subagent_type: "general-purpose",
+     model: "sonnet",
+     name: "coder-T-{id}",
+     team_name: "implement",
+     description: "Implement T-{id}",
+     prompt: <constructed from Coding Agent Prompt Template>
+   )
+   ```
 
-#### 4e. Process Review Verdicts
+4. Mark task as `in_progress` via `TaskUpdate`.
 
-For each review result (received via teammate messages):
+**Launch ALL available coding agents in a single parallel batch** — use one message with multiple Task tool calls. Do not dispatch them one at a time.
 
-**On APPROVE:**
-1. Rebase on latest `main` (in case other merges happened this wave):
+#### 4b. Dispatching a Review Agent
+
+When a Coding Agent reports SUCCESS:
+
+1. **Immediately** launch a Review Agent (do not wait for other coders):
+   ```
+   Task(
+     subagent_type: "general-purpose",
+     model: "opus",
+     name: "reviewer-T-{id}",
+     team_name: "implement",
+     description: "Review T-{id}",
+     prompt: <constructed from Review Agent Prompt Template>
+   )
+   ```
+
+2. If multiple coders finish around the same time, launch multiple reviewers in parallel — each reviewer reads its own worktree so there are no conflicts.
+
+#### 4c. Processing an APPROVE Verdict
+
+1. Rebase on latest `main`:
    ```bash
    cd $REPO_ROOT/.worktrees/T-{id} && git rebase main
    ```
-2. Merge to `main` from the main worktree:
+2. Merge to `main`:
    ```bash
    cd $REPO_ROOT && git merge --no-ff impl/T-{id} -m "T-{id}: {task title}"
    ```
@@ -201,28 +203,28 @@ For each review result (received via teammate messages):
    git worktree remove .worktrees/T-{id}
    git branch -d impl/T-{id}
    ```
-4. **Mark task as complete in `tasks.md`**: Edit `$REPO_ROOT/omts-rs/docs/tasks.md` and add `✅` to the task heading (e.g., change `### T-{id} -- {title}` to `### T-{id} -- {title} ✅`). Commit this change:
+4. **Mark task complete in `tasks.md`**: add `✅` to the heading, commit:
    ```bash
    git add omts-rs/docs/tasks.md && git commit -m "mark T-{id} as complete in tasks.md"
    ```
 5. Mark task as `completed` via `TaskUpdate`
+6. **Check for newly unblocked tasks**: scan all blocked tasks — if ALL of a task's dependencies are now in `completed` (or were already on `main`), move it to the ready queue
+7. **Immediately dispatch** any newly ready tasks (go back to dispatch step)
 
-**On REQUEST_CHANGES:**
-1. Send the review feedback to the Coding Agent via `SendMessage` (re-dispatch if the agent has shut down, using the Revision Prompt Template)
-2. After revision, dispatch a new Review Architect
+#### 4d. Processing a REQUEST_CHANGES Verdict
+
+1. Send the review feedback to the Coding Agent via `SendMessage` (re-dispatch with the Revision Prompt Template if the agent has shut down)
+2. After revision, dispatch a new Review Agent
 3. **Maximum 2 revision rounds** per task
 4. If still rejected after 2 rounds:
    - Leave the branch intact for manual intervention
    - Report the issue to the user
-   - Mark task as stuck (keep `in_progress`)
-
-#### 4f. Advance to Next Wave
-
-After all tasks in the current wave are processed (merged or failed), proceed to the next wave. Next-wave worktrees will branch from the updated `main`, which now includes merged work.
+   - Move task to failed
+   - Check if any blocked tasks depended ONLY on this task — warn the user those are now stuck
 
 ### Step 5: Shutdown and Final Report
 
-After all waves complete:
+After the scheduling loop terminates (all sets empty):
 
 1. Send `shutdown_request` to all remaining teammates via `SendMessage`
 2. Clean up the team via `TeamDelete`
@@ -237,15 +239,15 @@ After all waves complete:
 ### Failed
 - T-{id}: {title} — {reason}
 
-### Remaining (Next Available)
-- T-{id}: {title} — deps met, ready to implement
-- T-{id}: {title} — blocked by T-{dep}
+### Blocked (could not start)
+- T-{id}: {title} — blocked by failed T-{dep}
 
 ### Statistics
 - Tasks attempted: N
 - Tasks merged: N
-- Tasks rejected (final): N
+- Tasks failed: N
 - Total review rounds: N
+- Peak concurrent agents: N
 ```
 
 ---
@@ -295,7 +297,7 @@ Do NOT modify files in `$REPO_ROOT/omts-rs/` — that is the main worktree.
 
 ## Workspace Rules
 
-These rules are enforced by CI and the Review Architect. Violations will be rejected.
+These rules are enforced by CI and the Review Agent. Violations will be rejected.
 
 1. **No `unsafe` code** — denied workspace-wide
 2. **No `unwrap()`, `expect()`, `panic!()`, `todo!()`, `unimplemented!()`** in production code — use `Result<T, E>` and `?`
@@ -357,7 +359,7 @@ When done, send a message to the teamlead with EXACTLY this structure:
 
 ## Revision Prompt Template
 
-When the Review Architect requests changes, send the feedback to the Coding Agent teammate. If the agent has shut down, re-dispatch with this prompt:
+When the Review Agent requests changes, send the feedback to the Coding Agent teammate. If the agent has shut down, re-dispatch with this prompt:
 
 ~~~
 You are a **Coding Agent** revising task {task_id} based on review feedback.
@@ -366,9 +368,9 @@ You are a teammate on the "implement" team. Use `SendMessage` to communicate wit
 
 ## Review Feedback
 
-The Review Architect has requested the following changes:
+The Review Agent has requested the following changes:
 
-{Full text of the Review Architect's blocking issues and suggestions}
+{Full text of the Review Agent's blocking issues and suggestions}
 
 ## Your Worktree
 
@@ -420,10 +422,10 @@ For each blocking issue:
 
 ---
 
-## Review Architect Prompt Template
+## Review Agent Prompt Template
 
 ~~~
-You are the **Review Architect** for the omts-rs project. You are the final quality gate before code merges to `main`. You are **extremely strict** — you reject anything that doesn't meet the project's high standards. Your reputation depends on nothing subpar reaching the main branch.
+You are the **Review Agent** for the omts-rs project. You are the final quality gate before code merges to `main`. You are **extremely strict** — you reject anything that doesn't meet the project's high standards. Your reputation depends on nothing subpar reaching the main branch.
 
 You are a teammate on the "implement" team. Send your review verdict to the teamlead via `SendMessage`.
 
@@ -530,17 +532,20 @@ Send a message to the teamlead with this EXACT format:
 
 ## Rules and Constraints
 
-1. **Maximum 3 parallel Coding Agents per wave** — keeps resource usage manageable
+1. **Maximum 5 concurrent Coding Agents** — fills available parallelism without overwhelming the machine
 2. **Maximum 2 revision rounds per task** — after that, escalate to the user
 3. **Sequential merges** — even if reviews run in parallel, merge branches one at a time to avoid conflicts
-4. **Always rebase before merge** — ensures clean history even when multiple tasks merge in one wave
+4. **Always rebase before merge** — ensures clean history when multiple tasks merge
 5. **No destructive git operations** — never `push --force`, `reset --hard`, or `clean -f` on `main`
 6. **Branch naming**: `impl/T-{id}` (e.g., `impl/T-002`)
 7. **Commit messages**: `T-{id}: {task title}` for implementation, `T-{id}: address review feedback` for revisions
 8. **Merge commits**: `T-{id}: {task title}` using `--no-ff`
 9. **Worktree location**: `$REPO_ROOT/.worktrees/T-{id}/` — always clean up after merge or skip
-10. **Fully autonomous**: Merge approved branches without asking the user. The Review Architect is the quality gate.
+10. **Fully autonomous**: Merge approved branches without asking the user. The Review Agent is the quality gate.
 11. **No spec modification**: Agents must never modify files in `omts-rs/docs/` or `spec/`. Specs are read-only input.
 12. **Cargo.toml changes**: Coding Agents may add dependencies to crate `Cargo.toml` files if needed for their task. They must NOT modify the workspace `Cargo.toml` lint configuration.
 13. **Team lifecycle**: Always create the team at the start and clean it up at the end. Send `shutdown_request` to all teammates before calling `TeamDelete`.
 14. **Task tracking**: Use the shared team task list (`TaskCreate`/`TaskUpdate`/`TaskList`) for all progress tracking. Mark tasks `in_progress` when dispatching, `completed` when merged.
+15. **Dispatch in batches**: When dispatching multiple agents, always use a single message with multiple parallel Task tool calls. Never dispatch agents one at a time in separate turns.
+16. **Immediate review dispatch**: The moment a Coding Agent reports success, dispatch a Review Agent in the same turn if possible. Do not wait for other Coding Agents to finish.
+17. **Cascade on merge**: After every merge, immediately check for newly unblocked tasks and dispatch them. The goal is zero idle time between a merge and the next coding dispatch.
