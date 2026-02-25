@@ -55,6 +55,7 @@ struct SupplierRow {
 /// unresolved parent supplier references, or L1 validation failures.
 pub fn import_supplier_list<R: Read + Seek>(
     mut workbook: Xlsx<R>,
+    authority: Option<&str>,
 ) -> Result<OmtsFile, ImportError> {
     let sheet = workbook
         .worksheet_range(SHEET_NAME)
@@ -129,7 +130,8 @@ pub fn import_supplier_list<R: Read + Seek>(
         ..Default::default()
     };
 
-    let supplier_result = build_supplier_nodes(&rows, &reporting_entity_id)?;
+    let authority = authority.unwrap_or("supplier-list");
+    let supplier_result = build_supplier_nodes(&rows, &reporting_entity_id, authority)?;
     let edges = build_edges(
         &rows,
         &supplier_result.name_to_node_id,
@@ -323,6 +325,7 @@ struct SupplierNodeResult {
 fn build_supplier_nodes(
     rows: &[SupplierRow],
     reporting_entity_id: &str,
+    authority: &str,
 ) -> Result<SupplierNodeResult, ImportError> {
     let mut name_to_node_id: HashMap<String, String> = HashMap::new();
     let mut id_to_node_id: HashMap<String, String> = HashMap::new();
@@ -380,7 +383,7 @@ fn build_supplier_nodes(
 
         merge_identifiers(entry, row);
         if let Some(sid) = &row.supplier_id {
-            merge_supplier_id_identifier(entry, sid);
+            merge_supplier_id_identifier(entry, sid, authority);
         }
     }
 
@@ -432,19 +435,19 @@ fn merge_identifiers(node: &mut Node, row: &SupplierRow) {
     }
 }
 
-/// Stores `supplier_id` as an `internal` identifier with authority `supplier-list`.
-fn merge_supplier_id_identifier(node: &mut Node, supplier_id: &str) {
+/// Stores `supplier_id` as an `internal` identifier with the given authority.
+fn merge_supplier_id_identifier(node: &mut Node, supplier_id: &str, authority: &str) {
     let existing = node.identifiers.get_or_insert_with(Vec::new);
     let already_present = existing.iter().any(|id| {
         id.scheme == "internal"
             && id.value == supplier_id
-            && id.authority.as_deref() == Some("supplier-list")
+            && id.authority.as_deref() == Some(authority)
     });
     if !already_present {
         existing.push(Identifier {
             scheme: "internal".to_owned(),
             value: supplier_id.to_owned(),
-            authority: Some("supplier-list".to_owned()),
+            authority: Some(authority.to_owned()),
             valid_from: None,
             valid_to: None,
             sensitivity: None,

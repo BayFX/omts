@@ -189,7 +189,8 @@ fn dispatch(cli: &Cli) -> Result<(), error::CliError> {
             file,
             input_format,
             output,
-        } => cmd::import::run(file, input_format, output.as_deref()),
+            authority,
+        } => cmd::import::run(file, input_format, output.as_deref(), authority.as_deref()),
 
         Command::Export {
             file,

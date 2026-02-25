@@ -24,13 +24,18 @@ use crate::error::CliError;
 /// # Errors
 ///
 /// Returns [`CliError`] on I/O failures, unknown format, or import errors.
-pub fn run(file: &Path, format: &ImportFormat, output: Option<&Path>) -> Result<(), CliError> {
+pub fn run(
+    file: &Path,
+    format: &ImportFormat,
+    output: Option<&Path>,
+    authority: Option<&str>,
+) -> Result<(), CliError> {
     match format {
-        ImportFormat::Excel => run_excel(file, output),
+        ImportFormat::Excel => run_excel(file, output, authority),
     }
 }
 
-fn run_excel(file: &Path, output: Option<&Path>) -> Result<(), CliError> {
+fn run_excel(file: &Path, output: Option<&Path>, authority: Option<&str>) -> Result<(), CliError> {
     let reader = fs::File::open(file).map_err(|e| {
         use std::io::ErrorKind;
         match e.kind() {
@@ -83,7 +88,8 @@ fn run_excel(file: &Path, output: Option<&Path>) -> Result<(), CliError> {
         }
     })?;
 
-    let omts_file = omts_excel::import_excel(reader).map_err(|e| map_import_error(e, file))?;
+    let omts_file =
+        omts_excel::import_excel(reader, authority).map_err(|e| map_import_error(e, file))?;
 
     let json = serde_json::to_string_pretty(&omts_file).map_err(|e| CliError::IoError {
         source: "import".to_owned(),

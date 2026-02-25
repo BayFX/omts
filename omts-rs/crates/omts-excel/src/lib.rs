@@ -109,7 +109,10 @@ pub fn detect_excel_variant<R: Read + Seek>(
 /// - Person nodes present with `disclosure_scope: "public"`
 /// - L1 validation failures
 /// - Excel file I/O errors
-pub fn import_excel<R: Read + Seek>(reader: R) -> Result<OmtsFile, ImportError> {
+pub fn import_excel<R: Read + Seek>(
+    reader: R,
+    authority: Option<&str>,
+) -> Result<OmtsFile, ImportError> {
     let workbook: Xlsx<R> =
         open_workbook_from_rs(reader).map_err(|e: calamine::XlsxError| ImportError::ExcelRead {
             detail: e.to_string(),
@@ -118,7 +121,7 @@ pub fn import_excel<R: Read + Seek>(reader: R) -> Result<OmtsFile, ImportError> 
     let variant = detect_excel_variant(&workbook)?;
     match variant {
         ExcelVariant::Full => import_full_excel(workbook),
-        ExcelVariant::SupplierList => supplier_list::import_supplier_list(workbook),
+        ExcelVariant::SupplierList => supplier_list::import_supplier_list(workbook, authority),
     }
 }
 
